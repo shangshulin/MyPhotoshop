@@ -23,7 +23,7 @@ CImageProc::~CImageProc()
         GlobalUnlock(m_hDib);
 }
 
-
+// 打开文件
 void CImageProc::OpenFile()
 {
     // TODO: 在此处添加实现代码.
@@ -37,11 +37,12 @@ void CImageProc::OpenFile()
         return;
 }
 
+// 加载 BMP 文件
 void CImageProc::LoadBmp(CString stFileName)
 {
     // TODO: 在此处添加实现代码.
-    CFile file;
-    CFileException e;
+    CFile file;//文件对象
+    CFileException e;//文件异常对象
     if (!file.Open(stFileName, CFile::modeRead | CFile::shareExclusive, &e))
     {
 #ifdef _DEBUG
@@ -50,18 +51,18 @@ void CImageProc::LoadBmp(CString stFileName)
     }
     else
     {
-        long nFileSize;
-        nFileSize = file.GetLength();
-        m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);
-        pDib = (BYTE*)::GlobalLock(m_hDib);
-        file.Read(pDib, nFileSize);
-        pBFH = (BITMAPFILEHEADER*)pDib;
-        pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];
-        pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)];
-        pBits = (BYTE*)&pDib[pBFH->bfOffBits];
-        nWidth = pBIH->biWidth;
+        ULONGLONG nFileSize;    //匹配GetLength函数的数据类型
+        nFileSize = file.GetLength();   //获取文件大小
+        m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);   //分配内存
+        pDib = (BYTE*)::GlobalLock(m_hDib);   //锁定内存
+        file.Read(pDib, nFileSize);   //读取文件
+        pBFH = (BITMAPFILEHEADER*)pDib;     //指向文件头
+        pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];   //指向信息头
+        pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)];   //指向调色板
+        pBits = (BYTE*)&pDib[pBFH->bfOffBits];   //指向位图数据
+        nWidth = pBIH->biWidth;     // 获取图像的宽高
         nHeight = pBIH->biHeight;
-        nNumColors = pBIH->biBitCount;
+        nNumColors = pBIH->biBitCount;   // 获取bmp位深度
     }
 }
 
@@ -71,56 +72,66 @@ void CImageProc::ShowBMP(CDC* pDC)
     // TODO: 在此处添加实现代码.
     if (m_hDib != NULL)
     {
-        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);
-        ::StretchDIBits(pDC->m_hDC, 0, 0, pBIH->biWidth, pBIH->biHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY);
+        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);      // 设置拉伸模式为 COLORONCOLOR
+        ::StretchDIBits(pDC->m_hDC, 0, 0, pBIH->biWidth, pBIH->biHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY);       // 将位图数据复制到目标DC的指定位置
     }
 }
 
-
+// 获取像素颜色
 void CImageProc::GetColor(CClientDC* pDC, int x, int y)
 {
+    //检查坐标以及图像是否有效
     if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
     {
         return; // 无效坐标或未加载图像
     }
 
-    // 计算像素在 pBits 中的位置
-    int bytePerPixel = nNumColors / 8;
-    if (nNumColors < 8)
-        bytePerPixel = 1;
+    // 每行字节数 = (每行的bit数 + 31) / 32 * 4     【每行字节数必须是4的倍数，即bit数是32的倍数，向上取整】
+    int rowSize = ((nWidth * nNumColors + 31) / 32) * 4;
 
-    int rowSize = ((nWidth * nNumColors + 31) / 32) * 4; // 每行的字节数
-    int offset = (nHeight - 1 - y) * rowSize + x * bytePerPixel; // 计算偏移量
 
-    BYTE* pixel = pBits + offset;
+    //根据位深度计算出每个像素的起始位置
 
+    float  bytePerPixel = nNumColors / 8;
+    // 每个像素占用的字节数，nNumColors 为每个像素的位数【浮点数兼容低于8bit位图】
+
+    int offset = (nHeight - 1 - y) * rowSize + x * int(bytePerPixel);
+    // 偏移量 = (图像高度 - 1 - 纵坐标) * 每行字节数 + 横坐标 * 每个像素占用的字节数   【y的范围是[0,nHeight-1]】 
+    // 【强制类型转换，对于低于8bit图像，pixel指向当前像素所在字节的起始位置】
+
+    BYTE* pixel = pBits + offset;// 获取像素在位图数据中的位置（起始点+偏移量）
+
+    //  RGB 值
     BYTE red = 0, green = 0, blue = 0;
 
     switch (nNumColors)
     {
     case 1: // 1位位图
     {
-        BYTE mask = 0x80 >> (x % 8);
-        BYTE index = (*pixel & mask) ? 1 : 0;
+        //CImageProc::GetColor1bit(pixel,red,green,blue,x);
+
+        // 获取当前像素的bit值
+        BYTE index = (*pixel >> (7 - x % 8)) & 0x01;
         red = pQUAD[index].rgbRed;
         green = pQUAD[index].rgbGreen;
         blue = pQUAD[index].rgbBlue;
+
+        break;
+    }
+    case 2: // 2位位图
+    {
+        CImageProc::GetColor2bit(pixel, red, green, blue, x);
+
         break;
     }
     case 4: // 4位位图
     {
-        BYTE index = (x % 2 == 0) ? (*pixel >> 4) : (*pixel & 0x0F);
-        red = pQUAD[index].rgbRed;
-        green = pQUAD[index].rgbGreen;
-        blue = pQUAD[index].rgbBlue;
+        CImageProc::GetColor4bit(pixel, red, green, blue, x);
         break;
     }
     case 8: // 8位位图
     {
-        BYTE index = *pixel;
-        red = pQUAD[index].rgbRed;
-        green = pQUAD[index].rgbGreen;
-        blue = pQUAD[index].rgbBlue;
+        CImageProc::GetColor8bit(pixel, red, green, blue, x);
         break;
     }
     case 16: // 16位位图
@@ -173,4 +184,42 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
 
     // 在下一行显示坐标
     pDC->TextOutW(x, y + textSize.cy, location);
+}
+
+
+//
+//void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
+//{
+//    // 计算当前像素在位图中的掩码
+//    BYTE mask = 0x80 >> (x % 8);
+//    // 根据掩码判断当前像素的颜色
+//    BYTE index = (*pixel & mask) ? 1 : 0;
+//
+//    red = pQUAD[index].rgbRed;
+//    green = pQUAD[index].rgbGreen;
+//    blue = pQUAD[index].rgbBlue;
+//}
+
+void CImageProc::GetColor2bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
+{
+    BYTE index = (*pixel >> (7 - x % 4)) & 0x03;
+    red = pQUAD[index].rgbRed;
+    green = pQUAD[index].rgbGreen;
+    blue = pQUAD[index].rgbBlue;
+}
+
+void CImageProc::GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
+{
+    BYTE index = (x % 2 == 0) ? (*pixel >> 4) : (*pixel & 0x0F);
+    red = pQUAD[index].rgbRed;
+    green = pQUAD[index].rgbGreen;
+    blue = pQUAD[index].rgbBlue;
+}
+
+void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
+{
+    BYTE index = *pixel;
+    red = pQUAD[index].rgbRed;
+    green = pQUAD[index].rgbGreen;
+    blue = pQUAD[index].rgbBlue;
 }
