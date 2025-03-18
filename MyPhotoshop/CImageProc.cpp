@@ -26,7 +26,7 @@ CImageProc::~CImageProc()
 
 void CImageProc::OpenFile()
 {
-    // TODO: ÔÚ´Ë´¦Ìí¼ÓÊµÏÖ´úÂë.
+    // TODO: åœ¨æ­¤å¤„æ·»åŠ å®ç°ä»£ç .
     CFileDialog fileDlg(TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, L"Bmp File(*.bmp)|*.bmp|JPG File(*.jpg)|*.jpg|All Files(*.*)|*.*||", NULL);
     if (fileDlg.DoModal() == IDOK)
     {
@@ -39,7 +39,7 @@ void CImageProc::OpenFile()
 
 void CImageProc::LoadBmp(CString stFileName)
 {
-    // TODO: ÔÚ´Ë´¦Ìí¼ÓÊµÏÖ´úÂë.
+    // TODO: åœ¨æ­¤å¤„æ·»åŠ å®ç°ä»£ç .
     CFile file;
     CFileException e;
     if (!file.Open(stFileName, CFile::modeRead | CFile::shareExclusive, &e))
@@ -68,7 +68,7 @@ void CImageProc::LoadBmp(CString stFileName)
 
 void CImageProc::ShowBMP(CDC* pDC)
 {
-    // TODO: ÔÚ´Ë´¦Ìí¼ÓÊµÏÖ´úÂë.
+    // TODO: åœ¨æ­¤å¤„æ·»åŠ å®ç°ä»£ç .
     if (m_hDib != NULL)
     {
         ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);
@@ -81,16 +81,16 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
 {
     if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
     {
-        return; // ÎŞĞ§×ø±ê»òÎ´¼ÓÔØÍ¼Ïñ
+        return; // æ— æ•ˆåæ ‡æˆ–æœªåŠ è½½å›¾åƒ
     }
 
-    // ¼ÆËãÏñËØÔÚ pBits ÖĞµÄÎ»ÖÃ
+    // è®¡ç®—åƒç´ åœ¨ pBits ä¸­çš„ä½ç½®
     int bytePerPixel = nNumColors / 8;
     if (nNumColors < 8)
         bytePerPixel = 1;
 
-    int rowSize = ((nWidth * nNumColors + 31) / 32) * 4; // Ã¿ĞĞµÄ×Ö½ÚÊı
-    int offset = (nHeight - 1 - y) * rowSize + x * bytePerPixel; // ¼ÆËãÆ«ÒÆÁ¿
+    int rowSize = ((nWidth * nNumColors + 31) / 32) * 4; // æ¯è¡Œçš„å­—èŠ‚æ•°
+    int offset = (nHeight - 1 - y) * rowSize + x * bytePerPixel; // è®¡ç®—åç§»é‡
 
     BYTE* pixel = pBits + offset;
 
@@ -98,7 +98,7 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
 
     switch (nNumColors)
     {
-    case 1: // 1Î»Î»Í¼
+    case 1: // 1ä½ä½å›¾
     {
         BYTE mask = 0x80 >> (x % 8);
         BYTE index = (*pixel & mask) ? 1 : 0;
@@ -107,7 +107,7 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
         blue = pQUAD[index].rgbBlue;
         break;
     }
-    case 4: // 4Î»Î»Í¼
+    case 4: // 4ä½ä½å›¾
     {
         BYTE index = (x % 2 == 0) ? (*pixel >> 4) : (*pixel & 0x0F);
         red = pQUAD[index].rgbRed;
@@ -115,7 +115,7 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
         blue = pQUAD[index].rgbBlue;
         break;
     }
-    case 8: // 8Î»Î»Í¼
+    case 8: // 8ä½ä½å›¾
     {
         BYTE index = *pixel;
         red = pQUAD[index].rgbRed;
@@ -123,54 +123,69 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
         blue = pQUAD[index].rgbBlue;
         break;
     }
-    case 16: // 16Î»Î»Í¼
+    case 16: // 16ä½ä½å›¾
     {
-        WORD pixelValue = *((WORD*)pixel);
-        red = (pixelValue & 0x7C00) >> 10;
-        green = (pixelValue & 0x03E0) >> 5;
-        blue = pixelValue & 0x001F;
-        red <<= 3;
-        green <<= 3;
-        blue <<= 3;
+        GetColor16(pixel, red, green, blue);
         break;
     }
-    case 24: // 24Î»Î»Í¼
+    case 24: // 24ä½ä½å›¾
     {
-        red = pixel[2];
-        green = pixel[1];
-        blue = pixel[0];
+        GetColor24(pixel, red, green, blue);
         break;
     }
-    case 32: // 32Î»Î»Í¼
+    case 32: // 32ä½ä½å›¾
     {
-        red = pixel[2];
-        green = pixel[1];
-        blue = pixel[0];
+        GetColor32(pixel, red, green, blue);
         break;
     }
     default:
-        return; // ²»Ö§³ÖµÄÑÕÉ«Éî¶È
+        return; // ä¸æ”¯æŒçš„é¢œè‰²æ·±åº¦
     }
 
-    // ÉèÖÃÎÄ±¾±³¾°²»Í¸Ã÷
+    // è®¾ç½®æ–‡æœ¬èƒŒæ™¯ä¸é€æ˜
     pDC->SetBkMode(OPAQUE);
 
-    // ÉèÖÃÎÄ±¾ÑÕÉ«ÎªºÚÉ«
+    // è®¾ç½®æ–‡æœ¬é¢œè‰²ä¸ºé»‘è‰²
     pDC->SetTextColor(RGB(0, 0, 0));
 
-    // ¸ñÊ½»¯ RGB ÖµºÍ×ø±êĞÅÏ¢
+    // æ ¼å¼åŒ– RGB å€¼å’Œåæ ‡ä¿¡æ¯
     CString str;
     str.Format(L"RGB: (%d, %d, %d)", red, green, blue);
 
     CString location;
-    location.Format(L"×ø±ê£º(%d, %d)", x, y);
+    location.Format(L"åæ ‡ï¼š(%d, %d)", x, y);
 
-    // ÔÚÊó±êµã»÷Î»ÖÃÏÔÊ¾ RGB Öµ
+    // åœ¨é¼ æ ‡ç‚¹å‡»ä½ç½®æ˜¾ç¤º RGB å€¼
     pDC->TextOutW(x, y, str);
 
-    // »ñÈ¡ÎÄ±¾¸ß¶È
+    // è·å–æ–‡æœ¬é«˜åº¦
     CSize textSize = pDC->GetTextExtent(str);
 
-    // ÔÚÏÂÒ»ĞĞÏÔÊ¾×ø±ê
+    // åœ¨ä¸‹ä¸€è¡Œæ˜¾ç¤ºåæ ‡
     pDC->TextOutW(x, y + textSize.cy, location);
+}
+
+void CImageProc::GetColor16(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
+{
+    WORD pixelValue = *((WORD*)pixel);
+    red = (pixelValue & 0x7C00) >> 10;
+    green = (pixelValue & 0x03E0) >> 5;
+    blue = pixelValue & 0x001F;
+    red <<= 3;
+    green <<= 3;
+    blue <<= 3;
+}
+
+void CImageProc::GetColor24(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
+{
+    red = pixel[2];
+    green = pixel[1];
+    blue = pixel[0];
+}
+
+void CImageProc::GetColor32(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
+{
+    red = pixel[2];
+    green = pixel[1];
+    blue = pixel[0];
 }
