@@ -180,7 +180,6 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     // 在下一行显示坐标
     pDC->TextOutW(x, y + textSize.cy, location);
 
-
 }
 
 
