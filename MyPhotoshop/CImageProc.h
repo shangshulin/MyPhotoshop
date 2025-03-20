@@ -20,7 +20,7 @@ public:
 	void ShowBMP(CDC* pDC);
 	void GetColor(CClientDC* pDC, int x, int y);
 private:
-	void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
+	void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC);
 	void GetColor2bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
 	void GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
 	void GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);

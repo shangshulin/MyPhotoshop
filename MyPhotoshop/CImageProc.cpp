@@ -108,7 +108,7 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     {
     case 1: // 1位位图
     {
-        CImageProc::GetColor1bit(pixel,red,green,blue,x);
+        CImageProc::GetColor1bit(pixel,red,green,blue,x,y,pDC);
 
         break;
     }
@@ -185,7 +185,7 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
 
 
 
-void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
+void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC)
 {
     BYTE index = (*pixel >> (7 - x % 8)) & 0x01;
     red = pQUAD[index].rgbRed;
@@ -195,11 +195,11 @@ void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     // 由于原始图像直接转换成1bit图像之后，黑白像素交错分布，难以确定是否正确显示
     // 以下代码用于查看当前像素值，从而验证是否显示正确
 
-    //CString str2;
-    //str2.Format(L"pixel：(%d);index：(%d)", *pixel, index);
-    //// 获取文本高度
-    //CSize textSize = pDC->GetTextExtent(str2);
-    //pDC->TextOutW(x, y + textSize.cy * 2, str2);
+    CString str2;
+    str2.Format(L"pixel：(%u);index：(%d)", *pixel, index);
+    // 获取文本高度
+    CSize textSize = pDC->GetTextExtent(str2);
+    pDC->TextOutW(x, y + textSize.cy * 2, str2);
 }
 
 void CImageProc::GetColor2bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
