@@ -108,13 +108,7 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     {
     case 1: // 1位位图
     {
-        //CImageProc::GetColor1bit(pixel,red,green,blue,x);
-
-        // 获取当前像素的bit值
-        BYTE index = (*pixel >> (7 - x % 8)) & 0x01;
-        red = pQUAD[index].rgbRed;
-        green = pQUAD[index].rgbGreen;
-        blue = pQUAD[index].rgbBlue;
+        CImageProc::GetColor1bit(pixel,red,green,blue,x);
 
         break;
     }
@@ -176,6 +170,7 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     CString location;
     location.Format(L"坐标：(%d, %d)", x, y);
 
+
     // 在鼠标点击位置显示 RGB 值
     pDC->TextOutW(x, y, str);
 
@@ -184,21 +179,28 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
 
     // 在下一行显示坐标
     pDC->TextOutW(x, y + textSize.cy, location);
+
+
 }
 
 
-//
-//void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
-//{
-//    // 计算当前像素在位图中的掩码
-//    BYTE mask = 0x80 >> (x % 8);
-//    // 根据掩码判断当前像素的颜色
-//    BYTE index = (*pixel & mask) ? 1 : 0;
-//
-//    red = pQUAD[index].rgbRed;
-//    green = pQUAD[index].rgbGreen;
-//    blue = pQUAD[index].rgbBlue;
-//}
+
+void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
+{
+    BYTE index = (*pixel >> (7 - x % 8)) & 0x01;
+    red = pQUAD[index].rgbRed;
+    green = pQUAD[index].rgbGreen;
+    blue = pQUAD[index].rgbBlue;
+
+    // 由于原始图像直接转换成1bit图像之后，黑白像素交错分布，难以确定是否正确显示
+    // 以下代码用于查看当前像素值，从而验证是否显示正确
+
+    //CString str2;
+    //str2.Format(L"pixel：(%d);index：(%d)", *pixel, index);
+    //// 获取文本高度
+    //CSize textSize = pDC->GetTextExtent(str2);
+    //pDC->TextOutW(x, y + textSize.cy * 2, str2);
+}
 
 void CImageProc::GetColor2bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
 {
