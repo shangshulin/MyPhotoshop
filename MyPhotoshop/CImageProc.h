@@ -24,5 +24,7 @@ private:
 	void GetColor2bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
 	void GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
 	void GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
+	void GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
+	void GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
+	void GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
 };
-
