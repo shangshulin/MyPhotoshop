@@ -11,6 +11,7 @@ CImageProc::CImageProc()
     nWidth = 0;
     nHeight = 0;
     nNumColors = 0;
+    m_bIs565Format = true; // 默认假设为565格式
 }
 CImageProc::~CImageProc()
 {
@@ -63,6 +64,15 @@ void CImageProc::LoadBmp(CString stFileName)
         nWidth = pBIH->biWidth;     // 获取图像的宽高
         nHeight = pBIH->biHeight;
         nNumColors = pBIH->biBitCount;   // 获取bmp位深度
+   
+        if (pBIH->biCompression == BI_RGB && nNumColors == 16) {
+            // 如果biCompression为BI_RGB且位深度为16，则默认为565格式
+            m_bIs565Format = true;
+        }
+        else {
+            // 否则默认为555格式或其他情况
+            m_bIs565Format = false;
+        }
     }
 }
 
@@ -130,27 +140,17 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     }
     case 16: // 16位位图
     {
-        WORD pixelValue = *((WORD*)pixel);
-        red = (pixelValue & 0x7C00) >> 10;
-        green = (pixelValue & 0x03E0) >> 5;
-        blue = pixelValue & 0x001F;
-        red <<= 3;
-        green <<= 3;
-        blue <<= 3;
+        CImageProc::GetColor16bit(pixel, red, green, blue);
         break;
     }
     case 24: // 24位位图
     {
-        red = pixel[2];
-        green = pixel[1];
-        blue = pixel[0];
+        CImageProc::GetColor24bit(pixel, red, green, blue);
         break;
     }
     case 32: // 32位位图
     {
-        red = pixel[2];
-        green = pixel[1];
-        blue = pixel[0];
+        CImageProc::GetColor32bit(pixel, red, green, blue);
         break;
     }
     default:
@@ -168,7 +168,7 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     str.Format(L"RGB: (%d, %d, %d)", red, green, blue);
 
     CString location;
-    location.Format(L"坐标：(%d, %d)", x, y);
+    location.Format(L"location：(%d, %d)", x, y);
 
 
     // 在鼠标点击位置显示 RGB 值
@@ -223,4 +223,36 @@ void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     red = pQUAD[index].rgbRed;
     green = pQUAD[index].rgbGreen;
     blue = pQUAD[index].rgbBlue;
+}
+
+void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
+{
+    WORD pixelValue = *((WORD*)pixel);
+    if (m_bIs565Format) {
+        red = (pixelValue & 0xF800) >> 11;
+        green = (pixelValue & 0x07E0) >> 5;
+        blue = pixelValue & 0x001F;
+    }
+    else {
+        red = (pixelValue & 0x7C00) >> 10;
+        green = (pixelValue & 0x03E0) >> 5;
+        blue = pixelValue & 0x001F;
+    }
+    red <<= 3;
+    green <<= 3;
+    blue <<= 3;
+}
+
+void CImageProc::GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
+{
+    red = pixel[2];
+    green = pixel[1];
+    blue = pixel[0];
+}
+
+void CImageProc::GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
+{
+    red = pixel[2];
+    green = pixel[1];
+    blue = pixel[0];
 }
