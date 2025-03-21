@@ -27,5 +27,6 @@ private:
 	void GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
 	void GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
 	void GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
-        bool m_bIs565Format;
+	bool m_bIs565Format; 
 };
+
