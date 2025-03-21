@@ -66,11 +66,19 @@ void CImageProc::LoadBmp(CString stFileName)
         nNumColors = pBIH->biBitCount;   // 获取bmp位深度
    
         if (pBIH->biCompression == BI_RGB && nNumColors == 16) {
-            // 如果biCompression为BI_RGB且位深度为16，则默认为565格式
-            m_bIs565Format = true;
+            //16位图默认为555格式
+            m_bIs565Format = false;
+        }
+        else if (pBIH->biCompression == BI_BITFIELDS && nNumColors == 16) {
+            // 检查颜色掩码是否为565
+            DWORD* masks = reinterpret_cast<DWORD*>(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+            DWORD redMask = masks[0];
+            DWORD greenMask = masks[1];
+            DWORD blueMask = masks[2];
+
+            m_bIs565Format = (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F);
         }
         else {
-            // 否则默认为555格式或其他情况
             m_bIs565Format = false;
         }
     }
@@ -240,18 +248,26 @@ void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
     WORD pixelValue = *((WORD*)pixel);
     if (m_bIs565Format) {
-        red = (pixelValue & 0xF800) >> 11;
-        green = (pixelValue & 0x07E0) >> 5;
-        blue = pixelValue & 0x001F;
+        // 提取565格式的RGB分量
+        red = (pixelValue & 0xF800) >> 11;    
+        green = (pixelValue & 0x07E0) >> 5;   
+        blue = pixelValue & 0x001F;           
+
+        // 将分量扩展到8位
+        red = (red << 3) | (red >> 2);        
+        green = (green << 2) | (green >> 4);  
+        blue = (blue << 3) | (blue >> 2);    
+    } else {
+        // 提取555格式的RGB分量
+        red = (pixelValue & 0x7C00) >> 10;   
+        green = (pixelValue & 0x03E0) >> 5;   
+        blue = pixelValue & 0x001F;           
+
+        // 将分量扩展到8位
+        red = (red << 3) | (red >> 2);
+        green = (green << 3) | (green >> 2);
+        blue = (blue << 3) | (blue >> 2);
     }
-    else {
-        red = (pixelValue & 0x7C00) >> 10;
-        green = (pixelValue & 0x03E0) >> 5;
-        blue = pixelValue & 0x001F;
-    }
-    red <<= 3;
-    green <<= 3;
-    blue <<= 3;
 }
 
 void CImageProc::GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
