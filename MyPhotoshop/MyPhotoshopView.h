@@ -10,7 +10,10 @@ class CMyPhotoshopView : public CView
 protected: // 仅从序列化创建
 	CMyPhotoshopView() noexcept;
 	DECLARE_DYNCREATE(CMyPhotoshopView)
-
+	//以下三行用于测试GetPixel功能
+	CPoint m_MousePos; // 存储鼠标位置
+	bool m_bShiftPressed; // 标记 Shift 键是否按下
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point); //用于捕获鼠标位置和Shift键状态
 // 特性
 public:
 	CMyPhotoshopDoc* GetDocument() const;
@@ -26,6 +29,7 @@ protected:
 	virtual BOOL OnPreparePrinting(CPrintInfo* pInfo);
 	virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
 	virtual void OnEndPrinting(CDC* pDC, CPrintInfo* pInfo);
+	COLORREF MyGetPixel(CDC* pDC, int x, int y); // 手动实现的 GetPixel
 
 // 实现
 public:
