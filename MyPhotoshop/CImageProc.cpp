@@ -157,6 +157,12 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
         return; // 不支持的颜色深度
     }
 
+    // 使用 GetPixel 获取像素颜色
+    COLORREF pixelColor = pDC->GetPixel(x, y);
+    BYTE getPixelRed = GetRValue(pixelColor);
+    BYTE getPixelGreen = GetGValue(pixelColor);
+    BYTE getPixelBlue = GetBValue(pixelColor);
+
     // 设置文本背景不透明
     pDC->SetBkMode(OPAQUE);
 
@@ -167,9 +173,11 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     CString str;
     str.Format(L"RGB: (%d, %d, %d)", red, green, blue);
 
+    CString getPixelStr;
+    getPixelStr.Format(L"GetPixel RGB: (%d, %d, %d)", getPixelRed, getPixelGreen, getPixelBlue);
+
     CString location;
     location.Format(L"location：(%d, %d)", x, y);
-
 
     // 在鼠标点击位置显示 RGB 值
     pDC->TextOutW(x, y, str);
@@ -177,8 +185,11 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     // 获取文本高度
     CSize textSize = pDC->GetTextExtent(str);
 
+    // 在下一行显示 GetPixel 获取的 RGB 值
+    pDC->TextOutW(x, y + textSize.cy, getPixelStr);
+
     // 在下一行显示坐标
-    pDC->TextOutW(x, y + textSize.cy, location);
+    pDC->TextOutW(x, y + textSize.cy * 2, location);
 
 }
 
@@ -194,11 +205,11 @@ void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     // 由于原始图像直接转换成1bit图像之后，黑白像素交错分布，难以确定是否正确显示
     // 以下代码用于查看当前像素值，从而验证是否显示正确
 
-    CString str2;
-    str2.Format(L"pixel：(%u);index：(%d)", *pixel, index);
-    // 获取文本高度
-    CSize textSize = pDC->GetTextExtent(str2);
-    pDC->TextOutW(x, y + textSize.cy * 2, str2);
+    //CString str2;
+    //str2.Format(L"pixel：(%u);index：(%d)", *pixel, index);
+    //// 获取文本高度
+    //CSize textSize = pDC->GetTextExtent(str2);
+    //pDC->TextOutW(x, y + textSize.cy * 2, str2);
 }
 
 void CImageProc::GetColor2bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
