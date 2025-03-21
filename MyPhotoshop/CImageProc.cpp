@@ -218,35 +218,26 @@ void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
 
 void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
-    // 处理16位色（假设为RGB565格式）
-    WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
-
-    // 红色分量（5位）
-    red = static_cast<BYTE>((pixelValue & 0xF800) >> 11);
-    // 绿色分量（6位）
-    green = static_cast<BYTE>((pixelValue & 0x07E0) >> 5);
-    // 蓝色分量（5位）
-    blue = static_cast<BYTE>(pixelValue & 0x001F);
-
-    // 扩展到8位（保持比例）
-    red = (red << 3) | (red >> 2);
-    green = (green << 2) | (green >> 4);
-    blue = (blue << 3) | (blue >> 2);
+    WORD pixelValue = *((WORD*)pixel);
+    red = (pixelValue & 0x7C00) >> 10;
+    green = (pixelValue & 0x03E0) >> 5;
+    blue = pixelValue & 0x001F;
+    red <<= 3;
+    green <<= 3;
+    blue <<= 3;
+ 
 }
 
 void CImageProc::GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
-    // BMP存储顺序为BGR
-    blue = pixel[0];
-    green = pixel[1];
     red = pixel[2];
+    green = pixel[1];
+    blue = pixel[0];
 }
 
 void CImageProc::GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
-    // BMP存储顺序为BGRA（忽略Alpha通道）
-    blue = pixel[0];
-    green = pixel[1];
     red = pixel[2];
-    // 如果需要Alpha通道：BYTE alpha = pixel[3];
+    green = pixel[1];
+    blue = pixel[0];
 }
