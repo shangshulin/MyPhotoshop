@@ -11,6 +11,7 @@ CImageProc::CImageProc()
     nWidth = 0;
     nHeight = 0;
     nNumColors = 0;
+    m_bIs565Format = true; // 默认假设为565格式
 }
 CImageProc::~CImageProc()
 {
@@ -63,6 +64,14 @@ void CImageProc::LoadBmp(CString stFileName)
         nWidth = pBIH->biWidth;     // 获取图像的宽高
         nHeight = pBIH->biHeight;
         nNumColors = pBIH->biBitCount;   // 获取bmp位深度
+
+        if (pBIH->biCompression == BI_RGB && nNumColors == 16) {
+            // 如果biCompression为BI_RGB且位深度为16，则默认为565格式
+            m_bIs565Format = true;
+        } else {
+            // 否则默认为555格式或其他情况
+            m_bIs565Format = false;
+        }
     }
 }
 
@@ -219,13 +228,18 @@ void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
 void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
     WORD pixelValue = *((WORD*)pixel);
-    red = (pixelValue & 0x7C00) >> 10;
-    green = (pixelValue & 0x03E0) >> 5;
-    blue = pixelValue & 0x001F;
+    if (m_bIs565Format) {
+        red = (pixelValue & 0xF800) >> 11;
+        green = (pixelValue & 0x07E0) >> 5;
+        blue = pixelValue & 0x001F;
+    } else {
+        red = (pixelValue & 0x7C00) >> 10;
+        green = (pixelValue & 0x03E0) >> 5;
+        blue = pixelValue & 0x001F;
+    }
     red <<= 3;
     green <<= 3;
     blue <<= 3;
- 
 }
 
 void CImageProc::GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
