@@ -10,7 +10,7 @@ CImageProc::CImageProc()
     pBits = new BYTE;
     nWidth = 0;
     nHeight = 0;
-    nNumColors = 0;
+    nBitCount = 0;
     m_bIs565Format = true; // 默认假设为565格式
 }
 CImageProc::~CImageProc()
@@ -63,13 +63,13 @@ void CImageProc::LoadBmp(CString stFileName)
         pBits = (BYTE*)&pDib[pBFH->bfOffBits];   //指向位图数据
         nWidth = pBIH->biWidth;     // 获取图像的宽高
         nHeight = pBIH->biHeight;
-        nNumColors = pBIH->biBitCount;   // 获取bmp位深度
+		nBitCount = pBIH->biBitCount;   //获取位深度
    
-        if (pBIH->biCompression == BI_RGB && nNumColors == 16) {
+        if (pBIH->biCompression == BI_RGB && nBitCount == 16) {
             //16位图默认为555格式
             m_bIs565Format = false;
         }
-        else if (pBIH->biCompression == BI_BITFIELDS && nNumColors == 16) {
+        else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16) {
             // 检查颜色掩码是否为565
             DWORD* masks = reinterpret_cast<DWORD*>(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
             DWORD redMask = masks[0];
@@ -105,15 +105,15 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     }
 
     // 每行字节数 = (每行的bit数 + 31) / 32 * 4     【每行字节数必须是4的倍数，即bit数是32的倍数，向上取整】
-    int rowSize = ((nWidth * nNumColors + 31) / 32) * 4;
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
 
 
     //根据位深度计算出每个像素的起始位置
 
-    float  bytePerPixel = nNumColors / 8;
+    float  bytePerPixel = float(nBitCount)/ 8;
     // 每个像素占用的字节数，nNumColors 为每个像素的位数【浮点数兼容低于8bit位图】
 
-    int offset = (nHeight - 1 - y) * rowSize + x * int(bytePerPixel);
+    int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
     // 偏移量 = (图像高度 - 1 - 纵坐标) * 每行字节数 + 横坐标 * 每个像素占用的字节数   【y的范围是[0,nHeight-1]】 
     // 【强制类型转换，对于低于8bit图像，pixel指向当前像素所在字节的起始位置】
 
@@ -122,17 +122,11 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     //  RGB 值
     BYTE red = 0, green = 0, blue = 0;
 
-    switch (nNumColors)
+    switch (nBitCount)
     {
     case 1: // 1位位图
     {
         CImageProc::GetColor1bit(pixel,red,green,blue,x,y,pDC);
-
-        break;
-    }
-    case 2: // 2位位图
-    {
-        CImageProc::GetColor2bit(pixel, red, green, blue, x);
 
         break;
     }
@@ -220,13 +214,6 @@ void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     //pDC->TextOutW(x, y + textSize.cy * 2, str2);
 }
 
-void CImageProc::GetColor2bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
-{
-    BYTE index = (*pixel >> (7 - x % 4)) & 0x03;
-    red = pQUAD[index].rgbRed;
-    green = pQUAD[index].rgbGreen;
-    blue = pQUAD[index].rgbBlue;
-}
 
 void CImageProc::GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
 {
