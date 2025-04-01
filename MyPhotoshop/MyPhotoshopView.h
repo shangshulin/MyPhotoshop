@@ -7,6 +7,9 @@
 
 class CMyPhotoshopView : public CView
 {
+protected:
+	bool m_bShowPixelInfo; // 控制是否显示像素点信息
+
 protected: // 仅从序列化创建
 	CMyPhotoshopView() noexcept;
 	DECLARE_DYNCREATE(CMyPhotoshopView)
@@ -39,9 +42,11 @@ protected:
 
 // 生成的消息映射函数
 protected:
-	DECLARE_MESSAGE_MAP()
+	DECLARE_MESSAGE_MAP()// 生成消息映射函数
 public:
-	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnViewPixelInfo(); // 响应菜单按钮点击的消息处理函数
+	afx_msg void OnUpdateViewPixelInfo(CCmdUI* pCmdUI); // 更新菜单按钮状态的消息处理函数
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point); // 鼠标左键按下事件处理函数
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本

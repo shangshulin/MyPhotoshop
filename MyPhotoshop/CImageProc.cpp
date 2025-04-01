@@ -10,7 +10,8 @@ CImageProc::CImageProc()
     pBits = new BYTE;
     nWidth = 0;
     nHeight = 0;
-    nNumColors = 0;
+    nBitCount = 0;
+    m_bIs565Format = true; // 默认假设为565格式
 }
 CImageProc::~CImageProc()
 {
@@ -62,10 +63,26 @@ void CImageProc::LoadBmp(CString stFileName)
         pBits = (BYTE*)&pDib[pBFH->bfOffBits];   //指向位图数据
         nWidth = pBIH->biWidth;     // 获取图像的宽高
         nHeight = pBIH->biHeight;
-        nNumColors = pBIH->biBitCount;   // 获取bmp位深度
+		nBitCount = pBIH->biBitCount;   //获取位深度
+   
+        if (pBIH->biCompression == BI_RGB && nBitCount == 16) {
+            //16位图默认为555格式
+            m_bIs565Format = false;
+        }
+        else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16) {
+            // 检查颜色掩码是否为565
+            DWORD* masks = reinterpret_cast<DWORD*>(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+            DWORD redMask = masks[0];
+            DWORD greenMask = masks[1];
+            DWORD blueMask = masks[2];
+
+            m_bIs565Format = (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F);
+        }
+        else {
+            m_bIs565Format = false;
+        }
     }
 }
-
 
 void CImageProc::ShowBMP(CDC* pDC)
 {
@@ -87,15 +104,15 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     }
 
     // 每行字节数 = (每行的bit数 + 31) / 32 * 4     【每行字节数必须是4的倍数，即bit数是32的倍数，向上取整】
-    int rowSize = ((nWidth * nNumColors + 31) / 32) * 4;
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
 
 
     //根据位深度计算出每个像素的起始位置
 
-    float  bytePerPixel = nNumColors / 8;
+    float  bytePerPixel = float(nBitCount)/ 8;
     // 每个像素占用的字节数，nNumColors 为每个像素的位数【浮点数兼容低于8bit位图】
 
-    int offset = (nHeight - 1 - y) * rowSize + x * int(bytePerPixel);
+    int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
     // 偏移量 = (图像高度 - 1 - 纵坐标) * 每行字节数 + 横坐标 * 每个像素占用的字节数   【y的范围是[0,nHeight-1]】 
     // 【强制类型转换，对于低于8bit图像，pixel指向当前像素所在字节的起始位置】
 
@@ -104,17 +121,11 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     //  RGB 值
     BYTE red = 0, green = 0, blue = 0;
 
-    switch (nNumColors)
+    switch (nBitCount)
     {
     case 1: // 1位位图
     {
         CImageProc::GetColor1bit(pixel,red,green,blue,x,y,pDC);
-
-        break;
-    }
-    case 2: // 2位位图
-    {
-        CImageProc::GetColor2bit(pixel, red, green, blue, x);
 
         break;
     }
@@ -130,32 +141,28 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     }
     case 16: // 16位位图
     {
-        WORD pixelValue = *((WORD*)pixel);
-        red = (pixelValue & 0x7C00) >> 10;
-        green = (pixelValue & 0x03E0) >> 5;
-        blue = pixelValue & 0x001F;
-        red <<= 3;
-        green <<= 3;
-        blue <<= 3;
+        CImageProc::GetColor16bit(pixel, red, green, blue);
         break;
     }
     case 24: // 24位位图
     {
-        red = pixel[2];
-        green = pixel[1];
-        blue = pixel[0];
+        CImageProc::GetColor24bit(pixel, red, green, blue);
         break;
     }
     case 32: // 32位位图
     {
-        red = pixel[2];
-        green = pixel[1];
-        blue = pixel[0];
+        CImageProc::GetColor32bit(pixel, red, green, blue);
         break;
     }
     default:
         return; // 不支持的颜色深度
     }
+
+    // 使用 GetPixel 获取像素颜色
+    COLORREF pixelColor = pDC->GetPixel(x, y);
+    BYTE getPixelRed = GetRValue(pixelColor);
+    BYTE getPixelGreen = GetGValue(pixelColor);
+    BYTE getPixelBlue = GetBValue(pixelColor);
 
     // 设置文本背景不透明
     pDC->SetBkMode(OPAQUE);
@@ -167,9 +174,11 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     CString str;
     str.Format(L"RGB: (%d, %d, %d)", red, green, blue);
 
-    CString location;
-    location.Format(L"坐标：(%d, %d)", x, y);
+    CString getPixelStr;
+    getPixelStr.Format(L"GetPixel RGB: (%d, %d, %d)", getPixelRed, getPixelGreen, getPixelBlue);
 
+    CString location;
+    location.Format(L"location：(%d, %d)", x, y);
 
     // 在鼠标点击位置显示 RGB 值
     pDC->TextOutW(x, y, str);
@@ -177,13 +186,13 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     // 获取文本高度
     CSize textSize = pDC->GetTextExtent(str);
 
+    // 在下一行显示 GetPixel 获取的 RGB 值
+    pDC->TextOutW(x, y + textSize.cy, getPixelStr);
+
     // 在下一行显示坐标
-    pDC->TextOutW(x, y + textSize.cy, location);
+    pDC->TextOutW(x, y + textSize.cy * 2, location);
 
 }
-
-
-
 void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC)
 {
     BYTE index = (*pixel >> (7 - x % 8)) & 0x01;
@@ -194,21 +203,12 @@ void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     // 由于原始图像直接转换成1bit图像之后，黑白像素交错分布，难以确定是否正确显示
     // 以下代码用于查看当前像素值，从而验证是否显示正确
 
-    CString str2;
-    str2.Format(L"pixel：(%u);index：(%d)", *pixel, index);
-    // 获取文本高度
-    CSize textSize = pDC->GetTextExtent(str2);
-    pDC->TextOutW(x, y + textSize.cy * 2, str2);
+    //CString str2;
+    //str2.Format(L"pixel：(%u);index：(%d)", *pixel, index);
+    //// 获取文本高度
+    //CSize textSize = pDC->GetTextExtent(str2);
+    //pDC->TextOutW(x, y + textSize.cy * 2, str2);
 }
-
-void CImageProc::GetColor2bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
-{
-    BYTE index = (*pixel >> (7 - x % 4)) & 0x03;
-    red = pQUAD[index].rgbRed;
-    green = pQUAD[index].rgbGreen;
-    blue = pQUAD[index].rgbBlue;
-}
-
 void CImageProc::GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
 {
     BYTE index = (x % 2 == 0) ? (*pixel >> 4) : (*pixel & 0x0F);
@@ -216,11 +216,47 @@ void CImageProc::GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     green = pQUAD[index].rgbGreen;
     blue = pQUAD[index].rgbBlue;
 }
-
 void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
 {
     BYTE index = *pixel;
     red = pQUAD[index].rgbRed;
     green = pQUAD[index].rgbGreen;
     blue = pQUAD[index].rgbBlue;
+}
+void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
+{
+    WORD pixelValue = *((WORD*)pixel);
+    if (m_bIs565Format) {
+        // 提取565格式的RGB分量
+        red = (pixelValue & 0xF800) >> 11;    
+        green = (pixelValue & 0x07E0) >> 5;   
+        blue = pixelValue & 0x001F;           
+
+        // 将分量扩展到8位
+        red = (red << 3) | (red >> 2);        
+        green = (green << 2) | (green >> 4);  
+        blue = (blue << 3) | (blue >> 2);    
+    } else {
+        // 提取555格式的RGB分量
+        red = (pixelValue & 0x7C00) >> 10;   
+        green = (pixelValue & 0x03E0) >> 5;   
+        blue = pixelValue & 0x001F;           
+
+        // 将分量扩展到8位
+        red = (red << 3) | (red >> 2);
+        green = (green << 3) | (green >> 2);
+        blue = (blue << 3) | (blue >> 2);
+    }
+}
+void CImageProc::GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
+{
+    red = pixel[2];
+    green = pixel[1];
+    blue = pixel[0];
+}
+void CImageProc::GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
+{
+    red = pixel[2];
+    green = pixel[1];
+    blue = pixel[0];
 }
