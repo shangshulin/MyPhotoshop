@@ -27,12 +27,18 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FILE_PRINT, &CView::OnFilePrint)
 	ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
 	ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
-	ON_WM_LBUTTONDOWN()
+	ON_WM_LBUTTONDOWN() // 左键点击
+	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 菜单项点击
+	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新菜单项状态
 END_MESSAGE_MAP()
+
+
+
 
 // CMyPhotoshopView 构造/析构
 
 CMyPhotoshopView::CMyPhotoshopView() noexcept
+	: m_bShowPixelInfo(false) // 默认不显示像素点信息
 {
 	// TODO: 在此处添加构造代码
 
@@ -109,19 +115,47 @@ CMyPhotoshopDoc* CMyPhotoshopView::GetDocument() const // 非调试版本是内�
 
 // CMyPhotoshopView 消息处理程序
 
+void CMyPhotoshopView::OnViewPixelInfo()
+{
+	// 切换显示像素信息的状态
+	m_bShowPixelInfo = !m_bShowPixelInfo;
+
+	if (m_bShowPixelInfo)
+	{
+		AfxMessageBox(_T("显示像素点信息已启用"));
+	}
+	else
+	{
+		AfxMessageBox(_T("显示像素点信息已禁用"));
+	}
+	Invalidate(true); // 强制重绘视图以清除像素点信息
+	UpdateWindow();   // 立即更新窗口
+}
+
+void CMyPhotoshopView::OnUpdateViewPixelInfo(CCmdUI* pCmdUI)
+{
+	pCmdUI->SetCheck(m_bShowPixelInfo); // 设置菜单项选中状态
+}
+
 
 void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	Invalidate(true);
-	UpdateWindow();
-	if (nFlags & MK_SHIFT)
+
+	// 如果启用了显示像素点信息
+	if (m_bShowPixelInfo)
 	{
-		CClientDC dc(this);
-		CMyPhotoshopDoc* pDoc = GetDocument();
-		ASSERT_VALID(pDoc);
-		pDoc->pImage->GetColor(&dc, point.x, point.y);
-		//dc.TextOutW(point.x, point.y,L"Success！");
+		Invalidate(true);
+		UpdateWindow();
+		// 获取文档中的图像数据
+		if (nFlags & MK_SHIFT)
+		{
+			CClientDC dc(this);
+			CMyPhotoshopDoc* pDoc = GetDocument();
+			ASSERT_VALID(pDoc);
+			pDoc->pImage->GetColor(&dc, point.x, point.y);
+		}
 	}
 	CView::OnLButtonDown(nFlags, point);
 }
+
