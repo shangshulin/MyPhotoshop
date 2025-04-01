@@ -84,7 +84,6 @@ void CImageProc::LoadBmp(CString stFileName)
     }
 }
 
-
 void CImageProc::ShowBMP(CDC* pDC)
 {
     // TODO: 在此处添加实现代码.
@@ -194,9 +193,6 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     pDC->TextOutW(x, y + textSize.cy * 2, location);
 
 }
-
-
-
 void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC)
 {
     BYTE index = (*pixel >> (7 - x % 8)) & 0x01;
@@ -213,8 +209,6 @@ void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     //CSize textSize = pDC->GetTextExtent(str2);
     //pDC->TextOutW(x, y + textSize.cy * 2, str2);
 }
-
-
 void CImageProc::GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
 {
     BYTE index = (x % 2 == 0) ? (*pixel >> 4) : (*pixel & 0x0F);
@@ -222,7 +216,6 @@ void CImageProc::GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     green = pQUAD[index].rgbGreen;
     blue = pQUAD[index].rgbBlue;
 }
-
 void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
 {
     BYTE index = *pixel;
@@ -230,7 +223,6 @@ void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     green = pQUAD[index].rgbGreen;
     blue = pQUAD[index].rgbBlue;
 }
-
 void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
     WORD pixelValue = *((WORD*)pixel);
@@ -256,14 +248,12 @@ void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
         blue = (blue << 3) | (blue >> 2);
     }
 }
-
 void CImageProc::GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
     red = pixel[2];
     green = pixel[1];
     blue = pixel[0];
 }
-
 void CImageProc::GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
     red = pixel[2];
