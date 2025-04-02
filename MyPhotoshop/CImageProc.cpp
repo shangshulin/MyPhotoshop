@@ -1,5 +1,8 @@
 #include "pch.h"
 #include "CImageProc.h"
+#include <afxdlgs.h>
+#include <vector>
+
 CImageProc::CImageProc()
 {
     m_hDib = NULL;
@@ -259,4 +262,61 @@ void CImageProc::GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
     red = pixel[2];
     green = pixel[1];
     blue = pixel[0];
+}
+
+// 计算灰度直方图
+std::vector<int> CImageProc::CalculateGrayHistogram()
+{
+    std::vector<int> histogram(256, 0);
+
+    if (m_hDib == NULL)
+    {
+        return histogram;
+    }
+
+    // 每行字节数 = (每行的bit数 + 31) / 32 * 4
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+
+    float bytePerPixel = float(nBitCount) / 8;
+
+    for (int y = 0; y < nHeight; ++y)
+    {
+        for (int x = 0; x < nWidth; ++x)
+        {
+            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+            BYTE* pixel = pBits + offset;
+
+            BYTE red = 0, green = 0, blue = 0;
+
+            switch (nBitCount)
+            {
+            case 1:
+                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                break;
+            case 4:
+                GetColor4bit(pixel, red, green, blue, x);
+                break;
+            case 8:
+                GetColor8bit(pixel, red, green, blue, x);
+                break;
+            case 16:
+                GetColor16bit(pixel, red, green, blue);
+                break;
+            case 24:
+                GetColor24bit(pixel, red, green, blue);
+                break;
+            case 32:
+                GetColor32bit(pixel, red, green, blue);
+                break;
+            default:
+                continue;
+            }
+
+            // 计算灰度值
+            int gray = static_cast<int>(0.299 * red + 0.587 * green + 0.114 * blue);
+            histogram[gray]++;
+        }
+    }
+
+    return histogram;
 }
