@@ -12,7 +12,7 @@
 IMPLEMENT_DYNAMIC(CHistogramDlg, CDialogEx)
 
 CHistogramDlg::CHistogramDlg(CWnd* pParent /*=nullptr*/)
-	: CDialogEx(IDD_CHistogramDlg, pParent)
+	: CDialogEx(IDD_HISTOGRAM_DLG, pParent)
 {
 
 }

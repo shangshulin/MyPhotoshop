@@ -14,7 +14,7 @@ public:
 
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
-	enum { IDD = IDD_CHistogramDlg };
+	enum { IDD = IDD_HISTOGRAM_DLG };
 #endif
 
 protected:

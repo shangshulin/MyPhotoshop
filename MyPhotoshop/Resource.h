@@ -6,6 +6,8 @@
 #define IDP_OLE_INIT_FAILED             100
 #define IDR_MAINFRAME                   128
 #define IDR_MyPhotoshopTYPE             130
+#define IDD_DIALOG1                     310
+#define IDD_HISTOGRAM_DLG               310
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -21,7 +23,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        310
+#define _APS_NEXT_RESOURCE_VALUE        312
 #define _APS_NEXT_COMMAND_VALUE         32781
 #define _APS_NEXT_CONTROL_VALUE         1000
 #define _APS_NEXT_SYMED_VALUE           310
