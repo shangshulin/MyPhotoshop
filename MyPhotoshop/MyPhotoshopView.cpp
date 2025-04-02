@@ -9,7 +9,7 @@
 #ifndef SHARED_HANDLERS
 #include "MyPhotoshop.h"
 #endif
-
+#include "CImageProc.h"
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
 
@@ -20,7 +20,7 @@
 
 // CMyPhotoshopView
 
-IMPLEMENT_DYNCREATE(CMyPhotoshopView, CView)
+IMPLEMENT_DYNCREATE(CMyPhotoshopView, CView)// 动态创建
 
 BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	// 标准打印命令
@@ -151,11 +151,10 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 		if (nFlags & MK_SHIFT)
 		{
 			CClientDC dc(this);
-			CMyPhotoshopDoc* pDoc = GetDocument();
+			CMyPhotoshopDoc* pDoc = GetDocument();// 获取文档中的图像数据
 			ASSERT_VALID(pDoc);
 			pDoc->pImage->GetColor(&dc, point.x, point.y);
 		}
 	}
 	CView::OnLButtonDown(nFlags, point);
 }
-

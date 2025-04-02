@@ -150,3 +150,8 @@ void CMyPhotoshopDoc::OnFileOpen()
 	CView* pView = pMainFrame->GetActiveView();// 获取当前视图
 	pView->Invalidate(TRUE);
 }
+
+void CMyPhotoshopDoc::CalculateHistogram()
+{
+	m_Histogram = pImage->CalculateGrayHistogram();// 计算直方图
+}

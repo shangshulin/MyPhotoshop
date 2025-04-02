@@ -1,24 +1,42 @@
-﻿#pragma once
-#include "afxdialogex.h"
+﻿// CHistogramDlg.h : header file
+//
 
+#pragma once
+#include <vector>
 
-// CHistogramDlg 对话框
-
+// CHistogramDlg dialog
 class CHistogramDlg : public CDialogEx
 {
-	DECLARE_DYNAMIC(CHistogramDlg)
-
+    // Construction
 public:
-	CHistogramDlg(CWnd* pParent = nullptr);   // 标准构造函数
-	virtual ~CHistogramDlg();
+    CHistogramDlg(CWnd* pParent = nullptr);   // standard constructor
+    ~CHistogramDlg();
 
-// 对话框数据
+    // Dialog Data
 #ifdef AFX_DESIGN_TIME
-	enum { IDD = IDD_HISTOGRAM_DLG };
+    enum { IDD = IDD_HISTOGRAM_DLG };
 #endif
 
 protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
+    virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 
-	DECLARE_MESSAGE_MAP()
+    // Implementation
+protected:
+    HICON m_hIcon;
+
+    // Generated message map functions
+    virtual BOOL OnInitDialog();
+    afx_msg void OnPaint();
+    afx_msg HCURSOR OnQueryDragIcon();
+    DECLARE_MESSAGE_MAP()
+
+private:
+    std::vector<int> m_histogramData;
+    CStatic m_StaticHistogram; // 添加 Picture Control 控件
+
+public:
+    void SetHistogramData(const std::vector<int>& histogramData);
 };
+
+
+

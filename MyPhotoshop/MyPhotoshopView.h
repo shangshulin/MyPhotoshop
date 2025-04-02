@@ -3,7 +3,9 @@
 //
 
 #pragma once
-
+#include "afxwin.h"
+#include "CImageProc.h"
+#include "CHistogramDlg.h"
 
 class CMyPhotoshopView : public CView
 {
@@ -38,7 +40,6 @@ public:
 	virtual void Dump(CDumpContext& dc) const;
 #endif
 
-protected:
 
 // 生成的消息映射函数
 protected:
