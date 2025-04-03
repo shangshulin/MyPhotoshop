@@ -3,17 +3,19 @@
 //
 
 #pragma once
-
+#include "afxwin.h"
+#include "CImageProc.h"
+#include "CHistogramDlg.h"
 
 class CMyPhotoshopView : public CView
 {
+protected:
+	bool m_bShowPixelInfo; // 控制是否显示像素点信息
+
 protected: // 仅从序列化创建
 	CMyPhotoshopView() noexcept;
 	DECLARE_DYNCREATE(CMyPhotoshopView)
-	//以下三行用于测试GetPixel功能
-	CPoint m_MousePos; // 存储鼠标位置
-	bool m_bShiftPressed; // 标记 Shift 键是否按下
-	afx_msg void OnMouseMove(UINT nFlags, CPoint point); //用于捕获鼠标位置和Shift键状态
+
 // 特性
 public:
 	CMyPhotoshopDoc* GetDocument() const;
@@ -29,7 +31,6 @@ protected:
 	virtual BOOL OnPreparePrinting(CPrintInfo* pInfo);
 	virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
 	virtual void OnEndPrinting(CDC* pDC, CPrintInfo* pInfo);
-	COLORREF MyGetPixel(CDC* pDC, int x, int y); // 手动实现的 GetPixel
 
 // 实现
 public:
@@ -39,22 +40,14 @@ public:
 	virtual void Dump(CDumpContext& dc) const;
 #endif
 
-protected:
 
 // 生成的消息映射函数
 protected:
-	DECLARE_MESSAGE_MAP()
+	DECLARE_MESSAGE_MAP()// 生成消息映射函数
 public:
-<<<<<<< Updated upstream
-	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
-=======
 	afx_msg void OnViewPixelInfo(); // 响应菜单按钮点击的消息处理函数
 	afx_msg void OnUpdateViewPixelInfo(CCmdUI* pCmdUI); // 更新菜单按钮状态的消息处理函数
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point); // 鼠标左键按下事件处理函数
-	afx_msg void OnFunctionHistogramMatching();
-private:
-	void HistogramMatching();
->>>>>>> Stashed changes
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本

@@ -24,7 +24,7 @@
 IMPLEMENT_DYNCREATE(CMyPhotoshopDoc, CDocument)
 
 BEGIN_MESSAGE_MAP(CMyPhotoshopDoc, CDocument)
-	ON_COMMAND(ID_FILE_OPEN, &CMyPhotoshopDoc::OnFileOpen)
+	ON_COMMAND(ID_FILE_OPEN, &CMyPhotoshopDoc::OnFileOpen)// 打开文件
 END_MESSAGE_MAP()
 
 
@@ -146,7 +146,12 @@ void CMyPhotoshopDoc::OnFileOpen()
 {
 	// TODO: 在此添加命令处理程序代码
 	pImage->OpenFile();
-	CMainFrame* pMainFrame = (CMainFrame*)AfxGetApp()->m_pMainWnd;
-	CView* pView = pMainFrame->GetActiveView();
+	CMainFrame* pMainFrame = (CMainFrame*)AfxGetApp()->m_pMainWnd;// 获取主窗口
+	CView* pView = pMainFrame->GetActiveView();// 获取当前视图
 	pView->Invalidate(TRUE);
+}
+
+void CMyPhotoshopDoc::CalculateHistogram()
+{
+	m_Histogram = pImage->CalculateGrayHistogram();// 计算直方图
 }

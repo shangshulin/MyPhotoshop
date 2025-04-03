@@ -1,5 +1,4 @@
-﻿
-// MyPhotoshop.cpp: 定义应用程序的类行为。
+﻿// MyPhotoshop.cpp: 定义应用程序的类行为。
 //
 
 #include "pch.h"
@@ -11,6 +10,7 @@
 
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
+#include "CHistogramDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -20,12 +20,14 @@
 // CMyPhotoshopApp
 
 BEGIN_MESSAGE_MAP(CMyPhotoshopApp, CWinApp)
-	ON_COMMAND(ID_APP_ABOUT, &CMyPhotoshopApp::OnAppAbout)
+	ON_COMMAND(ID_APP_ABOUT, &CMyPhotoshopApp::OnAppAbout) // “关于”菜单项的 ID
 	// 基于文件的标准文档命令
-	ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
-	ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)
+	ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew) // 新建文件命令
+	ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen) // 打开文件命令
 	// 标准打印设置命令
-	ON_COMMAND(ID_FILE_PRINT_SETUP, &CWinApp::OnFilePrintSetup)
+	ON_COMMAND(ID_FILE_PRINT_SETUP, &CWinApp::OnFilePrintSetup) // 设置打印
+	ON_COMMAND(ID_TOOLS_HISTOGRAM, &CMyPhotoshopApp::OnToolsHistogram) // 直方图命令
+
 END_MESSAGE_MAP()
 
 
@@ -33,7 +35,6 @@ END_MESSAGE_MAP()
 
 CMyPhotoshopApp::CMyPhotoshopApp() noexcept
 {
-
 	// 支持重新启动管理器
 	m_dwRestartManagerSupportFlags = AFX_RESTART_MANAGER_SUPPORT_ALL_ASPECTS;
 #ifdef _MANAGED
@@ -146,7 +147,7 @@ class CAboutDlg : public CDialogEx
 public:
 	CAboutDlg() noexcept;
 
-// 对话框数据
+	// 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_ABOUTBOX };
 #endif
@@ -154,7 +155,7 @@ public:
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
 
-// 实现
+	// 实现
 protected:
 	DECLARE_MESSAGE_MAP()
 };
@@ -179,6 +180,41 @@ void CMyPhotoshopApp::OnAppAbout()
 }
 
 // CMyPhotoshopApp 消息处理程序
+
+
+void CMyPhotoshopApp::OnToolsHistogram()
+{
+	// 获取活动文档
+	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition();// 获取第一个文档模板位置
+	if (pos != NULL)
+	{
+		CDocTemplate* pTemplate = AfxGetApp()->GetNextDocTemplate(pos);// 获取第一个文档模板
+		POSITION docPos = pTemplate->GetFirstDocPosition();// 获取第一个文档位置
+		if (docPos != NULL)// 判断是否存在文档
+		{
+			CDocument* pDoc = pTemplate->GetNextDoc(docPos);// 获取第一个文档
+			if (pDoc)
+			{
+				CMyPhotoshopDoc* pMyDoc = dynamic_cast<CMyPhotoshopDoc*>(pDoc);// 将文档转换为CMyPhotoshopDoc类型
+				if (pMyDoc && pMyDoc->pImage != nullptr)
+				{
+					CHistogramDlg dlgHistogram;// 创建直方图对话框
+					pMyDoc->CalculateHistogram(); // 计算直方图
+					dlgHistogram.SetHistogramData(pMyDoc->GetHistogram()); // 设置直方图数据
+					dlgHistogram.DoModal();// 显示对话框
+				}
+				else
+				{
+					AfxMessageBox(_T("No image loaded."));
+				}
+			}
+			else
+			{
+				AfxMessageBox(_T("No document opened."));
+			}
+		}
+	}
+}
 
 
 

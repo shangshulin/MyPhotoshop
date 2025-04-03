@@ -1,27 +1,13 @@
+// CImageProc.h
 #pragma once
-class CImageProc
-{
-public:
-	CImageProc();
-	~CImageProc();
-	HGLOBAL m_hDib;
-	BYTE* pDib;
-	BITMAPFILEHEADER* pBFH;
-	BITMAPINFOHEADER* pBIH;
-	RGBQUAD* pQUAD;
-	BYTE* pBits;
-	int nWidth;
-	int nHeight;
-	int nNumColors;
-public:
-	void OpenFile();
-	void LoadBmp(CString stFileName);
-	void ShowBMP(CDC* pDC);
-	void GetColor(CClientDC* pDC, int x, int y);
-};
+#include "pch.h"
+#include <vector>
 
-<<<<<<< Updated upstream
-=======
+class CImageProc {
+public:
+    CImageProc();
+    ~CImageProc();
+
     void OpenFile();
     void LoadBmp(CString stFileName);
     void ShowBMP(CDC* pDC);
@@ -30,7 +16,7 @@ public:
 
     HANDLE m_hDib;
 
-public:
+private:
     
     BYTE* pDib;
     BITMAPFILEHEADER* pBFH;
@@ -49,4 +35,3 @@ public:
     void GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
     void GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
 };
->>>>>>> Stashed changes
