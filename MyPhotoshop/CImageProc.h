@@ -34,4 +34,9 @@ public:
     void GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
     void GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
     void GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
+
+    void CleanUp();
+    bool IsValid() const { return m_hDib != NULL && pDib != NULL; }
+private:
+    void InitializeMembers();
 };

@@ -297,7 +297,7 @@ void CMyPhotoshopView::HistogramMatching()
 {
     // 1. 获取文档指针并检查有效性
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_hDib)
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
     {
         AfxMessageBox(_T("请先打开有效的源图像文件"));
         return;
@@ -312,31 +312,24 @@ void CMyPhotoshopView::HistogramMatching()
     }
 
     // 3. 创建并显示文件选择对话框
-    CFileDialog fileDlg(TRUE,                       // 打开对话框
-        _T("bmp"),                   // 默认扩展名
-        NULL,                        // 默认文件名
-        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST, // 标志
-        _T("24位位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), // 过滤器
-        this);                       // 父窗口
+    CFileDialog fileDlg(TRUE, _T("bmp"), NULL,
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST,
+        _T("24位位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), this);
 
-    // 4. 显示对话框并处理用户选择
     if (fileDlg.DoModal() != IDOK)
     {
-        return; // 用户取消了选择
+        return;
     }
 
-    // 5. 获取用户选择的文件路径
+    // 4. 创建目标图像处理器并加载图像
+    CImageProc targetImageProc;
     CString targetPath = fileDlg.GetPathName();
 
-    // 6. 创建目标图像处理器并加载图像
-    CImageProc targetImageProc;
     try
     {
-        // 直接调用LoadBmp，不检查返回值
         targetImageProc.LoadBmp(targetPath);
 
-        // 通过检查m_hDib和nBitCount来判断是否加载成功
-        if (!targetImageProc.m_hDib)
+        if (!targetImageProc.IsValid())
         {
             AfxMessageBox(_T("无法加载目标图像文件"));
             return;
@@ -366,129 +359,106 @@ void CMyPhotoshopView::HistogramMatching()
         return;
     }
 
-    // 7. 获取源图像尺寸信息
+    // 5. 获取图像尺寸信息
     int width = pSourceImage->nWidth;
     int height = pSourceImage->nHeight;
-    int rowSize = ((width * 24 + 31) / 32) * 4; // 计算源图像每行字节数
-
-    // 8. 获取目标图像尺寸信息
+    int rowSize = ((width * 24 + 31) / 32) * 4;
     int targetWidth = targetImageProc.nWidth;
     int targetHeight = targetImageProc.nHeight;
-    int targetRowSize = ((targetWidth * 24 + 31) / 32) * 4; // 计算目标图像每行字节数
+    int targetRowSize = ((targetWidth * 24 + 31) / 32) * 4;
 
-    // 9. 显示等待光标
+    // 6. 显示等待光标
     CWaitCursor waitCursor;
 
-    // 10. 对每个颜色通道(R,G,B)分别进行直方图规格化
-    for (int channel = 0; channel < 3; channel++) // 0:B, 1:G, 2:R
+    // 7. 对每个颜色通道进行直方图规格化
+    for (int channel = 0; channel < 3; channel++) // B, G, R
     {
-        // 10.1 计算源图像当前通道的直方图
-        std::vector<int> sourceHist(256, 0); // 初始化256个bin的直方图
+        // 7.1 计算直方图
+        std::vector<int> sourceHist(256, 0);
+        std::vector<int> targetHist(256, 0);
 
-        // 遍历源图像所有像素
+        // 计算源图像直方图
         for (int y = 0; y < height; y++)
         {
-            // 计算当前行的起始指针
             BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+            if (!pSource) continue;
 
-            // 遍历当前行所有像素
             for (int x = 0; x < width; x++)
             {
-                // 获取当前通道的值并增加对应的直方图bin
-                BYTE pixelValue = pSource[x * 3 + channel];
-                sourceHist[pixelValue]++;
+                if (x * 3 + channel < rowSize)
+                {
+                    BYTE val = pSource[x * 3 + channel];
+                    sourceHist[val]++;
+                }
             }
         }
 
-        // 10.2 计算目标图像当前通道的直方图
-        std::vector<int> targetHist(256, 0); // 初始化256个bin的直方图
-
-        // 遍历目标图像所有像素
+        // 计算目标图像直方图
         for (int y = 0; y < targetHeight; y++)
         {
-            // 计算当前行的起始指针
             BYTE* pTarget = targetImageProc.pBits + (targetHeight - 1 - y) * targetRowSize;
+            if (!pTarget) continue;
 
-            // 遍历当前行所有像素
             for (int x = 0; x < targetWidth; x++)
             {
-                // 获取当前通道的值并增加对应的直方图bin
-                BYTE pixelValue = pTarget[x * 3 + channel];
-                targetHist[pixelValue]++;
+                if (x * 3 + channel < targetRowSize)
+                {
+                    BYTE val = pTarget[x * 3 + channel];
+                    targetHist[val]++;
+                }
             }
         }
 
-        // 10.3 计算源图像当前通道的累积分布函数(CDF)
-        std::vector<double> sourceCDF(256, 0.0);
-        sourceCDF[0] = static_cast<double>(sourceHist[0]);
+        // 7.2 计算CDF
+        std::vector<double> sourceCDF(256, 0);
+        std::vector<double> targetCDF(256, 0);
 
-        // 计算累积直方图
+        sourceCDF[0] = sourceHist[0];
+        targetCDF[0] = targetHist[0];
+
         for (int i = 1; i < 256; i++)
         {
-            sourceCDF[i] = sourceCDF[i - 1] + static_cast<double>(sourceHist[i]);
+            sourceCDF[i] = sourceCDF[i - 1] + sourceHist[i];
+            targetCDF[i] = targetCDF[i - 1] + targetHist[i];
         }
 
-        // 归一化CDF
-        double sourceTotalPixels = static_cast<double>(width * height);
+        // 归一化
         for (int i = 0; i < 256; i++)
         {
-            sourceCDF[i] /= sourceTotalPixels;
+            sourceCDF[i] /= (width * height);
+            targetCDF[i] /= (targetWidth * targetHeight);
         }
 
-        // 10.4 计算目标图像当前通道的累积分布函数(CDF)
-        std::vector<double> targetCDF(256, 0.0);
-        targetCDF[0] = static_cast<double>(targetHist[0]);
-
-        // 计算累积直方图
-        for (int i = 1; i < 256; i++)
-        {
-            targetCDF[i] = targetCDF[i - 1] + static_cast<double>(targetHist[i]);
-        }
-
-        // 归一化CDF
-        double targetTotalPixels = static_cast<double>(targetWidth * targetHeight);
-        for (int i = 0; i < 256; i++)
-        {
-            targetCDF[i] /= targetTotalPixels;
-        }
-
-        // 10.5 创建当前通道的映射表
+        // 7.3 创建映射表
         std::vector<BYTE> mapping(256, 0);
         for (int i = 0; i < 256; i++)
         {
-            double cdfValue = sourceCDF[i];
+            double cdf = sourceCDF[i];
             int j = 255;
-
-            // 查找目标CDF中大于等于源CDF的最小值
-            while (j > 0 && targetCDF[j] > cdfValue + 1e-6) // 添加小量避免浮点误差
-            {
+            while (j > 0 && targetCDF[j] > cdf + 1e-6)
                 j--;
-            }
             mapping[i] = static_cast<BYTE>(j);
         }
 
-        // 10.6 应用映射到源图像当前通道
+        // 7.4 应用映射
         for (int y = 0; y < height; y++)
         {
-            // 计算当前行的起始指针
             BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+            if (!pSource) continue;
 
-            // 遍历当前行所有像素
             for (int x = 0; x < width; x++)
             {
-                // 获取当前像素的当前通道值
-                BYTE originalValue = pSource[x * 3 + channel];
-
-                // 应用映射
-                pSource[x * 3 + channel] = mapping[originalValue];
+                if (x * 3 + channel < rowSize)
+                {
+                    BYTE origVal = pSource[x * 3 + channel];
+                    pSource[x * 3 + channel] = mapping[origVal];
+                }
             }
         }
     }
 
-    // 11. 更新视图
-    Invalidate(TRUE); // 强制重绘视图
-    pDoc->SetModifiedFlag(TRUE); // 标记文档已修改
-
-    // 12. 显示完成消息
-    AfxMessageBox(_T("直方图规格化完成，已根据选择的图像调整"), MB_OK | MB_ICONINFORMATION);
+    // 8. 更新视图
+    Invalidate(TRUE);
+    pDoc->SetModifiedFlag(TRUE);
+    AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
 }

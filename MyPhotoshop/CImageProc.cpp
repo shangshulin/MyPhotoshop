@@ -5,26 +5,28 @@
 
 CImageProc::CImageProc()
 {
-    m_hDib = NULL;
-    pDib = new BYTE;
-    pBFH = new BITMAPFILEHEADER;
-    pBIH = new BITMAPINFOHEADER;
-    pQUAD = new RGBQUAD;
-    pBits = new BYTE;
-    nWidth = 0;
-    nHeight = 0;
-    nBitCount = 0;
-    m_bIs565Format = true; // 默认假设为565格式
+    //m_hDib = NULL;
+    //pDib = new BYTE;
+    //pBFH = new BITMAPFILEHEADER;
+    //pBIH = new BITMAPINFOHEADER;
+    //pQUAD = new RGBQUAD;
+    //pBits = new BYTE;
+    //nWidth = 0;
+    //nHeight = 0;
+    //nBitCount = 0;
+    //m_bIs565Format = true; // 默认假设为565格式
+    InitializeMembers();
 }
 CImageProc::~CImageProc()
 {
-    delete pDib;
-    delete pBFH;
-    delete pBIH;
-    delete pQUAD;
-    delete pBits;
-    if (m_hDib != NULL)
-        GlobalUnlock(m_hDib);
+    //delete pDib;
+    //delete pBFH;
+    //delete pBIH;
+    //delete pQUAD;
+    //delete pBits;
+    //if (m_hDib != NULL)
+    //    GlobalUnlock(m_hDib);
+    CleanUp();
 }
 
 // 打开文件
@@ -44,47 +46,121 @@ void CImageProc::OpenFile()
 // 加载 BMP 文件
 void CImageProc::LoadBmp(CString stFileName)
 {
+    // 先清理现有数据
+    CleanUp();
 
-    // TODO: 在此处添加实现代码.
-    CFile file;//文件对象
-    CFileException e;//文件异常对象
-    if (!file.Open(stFileName, CFile::modeRead | CFile::shareExclusive, &e))
+    CFile file;
+    CFileException e;
+
+    // 1. 尝试打开文件
+    if (!file.Open(stFileName, CFile::modeRead | CFile::shareDenyWrite, &e))
     {
 #ifdef _DEBUG
         afxDump << "File could not be opened " << e.m_cause << "\n";
 #endif
+        return;
     }
-    else
+
+    // 2. 获取文件大小并验证最小尺寸
+    ULONGLONG nFileSize = file.GetLength();
+    if (nFileSize < sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER))
     {
-        ULONGLONG nFileSize;    //匹配GetLength函数的数据类型
-        nFileSize = file.GetLength();   //获取文件大小
-        m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);   //分配内存
-        pDib = (BYTE*)::GlobalLock(m_hDib);   //锁定内存
-        file.Read(pDib, nFileSize);   //读取文件
-        pBFH = (BITMAPFILEHEADER*)pDib;     //指向文件头
-        pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];   //指向信息头
-        pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)];   //指向调色板
-        pBits = (BYTE*)&pDib[pBFH->bfOffBits];   //指向位图数据
-        nWidth = pBIH->biWidth;     // 获取图像的宽高
-        nHeight = pBIH->biHeight;
-		nBitCount = pBIH->biBitCount;   //获取位深度
-   
-        if (pBIH->biCompression == BI_RGB && nBitCount == 16) {
-            //16位图默认为555格式
-            m_bIs565Format = false;
-        }
-        else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16) {
-            // 检查颜色掩码是否为565
-            DWORD* masks = reinterpret_cast<DWORD*>(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        file.Close();
+        return;
+    }
+
+    // 3. 分配全局内存
+    m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);
+    if (!m_hDib)
+    {
+        file.Close();
+        return;
+    }
+
+    // 4. 锁定内存
+    pDib = (BYTE*)::GlobalLock(m_hDib);
+    if (!pDib)
+    {
+        GlobalFree(m_hDib);
+        m_hDib = NULL;
+        file.Close();
+        return;
+    }
+
+    // 5. 读取文件内容
+    UINT nBytesRead = file.Read(pDib, (UINT)nFileSize);
+    file.Close();
+
+    if (nBytesRead != nFileSize)
+    {
+        CleanUp();
+        return;
+    }
+
+    // 6. 设置文件头指针并验证
+    pBFH = (BITMAPFILEHEADER*)pDib;
+    if (pBFH->bfType != 0x4D42) // 'BM'标志
+    {
+        CleanUp();
+        return;
+    }
+
+    // 7. 设置信息头指针并验证
+    pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];
+    if (pBIH->biSize < sizeof(BITMAPINFOHEADER))
+    {
+        CleanUp();
+        return;
+    }
+
+    // 8. 设置调色板指针
+    pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + pBIH->biSize];
+
+    // 9. 验证位图数据偏移量
+    if (pBFH->bfOffBits >= nFileSize)
+    {
+        CleanUp();
+        return;
+    }
+    pBits = &pDib[pBFH->bfOffBits];
+
+    // 10. 设置基本图像参数
+    nWidth = pBIH->biWidth;
+    nHeight = abs(pBIH->biHeight); // 处理可能的倒向位图
+    nBitCount = pBIH->biBitCount;
+
+    // 11. 验证位图数据大小
+    DWORD dwImageSize = ((nWidth * nBitCount + 31) / 32) * 4 * nHeight;
+    if (pBFH->bfOffBits + dwImageSize > nFileSize)
+    {
+        CleanUp();
+        return;
+    }
+
+    // 12. 处理16位位图格式
+    if (pBIH->biCompression == BI_RGB && nBitCount == 16)
+    {
+        m_bIs565Format = false;
+    }
+    else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16)
+    {
+        // 确保有足够的空间存放颜色掩码
+        if (sizeof(BITMAPFILEHEADER) + pBIH->biSize + 3 * sizeof(DWORD) <= nFileSize)
+        {
+            DWORD* masks = reinterpret_cast<DWORD*>(&pDib[sizeof(BITMAPFILEHEADER) + pBIH->biSize]);
             DWORD redMask = masks[0];
             DWORD greenMask = masks[1];
             DWORD blueMask = masks[2];
-
             m_bIs565Format = (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F);
         }
-        else {
+        else
+        {
             m_bIs565Format = false;
         }
+    }
+    else
+    {
+        m_bIs565Format = false;
     }
 }
 
@@ -320,4 +396,27 @@ std::vector<int> CImageProc::CalculateGrayHistogram()
     }
 
     return histogram;
+}
+
+void CImageProc::InitializeMembers()
+{
+    m_hDib = NULL;
+    pDib = NULL;
+    pBFH = NULL;
+    pBIH = NULL;
+    pQUAD = NULL;
+    pBits = NULL;
+    nWidth = nHeight = nBitCount = 0;
+    m_bIs565Format = true;
+}
+
+void CImageProc::CleanUp()
+{
+    if (m_hDib) {
+        if (pDib) {
+            GlobalUnlock(m_hDib);
+        }
+        GlobalFree(m_hDib);
+    }
+    InitializeMembers();
 }
