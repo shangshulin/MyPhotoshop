@@ -26,7 +26,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopApp, CWinApp)
 	ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen) // 打开文件命令
 	// 标准打印设置命令
 	ON_COMMAND(ID_FILE_PRINT_SETUP, &CWinApp::OnFilePrintSetup) // 设置打印
-	ON_COMMAND(ID_TOOLS_HISTOGRAM, &CMyPhotoshopApp::OnToolsHistogram) // 直方图命令
+	ON_COMMAND(ID_HISTOGRAM_MIX, &CMyPhotoshopApp::OnHistogramMix) // 直方图混合模式
+	ON_COMMAND(ID_HISTOGRAM_RGB, &CMyPhotoshopApp::OnHistogramRGB) // 直方图RGB模式
+
 
 END_MESSAGE_MAP()
 
@@ -182,8 +184,10 @@ void CMyPhotoshopApp::OnAppAbout()
 // CMyPhotoshopApp 消息处理程序
 
 
-void CMyPhotoshopApp::OnToolsHistogram()
+void CMyPhotoshopApp::OnHistogramMix()
 {
+	CHistogramDlg dlgHistogram;
+	dlgHistogram.m_histogramType = 0;
 	// 获取活动文档
 	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition();// 获取第一个文档模板位置
 	if (pos != NULL)
@@ -198,9 +202,8 @@ void CMyPhotoshopApp::OnToolsHistogram()
 				CMyPhotoshopDoc* pMyDoc = dynamic_cast<CMyPhotoshopDoc*>(pDoc);// 将文档转换为CMyPhotoshopDoc类型
 				if (pMyDoc && pMyDoc->pImage != nullptr)
 				{
-					CHistogramDlg dlgHistogram;// 创建直方图对话框
-					pMyDoc->CalculateHistogram(); // 计算直方图
-					dlgHistogram.SetHistogramData(pMyDoc->GetHistogram()); // 设置直方图数据
+					pMyDoc->CalculateHistogramMix(); // 计算直方图
+					dlgHistogram.SetHistogramDataMix(pMyDoc->GetHistogramMix()); // 设置直方图数据
 					dlgHistogram.DoModal();// 显示对话框
 				}
 				else
@@ -215,6 +218,40 @@ void CMyPhotoshopApp::OnToolsHistogram()
 		}
 	}
 }
+void CMyPhotoshopApp::OnHistogramRGB()
+{
+	CHistogramDlg dlgHistogram;
+	dlgHistogram.m_histogramType = 1; // 假设1表示RGB模式
 
+	// 获取活动文档
+	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition(); // 获取第一个文档模板位置
+	if (pos != NULL)
+	{
+		CDocTemplate* pTemplate = AfxGetApp()->GetNextDocTemplate(pos); // 获取第一个文档模板
+		POSITION docPos = pTemplate->GetFirstDocPosition(); // 获取第一个文档位置
+		if (docPos != NULL) // 判断是否存在文档
+		{
+			CDocument* pDoc = pTemplate->GetNextDoc(docPos); // 获取第一个文档
+			if (pDoc)
+			{
+				CMyPhotoshopDoc* pMyDoc = dynamic_cast<CMyPhotoshopDoc*>(pDoc); // 将文档转换为CMyPhotoshopDoc类型
+				if (pMyDoc && pMyDoc->pImage != nullptr)
+				{
+					pMyDoc->CalculateHistogramRGB(); // 计算RGB直方图
+					dlgHistogram.SetHistogramDataRGB(pMyDoc->GetHistogramRGB() ); // 设置RGB直方图数据
+					dlgHistogram.DoModal(); // 显示对话框
+				}
+				else
+				{
+					AfxMessageBox(_T("No image loaded."));
+				}
+			}
+			else
+			{
+				AfxMessageBox(_T("No document opened."));
+			}
+		}
+	}
+}
 
 
