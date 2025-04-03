@@ -15,6 +15,11 @@ protected: // 仅从序列化创建
 // 特性
 public:
 	CImageProc* pImage;
+<<<<<<< Updated upstream
+=======
+	std::vector<int> m_Histogram;
+	CImageProc m_ImageProc;
+>>>>>>> Stashed changes
 // 操作
 public:
 

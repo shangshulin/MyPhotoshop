@@ -1,7 +1,7 @@
 ﻿
 // MyPhotoshopView.cpp: CMyPhotoshopView 类的实现
 //
-
+#include <cmath> // 用于 sin 函数
 #include "pch.h"
 #include "framework.h"
 // SHARED_HANDLERS 可以在实现预览、缩略图和搜索筛选器句柄的
@@ -27,8 +27,15 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FILE_PRINT, &CView::OnFilePrint)
 	ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
 	ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
+<<<<<<< Updated upstream
     ON_WM_MOUSEMOVE() // 添加鼠标移动消息映射，用于测试GetPixel
 	ON_WM_LBUTTONDOWN()
+=======
+	ON_WM_LBUTTONDOWN() // 左键点击
+	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 菜单项点击
+	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新菜单项状态
+	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching)
+>>>>>>> Stashed changes
 END_MESSAGE_MAP()
 
 // CMyPhotoshopView 构造/析构
@@ -186,6 +193,7 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 	CView::OnLButtonDown(nFlags, point);
 }
 
+<<<<<<< Updated upstream
 COLORREF CMyPhotoshopView::MyGetPixel(CDC* pDC, int x, int y)
 {
     // 检查设备上下文是否有效
@@ -243,3 +251,127 @@ COLORREF CMyPhotoshopView::MyGetPixel(CDC* pDC, int x, int y)
 
     return color;
 }
+=======
+void CMyPhotoshopView::OnFunctionHistogramMatching()
+{
+	// TODO: 在此添加命令处理程序代码
+	HistogramMatching();
+}
+
+void CMyPhotoshopView::HistogramMatching()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_hDib)
+    {
+        AfxMessageBox(_T("请先打开有效的源图像文件"));
+        return;
+    }
+
+    // 加载目标图像(light版本)
+    CImageProc targetImageProc;
+    CString targetPath = _T("D:\\生物医学图像处理\\实验\\实验二 图像增强_灰度调整\\MyPhotoshop\\实验二_图片\\cherry(light).bmp");
+
+    try {
+        targetImageProc.LoadBmp(targetPath);
+        if (!targetImageProc.m_hDib || targetImageProc.nBitCount != 24)
+        {
+            AfxMessageBox(_T("无法加载目标图像或目标图像不是24位色"));
+            return;
+        }
+    }
+    catch (...) {
+        AfxMessageBox(_T("加载目标图像失败"));
+        return;
+    }
+
+    CImageProc* pSourceImage = pDoc->pImage; // 源图像
+    if (pSourceImage->nBitCount != 24)
+    {
+        AfxMessageBox(_T("源图像必须是24位色"));
+        return;
+    }
+
+    int width = pSourceImage->nWidth;
+    int height = pSourceImage->nHeight;
+    int rowSize = ((width * 24 + 31) / 32) * 4;
+    int targetRowSize = ((width * 24 + 31) / 32) * 4;
+
+    // 对每个颜色通道(R,G,B)分别进行直方图规格化
+    for (int channel = 0; channel < 3; channel++) // 0:B, 1:G, 2:R
+    {
+        // 1. 计算源图像当前通道的直方图
+        std::vector<int> sourceHist(256, 0);
+        // 2. 计算目标图像当前通道的直方图
+        std::vector<int> targetHist(256, 0);
+
+        // 计算源图像当前通道直方图
+        for (int y = 0; y < height; y++)
+        {
+            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+            for (int x = 0; x < width; x++)
+            {
+                sourceHist[pSource[x * 3 + channel]]++;
+            }
+        }
+
+        // 计算目标图像当前通道直方图
+        for (int y = 0; y < height; y++)
+        {
+            BYTE* pTarget = targetImageProc.pBits + (height - 1 - y) * targetRowSize;
+            for (int x = 0; x < width; x++)
+            {
+                targetHist[pTarget[x * 3 + channel]]++;
+            }
+        }
+
+        // 3. 计算源图像当前通道的CDF
+        std::vector<double> sourceCDF(256, 0);
+        sourceCDF[0] = sourceHist[0];
+        for (int i = 1; i < 256; i++) {
+            sourceCDF[i] = sourceCDF[i - 1] + sourceHist[i];
+        }
+        // 归一化
+        for (int i = 0; i < 256; i++) {
+            sourceCDF[i] /= (width * height);
+        }
+
+        // 4. 计算目标图像当前通道的CDF
+        std::vector<double> targetCDF(256, 0);
+        targetCDF[0] = targetHist[0];
+        for (int i = 1; i < 256; i++) {
+            targetCDF[i] = targetCDF[i - 1] + targetHist[i];
+        }
+        // 归一化
+        for (int i = 0; i < 256; i++) {
+            targetCDF[i] /= (width * height);
+        }
+
+        // 5. 创建当前通道的映射表
+        std::vector<BYTE> mapping(256, 0);
+        for (int i = 0; i < 256; i++)
+        {
+            double cdfValue = sourceCDF[i];
+            int j = 255;
+            while (j > 0 && targetCDF[j] > cdfValue + 1e-6) { // 添加小量避免浮点误差
+                j--;
+            }
+            mapping[i] = static_cast<BYTE>(j);
+        }
+
+        // 6. 应用映射到源图像当前通道
+        for (int y = 0; y < height; y++)
+        {
+            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+            for (int x = 0; x < width; x++)
+            {
+                pSource[x * 3 + channel] = mapping[pSource[x * 3 + channel]];
+            }
+        }
+    }
+
+    // 7. 更新视图
+    Invalidate(TRUE);
+    pDoc->SetModifiedFlag(TRUE);
+    AfxMessageBox(_T("RGB三通道直方图规格化完成"));
+}
+>>>>>>> Stashed changes
