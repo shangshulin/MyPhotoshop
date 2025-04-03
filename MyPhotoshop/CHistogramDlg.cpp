@@ -107,6 +107,17 @@ void CHistogramDlg::OnPaint()
             return;
         }
 
+         //绘制 X 轴刻度和标签
+        for (int i = 0; i <= 256; i += 32)
+        {
+            int xPos = plotRect.left + (i * (plotRect.Width())) / 256;
+            dc.MoveTo(xPos, plotRect.bottom);
+            dc.LineTo(xPos, plotRect.bottom + 5);
+            CString strLabel;
+            strLabel.Format(_T("%d"), i);
+            dc.TextOutW(xPos - 10, plotRect.bottom + 10, strLabel);
+        }
+ 
         // 获取最大值
         int maxElement = *std::max_element(m_histogramData.begin(), m_histogramData.end());
 
