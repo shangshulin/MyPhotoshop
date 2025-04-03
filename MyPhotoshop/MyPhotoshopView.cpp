@@ -30,6 +30,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_WM_LBUTTONDOWN() // 左键点击
 	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 菜单项点击
 	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新菜单项状态
+	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching)
 END_MESSAGE_MAP()
 
 
@@ -157,4 +158,337 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 		}
 	}
 	CView::OnLButtonDown(nFlags, point);
+}
+
+void CMyPhotoshopView::OnFunctionHistogramMatching()
+{
+    HistogramMatching();
+}
+
+//允许用户自行选择图像，但有断言错误
+//void CMyPhotoshopView::HistogramMatching()
+//{
+//    CMyPhotoshopDoc* pDoc = GetDocument();
+//    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_hDib)
+//    {
+//        AfxMessageBox(_T("请先打开有效的源图像文件"));
+//        return;
+//    }
+//
+//    CImageProc* pSourceImage = pDoc->pImage; // 源图像
+//    if (pSourceImage->nBitCount != 24)
+//    {
+//        AfxMessageBox(_T("源图像必须是24位色"));
+//        return;
+//    }
+//
+//    // 让用户选择目标图像
+//    CFileDialog fileDlg(TRUE, _T("bmp"), NULL,
+//        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+//        _T("24位位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), this);
+//
+//    if (fileDlg.DoModal() != IDOK)
+//    {
+//        return; // 用户取消了选择
+//    }
+//
+//    CString targetPath = fileDlg.GetPathName();
+//
+//    // 加载目标图像
+//    CImageProc targetImageProc;
+//    try {
+//        targetImageProc.LoadBmp(targetPath);
+//        if (!targetImageProc.m_hDib || targetImageProc.nBitCount != 24)
+//        {
+//            AfxMessageBox(_T("选择的目标图像不是24位色，请重新选择"));
+//            return;
+//        }
+//    }
+//    catch (...) {
+//        AfxMessageBox(_T("加载目标图像失败，请检查文件是否有效"));
+//        return;
+//    }
+//
+//    int width = pSourceImage->nWidth;
+//    int height = pSourceImage->nHeight;
+//    int rowSize = ((width * 24 + 31) / 32) * 4;
+//    int targetRowSize = ((targetImageProc.nWidth * 24 + 31) / 32) * 4;
+//
+//    // 对每个颜色通道(R,G,B)分别进行直方图规格化
+//    for (int channel = 0; channel < 3; channel++) // 0:B, 1:G, 2:R
+//    {
+//        // 1. 计算源图像当前通道的直方图
+//        std::vector<int> sourceHist(256, 0);
+//        // 计算源图像直方图
+//        for (int y = 0; y < height; y++)
+//        {
+//            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+//            for (int x = 0; x < width; x++)
+//            {
+//                sourceHist[pSource[x * 3 + channel]]++;
+//            }
+//        }
+//
+//        // 2. 计算目标图像当前通道的直方图
+//        std::vector<int> targetHist(256, 0);
+//        int targetWidth = targetImageProc.nWidth;
+//        int targetHeight = targetImageProc.nHeight;
+//        for (int y = 0; y < targetHeight; y++)
+//        {
+//            BYTE* pTarget = targetImageProc.pBits + (targetHeight - 1 - y) * targetRowSize;
+//            for (int x = 0; x < targetWidth; x++)
+//            {
+//                targetHist[pTarget[x * 3 + channel]]++;
+//            }
+//        }
+//
+//        // 3. 计算源图像当前通道的CDF
+//        std::vector<double> sourceCDF(256, 0);
+//        sourceCDF[0] = sourceHist[0];
+//        for (int i = 1; i < 256; i++) {
+//            sourceCDF[i] = sourceCDF[i - 1] + sourceHist[i];
+//        }
+//        // 归一化
+//        for (int i = 0; i < 256; i++) {
+//            sourceCDF[i] /= (width * height);
+//        }
+//
+//        // 4. 计算目标图像当前通道的CDF
+//        std::vector<double> targetCDF(256, 0);
+//        targetCDF[0] = targetHist[0];
+//        for (int i = 1; i < 256; i++) {
+//            targetCDF[i] = targetCDF[i - 1] + targetHist[i];
+//        }
+//        // 归一化
+//        for (int i = 0; i < 256; i++) {
+//            targetCDF[i] /= (targetWidth * targetHeight);
+//        }
+//
+//        // 5. 创建当前通道的映射表
+//        std::vector<BYTE> mapping(256, 0);
+//        for (int i = 0; i < 256; i++)
+//        {
+//            double cdfValue = sourceCDF[i];
+//            int j = 255;
+//            while (j > 0 && targetCDF[j] > cdfValue + 1e-6) {
+//                j--;
+//            }
+//            mapping[i] = static_cast<BYTE>(j);
+//        }
+//
+//        // 6. 应用映射到源图像当前通道
+//        for (int y = 0; y < height; y++)
+//        {
+//            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+//            for (int x = 0; x < width; x++)
+//            {
+//                pSource[x * 3 + channel] = mapping[pSource[x * 3 + channel]];
+//            }
+//        }
+//    }
+//
+//    // 7. 更新视图
+//    Invalidate(TRUE);
+//    pDoc->SetModifiedFlag(TRUE);
+//    AfxMessageBox(_T("直方图规格化完成，已根据选择的图像调整"));
+//}
+
+void CMyPhotoshopView::HistogramMatching()
+{
+    // 1. 获取文档指针并检查有效性
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_hDib)
+    {
+        AfxMessageBox(_T("请先打开有效的源图像文件"));
+        return;
+    }
+
+    // 2. 获取源图像指针并检查位深度
+    CImageProc* pSourceImage = pDoc->pImage;
+    if (pSourceImage->nBitCount != 24)
+    {
+        AfxMessageBox(_T("源图像必须是24位色"));
+        return;
+    }
+
+    // 3. 创建并显示文件选择对话框
+    CFileDialog fileDlg(TRUE,                       // 打开对话框
+        _T("bmp"),                   // 默认扩展名
+        NULL,                        // 默认文件名
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST, // 标志
+        _T("24位位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), // 过滤器
+        this);                       // 父窗口
+
+    // 4. 显示对话框并处理用户选择
+    if (fileDlg.DoModal() != IDOK)
+    {
+        return; // 用户取消了选择
+    }
+
+    // 5. 获取用户选择的文件路径
+    CString targetPath = fileDlg.GetPathName();
+
+    // 6. 创建目标图像处理器并加载图像
+    CImageProc targetImageProc;
+    try
+    {
+        // 直接调用LoadBmp，不检查返回值
+        targetImageProc.LoadBmp(targetPath);
+
+        // 通过检查m_hDib和nBitCount来判断是否加载成功
+        if (!targetImageProc.m_hDib)
+        {
+            AfxMessageBox(_T("无法加载目标图像文件"));
+            return;
+        }
+
+        if (targetImageProc.nBitCount != 24)
+        {
+            AfxMessageBox(_T("选择的目标图像不是24位色，请重新选择"));
+            return;
+        }
+    }
+    catch (CMemoryException* e)
+    {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法加载目标图像"));
+        return;
+    }
+    catch (CFileException* e)
+    {
+        e->Delete();
+        AfxMessageBox(_T("文件加载失败，请检查文件是否有效"));
+        return;
+    }
+    catch (...)
+    {
+        AfxMessageBox(_T("加载目标图像时发生未知错误"));
+        return;
+    }
+
+    // 7. 获取源图像尺寸信息
+    int width = pSourceImage->nWidth;
+    int height = pSourceImage->nHeight;
+    int rowSize = ((width * 24 + 31) / 32) * 4; // 计算源图像每行字节数
+
+    // 8. 获取目标图像尺寸信息
+    int targetWidth = targetImageProc.nWidth;
+    int targetHeight = targetImageProc.nHeight;
+    int targetRowSize = ((targetWidth * 24 + 31) / 32) * 4; // 计算目标图像每行字节数
+
+    // 9. 显示等待光标
+    CWaitCursor waitCursor;
+
+    // 10. 对每个颜色通道(R,G,B)分别进行直方图规格化
+    for (int channel = 0; channel < 3; channel++) // 0:B, 1:G, 2:R
+    {
+        // 10.1 计算源图像当前通道的直方图
+        std::vector<int> sourceHist(256, 0); // 初始化256个bin的直方图
+
+        // 遍历源图像所有像素
+        for (int y = 0; y < height; y++)
+        {
+            // 计算当前行的起始指针
+            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+
+            // 遍历当前行所有像素
+            for (int x = 0; x < width; x++)
+            {
+                // 获取当前通道的值并增加对应的直方图bin
+                BYTE pixelValue = pSource[x * 3 + channel];
+                sourceHist[pixelValue]++;
+            }
+        }
+
+        // 10.2 计算目标图像当前通道的直方图
+        std::vector<int> targetHist(256, 0); // 初始化256个bin的直方图
+
+        // 遍历目标图像所有像素
+        for (int y = 0; y < targetHeight; y++)
+        {
+            // 计算当前行的起始指针
+            BYTE* pTarget = targetImageProc.pBits + (targetHeight - 1 - y) * targetRowSize;
+
+            // 遍历当前行所有像素
+            for (int x = 0; x < targetWidth; x++)
+            {
+                // 获取当前通道的值并增加对应的直方图bin
+                BYTE pixelValue = pTarget[x * 3 + channel];
+                targetHist[pixelValue]++;
+            }
+        }
+
+        // 10.3 计算源图像当前通道的累积分布函数(CDF)
+        std::vector<double> sourceCDF(256, 0.0);
+        sourceCDF[0] = static_cast<double>(sourceHist[0]);
+
+        // 计算累积直方图
+        for (int i = 1; i < 256; i++)
+        {
+            sourceCDF[i] = sourceCDF[i - 1] + static_cast<double>(sourceHist[i]);
+        }
+
+        // 归一化CDF
+        double sourceTotalPixels = static_cast<double>(width * height);
+        for (int i = 0; i < 256; i++)
+        {
+            sourceCDF[i] /= sourceTotalPixels;
+        }
+
+        // 10.4 计算目标图像当前通道的累积分布函数(CDF)
+        std::vector<double> targetCDF(256, 0.0);
+        targetCDF[0] = static_cast<double>(targetHist[0]);
+
+        // 计算累积直方图
+        for (int i = 1; i < 256; i++)
+        {
+            targetCDF[i] = targetCDF[i - 1] + static_cast<double>(targetHist[i]);
+        }
+
+        // 归一化CDF
+        double targetTotalPixels = static_cast<double>(targetWidth * targetHeight);
+        for (int i = 0; i < 256; i++)
+        {
+            targetCDF[i] /= targetTotalPixels;
+        }
+
+        // 10.5 创建当前通道的映射表
+        std::vector<BYTE> mapping(256, 0);
+        for (int i = 0; i < 256; i++)
+        {
+            double cdfValue = sourceCDF[i];
+            int j = 255;
+
+            // 查找目标CDF中大于等于源CDF的最小值
+            while (j > 0 && targetCDF[j] > cdfValue + 1e-6) // 添加小量避免浮点误差
+            {
+                j--;
+            }
+            mapping[i] = static_cast<BYTE>(j);
+        }
+
+        // 10.6 应用映射到源图像当前通道
+        for (int y = 0; y < height; y++)
+        {
+            // 计算当前行的起始指针
+            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+
+            // 遍历当前行所有像素
+            for (int x = 0; x < width; x++)
+            {
+                // 获取当前像素的当前通道值
+                BYTE originalValue = pSource[x * 3 + channel];
+
+                // 应用映射
+                pSource[x * 3 + channel] = mapping[originalValue];
+            }
+        }
+    }
+
+    // 11. 更新视图
+    Invalidate(TRUE); // 强制重绘视图
+    pDoc->SetModifiedFlag(TRUE); // 标记文档已修改
+
+    // 12. 显示完成消息
+    AfxMessageBox(_T("直方图规格化完成，已根据选择的图像调整"), MB_OK | MB_ICONINFORMATION);
 }

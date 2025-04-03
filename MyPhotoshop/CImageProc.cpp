@@ -44,6 +44,7 @@ void CImageProc::OpenFile()
 // 加载 BMP 文件
 void CImageProc::LoadBmp(CString stFileName)
 {
+
     // TODO: 在此处添加实现代码.
     CFile file;//文件对象
     CFileException e;//文件异常对象

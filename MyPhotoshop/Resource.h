@@ -32,13 +32,14 @@
 #define ID_32790                        32790
 #define ID_HISTOGRAM_MIX                32791
 #define ID_HISTOGRAM_RGB                32792
+#define ID_FUNCTION_HISTOGRAM_MATCHING  32793
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        312
-#define _APS_NEXT_COMMAND_VALUE         32793
+#define _APS_NEXT_COMMAND_VALUE         32794
 #define _APS_NEXT_CONTROL_VALUE         1001
 #define _APS_NEXT_SYMED_VALUE           310
 #endif

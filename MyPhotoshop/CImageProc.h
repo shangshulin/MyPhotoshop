@@ -16,7 +16,7 @@ public:
 
     HANDLE m_hDib;
 
-private:
+public:
     
     BYTE* pDib;
     BITMAPFILEHEADER* pBFH;
