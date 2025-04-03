@@ -53,4 +53,5 @@ public:
 	void CalculateHistogramRGB();
 	const std::vector<int>& GetHistogramMix() const { return m_HistogramMix; }
 	const std::vector<std::vector<int>>& GetHistogramRGB() const { return m_HistogramRGB; }
+	afx_msg void OnStyleBlackwhite();
 };

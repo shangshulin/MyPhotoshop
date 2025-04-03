@@ -378,3 +378,139 @@ std::vector<std::vector<int>> CImageProc::CalculateRGBHistograms()
 
     return histograms;
 }
+
+
+// 添加黑白风格功能
+void CImageProc::ApplyBlackAndWhiteStyle()
+{
+    if (m_hDib == NULL)
+    {
+        AfxMessageBox(_T("No valid image is loaded."));
+        return;
+    }
+
+    // 创建灰度调色板
+    std::vector<RGBQUAD> grayPalette(256);
+    for (int i = 0; i < 256; ++i)
+    {
+        grayPalette[i].rgbRed = static_cast<BYTE>(i);
+        grayPalette[i].rgbGreen = static_cast<BYTE>(i);
+        grayPalette[i].rgbBlue = static_cast<BYTE>(i);
+        grayPalette[i].rgbReserved = 0;
+    }
+
+    //// 替换原有调色板（仅适用于 8 位的位图）
+    if (nBitCount == 8)
+    {
+        std::vector<RGBQUAD> grayPalette8bit(256);
+        for (int i = 0; i < 256; ++i)
+        {
+            grayPalette8bit[i].rgbRed = static_cast<BYTE>(255-i);
+            grayPalette8bit[i].rgbGreen = static_cast<BYTE>(255-i);
+            grayPalette8bit[i].rgbBlue = static_cast<BYTE>(255-i);
+            grayPalette8bit[i].rgbReserved = 0;
+        }
+        memcpy(pQUAD, grayPalette8bit.data(), sizeof(RGBQUAD) * 256);
+
+    }
+
+    // 计算每行的字节数
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+
+    // 更新位图数据以适应灰度调色板
+    for (int y = 0; y < nHeight; ++y)
+    {
+        for (int x = 0; x < nWidth; ++x)
+        {
+            int offset = (nHeight - 1 - y) * rowSize + (x * (nBitCount / 8));
+            BYTE* pixel = pBits + offset;
+
+            BYTE red = 0, green = 0, blue = 0;
+
+            switch (nBitCount)
+            {
+            case 1:
+                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                break;
+            case 4:
+                GetColor4bit(pixel, red, green, blue, x);
+                break;
+            case 8:
+                GetColor8bit(pixel, red, green, blue, x);
+                break;
+            case 16:
+                GetColor16bit(pixel, red, green, blue);
+                break;
+            case 24:
+                GetColor24bit(pixel, red, green, blue);
+                break;
+            case 32:
+                GetColor32bit(pixel, red, green, blue);
+                break;
+            default:
+                AfxMessageBox(_T("Unsupported bit count."));
+                return;
+            }
+
+            // 计算灰度值
+            BYTE grayValue = static_cast<BYTE>((red * 0.299) + (green * 0.587) + (blue * 0.114));
+
+            // 更新像素值
+            switch (nBitCount)
+            {
+            case 1:
+            {
+                BYTE bitIndex = x % 8;
+                if (grayValue < 128)
+                {
+                    *pixel &= ~(1 << (7 - bitIndex));// 设置对应位为0
+                    
+                }
+                else
+                {
+                    *pixel |= (1 << (7 - bitIndex));// 设置对应位为1
+                }
+                break;
+            }
+            case 4:
+            {
+                if (x % 2 == 0)
+                {
+                    *pixel = (*pixel & 0x0F) | ((grayValue >> 4) << 4);
+                }
+                else
+                {
+                    *pixel = (*pixel & 0xF0) | (grayValue & 0x0F);
+                }
+                break;
+            }
+            case 8:
+                break;
+            case 16:
+            {
+                if (m_bIs565Format)
+                {
+                    WORD newPixel = ((grayValue >> 3) << 11) | ((grayValue >> 2) << 5) | (grayValue >> 3);
+                    *((WORD*)pixel) = newPixel;
+                }
+                else
+                {
+                    WORD newPixel = ((grayValue >> 3) << 10) | ((grayValue >> 3) << 5) | (grayValue >> 3);
+                    *((WORD*)pixel) = newPixel;
+                }
+                break;
+            }
+            case 24:
+                pixel[0] = grayValue;
+                pixel[1] = grayValue;
+                pixel[2] = grayValue;
+                break;
+            case 32:
+                pixel[0] = grayValue;
+                pixel[1] = grayValue;
+                pixel[2] = grayValue;
+                break;
+            }
+        }
+    }
+}

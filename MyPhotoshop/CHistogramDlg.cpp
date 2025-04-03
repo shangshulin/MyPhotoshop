@@ -196,7 +196,7 @@ void CHistogramDlg::OnPaint()
         int totalPixels = std::accumulate(m_histogramDatas[0].begin(), m_histogramDatas[0].end(), 0);
 
         // 避免除以零的情况
-        if (totalPixels == 0)
+        if (totalPixels == 0)   
         {
             dc.SelectObject(pOldPen);
             CDialogEx::OnPaint();

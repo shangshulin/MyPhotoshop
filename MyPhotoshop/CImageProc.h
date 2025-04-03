@@ -14,6 +14,7 @@ public:
     void GetColor(CClientDC* pDC, int x, int y);
     std::vector<int> CalculateGrayHistogramMix();
     std::vector<std::vector<int>> CalculateRGBHistograms();
+    void ApplyBlackAndWhiteStyle();
 
     HANDLE m_hDib;
 
