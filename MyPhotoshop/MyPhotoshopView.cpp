@@ -499,6 +499,7 @@ void CMyPhotoshopView::OnUpdateColorStyleVintage(CCmdUI* pCmdUI)
 {
     // TODO: 在此添加命令更新用户界面处理程序代码
     CMyPhotoshopDoc* pDoc = GetDocument();
-    pCmdUI->Enable(pDoc && pDoc->pImage && pDoc->pImage->IsValid() &&
-        (pDoc->pImage->nBitCount == 24 || pDoc->pImage->nBitCount == 32));
+    //pCmdUI->Enable(pDoc && pDoc->pImage && pDoc->pImage->IsValid() &&
+    //    (pDoc->pImage->nBitCount == 24 || pDoc->pImage->nBitCount == 32));
+    pCmdUI->Enable(pDoc && pDoc->pImage && pDoc->pImage->IsValid());
 }

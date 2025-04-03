@@ -13,8 +13,19 @@ public:
     void ShowBMP(CDC* pDC);
     void GetColor(CClientDC* pDC, int x, int y);
     std::vector<int> CalculateGrayHistogram();
-    void ApplyVintageStyle();  // 复古风格效果
     HANDLE m_hDib;
+
+    void ApplyVintageStyle();  // 复古风格 修改后的主入口
+    void ApplyVintageToTrueColor(); // 24/32位处理
+    void ApplyVintageToPalette();   // 1/4/8位处理
+    void ApplyVintageTo16Bit();     // 16位处理
+
+    // 调色板操作
+    void CreateVintagePalette();
+    void OptimizePaletteForVintage();
+
+    // 辅助函数
+    BYTE FindNearestPaletteIndex(BYTE r, BYTE g, BYTE b);
 
 public:
     

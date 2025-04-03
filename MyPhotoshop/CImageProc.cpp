@@ -424,38 +424,206 @@ void CImageProc::CleanUp()
 // 复古风格效果
 void CImageProc::ApplyVintageStyle()
 {
-    if (!IsValid() || nBitCount < 24) return;
+    if (!IsValid()) return;
 
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    if (nBitCount <= 8) {        // 1/4/8位调色板图像
+        ApplyVintageToPalette();
+    }
+    else if (nBitCount == 16) {  // 16位高彩色
+        ApplyVintageTo16Bit();
+    }
+    else {                       // 24/32位真彩色
+        ApplyVintageToTrueColor();
+    }
+}
+//复古风格调色板图像处理(1/4/8位)
+void CImageProc::ApplyVintageToPalette()
+{
+    if (!pQUAD) return;
+
+    // 创建复古风格调色板
+    CreateVintagePalette();
+
+    // 对于1位图像需要特殊处理
+    if (nBitCount == 1) {
+        // 转换为灰度复古效果
+        for (int i = 0; i < 2; i++) {
+            BYTE gray = static_cast<BYTE>(0.299 * pQUAD[i].rgbRed +
+                0.587 * pQUAD[i].rgbGreen +
+                0.114 * pQUAD[i].rgbBlue);
+            pQUAD[i] = {
+                static_cast<BYTE>(gray * 0.7),  // 偏黄的灰度
+                static_cast<BYTE>(gray * 0.6),
+                static_cast<BYTE>(gray * 0.4),
+                0
+            };
+        }
+    }
+}
+
+//16位图像处理
+void CImageProc::ApplyVintageTo16Bit()
+{
+    if (!IsValid() || nBitCount != 16) return;
+
+    int rowSize = ((nWidth * 16 + 31) / 32) * 4;
 
     for (int y = 0; y < nHeight; y++) {
         BYTE* pPixel = pBits + (nHeight - 1 - y) * rowSize;
 
         for (int x = 0; x < nWidth; x++) {
-            // 获取原始颜色值
-            BYTE& blue = pPixel[x * 3];
-            BYTE& green = pPixel[x * 3 + 1];
-            BYTE& red = pPixel[x * 3 + 2];
+            WORD* pixel = reinterpret_cast<WORD*>(&pPixel[x * 2]);
+            WORD oldPixel = *pixel;
 
-            // 复古风格算法 - 增强红色和黄色调，降低蓝色
-            int newRed = min(255, static_cast<int>(red * 1.1));
-            int newGreen = min(255, static_cast<int>(green * 0.9));
-            int newBlue = min(255, static_cast<int>(blue * 0.8));
+            // 转换为8位RGB分量（扩展精度）
+            BYTE r, g, b;
+            if (m_bIs565Format) {
+                // 565格式转换：5-6-5 → 8-8-8
+                r = (oldPixel & 0xF800) >> 11 ;  // 5位红色
+                g = (oldPixel & 0x07E0) >> 5;  // 6位绿色
+                b = oldPixel         & 0x001F;  // 5位蓝色
+                
+                // 扩展到8位（保持比例）
+                r = (r << 3) | (r >> 2);  // 5→8位：复制高位到低位
+                g = (g << 2) | (g >> 4);  // 6→8位：复制高位到低位
+                b = (b << 3) | (b >> 2);
+            } else {
+                // 555格式转换：5-5-5 → 8-8-8
+                r = (oldPixel & 0x7C00) >> 10;
+                g = (oldPixel & 0x03E0) >> 5;
+                b = oldPixel & 0x001F;
+                
+                // 扩展到8位
+                r = (r << 3) | (r >> 2);
+                g = (g << 3) | (g >> 2);
+                b = (b << 3) | (b >> 2);
+            }
 
-            // 添加褐色调
-            newRed = min(255, newRed + 20);
-            newGreen = min(255, newGreen + 10);
+            // 应用复古效果（使用8位精度计算）
+            int newR = min(255, static_cast<int>(r * 1.15 + 15));
+            int newG = min(255, static_cast<int>(g * 0.85 + 5));
+            int newB = min(255, static_cast<int>(b * 0.7));
 
-            // 添加轻微噪点效果
-            int noise = rand() % 10 - 5; // -5到5的随机数
+            // 添加噪点（±3范围，比24位图像小）
+            int noise = (rand() % 7) - 3; // -3到3的随机数
+            newR = max(0, min(255, newR + noise));
+            newG = max(0, min(255, newG + noise));
+            newB = max(0, min(255, newB + noise));
+
+            // 转换回16位格式
+            if (m_bIs565Format) {
+                // 8→5位红色：取高5位 | 8→6位绿色：取高6位 | 8→5位蓝色
+                *pixel = ((newR >> 3) << 11) | 
+                         ((newG >> 2) << 5)  | 
+                         (newB >> 3);
+            } else {
+                // 555格式：全部取高5位
+                *pixel = ((newR >> 3) << 10) | 
+                         ((newG >> 3) << 5)  | 
+                         (newB >> 3);
+            }
+        }
+    }
+}
+
+//复古风格真彩色处理(24/32位)
+void CImageProc::ApplyVintageToTrueColor()
+{
+    if (!IsValid() || (nBitCount != 24 && nBitCount != 32)) return;
+
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    int bytesPerPixel = nBitCount / 8; // 3 for 24-bit, 4 for 32-bit
+
+    for (int y = 0; y < nHeight; y++) {
+        BYTE* pPixel = pBits + (nHeight - 1 - y) * rowSize;
+
+        for (int x = 0; x < nWidth; x++) {
+            // 获取像素位置（考虑32位可能有Alpha通道）
+            BYTE* pixel = &pPixel[x * bytesPerPixel];
+
+            // 读取颜色分量（BGR顺序）
+            BYTE& blue = pixel[0];
+            BYTE& green = pixel[1];
+            BYTE& red = pixel[2];
+
+            // 复古风格核心算法 -----------------------------------
+
+            // 1. 基础色调调整（增强红/黄，减弱蓝）
+            int newRed = min(255, static_cast<int>(red * 1.15));
+            int newGreen = min(255, static_cast<int>(green * 0.85));
+            int newBlue = min(255, static_cast<int>(blue * 0.7));
+
+            // 2. 添加褐色色调偏移
+            newRed = min(255, newRed + 25);
+            newGreen = min(255, newGreen + 15);
+
+            // 3. 添加老照片噪点（模拟胶片颗粒）
+            int noise = (rand() % 11) - 5; // -5到5的随机数
             newRed = max(0, min(255, newRed + noise));
             newGreen = max(0, min(255, newGreen + noise));
             newBlue = max(0, min(255, newBlue + noise));
 
-            // 设置新颜色值
+            // 4. 添加轻微褪色效果
+            newRed = static_cast<int>(newRed * 0.95 + 10);
+            newGreen = static_cast<int>(newGreen * 0.95 + 5);
+            newBlue = static_cast<int>(newBlue * 0.95);
+
+            // 写入处理后的颜色 -----------------------------------
             red = static_cast<BYTE>(newRed);
             green = static_cast<BYTE>(newGreen);
             blue = static_cast<BYTE>(newBlue);
+
+            // 保持Alpha通道不变（如果是32位）
+            // pixel[3] 保持不变
         }
     }
+}
+
+//调色板创建函数
+void CImageProc::CreateVintagePalette()
+{
+    if (nBitCount > 8) return;
+
+    int paletteSize = 1 << nBitCount;
+    RGBQUAD* newPalette = new RGBQUAD[paletteSize];
+
+    // 创建复古风格调色板
+    for (int i = 0; i < paletteSize; i++) {
+        BYTE r = pQUAD[i].rgbRed;
+        BYTE g = pQUAD[i].rgbGreen;
+        BYTE b = pQUAD[i].rgbBlue;
+
+        // 复古效果算法
+        newPalette[i].rgbRed = min(255, static_cast<int>(r * 1.1 + 15));
+        newPalette[i].rgbGreen = min(255, static_cast<int>(g * 0.9 + 10));
+        newPalette[i].rgbBlue = min(255, static_cast<int>(b * 0.8));
+        newPalette[i].rgbReserved = 0;
+    }
+
+    // 应用新调色板
+    memcpy(pQUAD, newPalette, paletteSize * sizeof(RGBQUAD));
+    delete[] newPalette;
+}
+
+//调色板索引查找
+BYTE CImageProc::FindNearestPaletteIndex(BYTE r, BYTE g, BYTE b)
+{
+    if (nBitCount > 8) return 0;
+
+    BYTE bestIndex = 0;
+    int minDistance = INT_MAX;
+    int paletteSize = 1 << nBitCount;
+
+    for (int i = 0; i < paletteSize; i++) {
+        int dist =
+            (r - pQUAD[i].rgbRed) * (r - pQUAD[i].rgbRed) +
+            (g - pQUAD[i].rgbGreen) * (g - pQUAD[i].rgbGreen) +
+            (b - pQUAD[i].rgbBlue) * (b - pQUAD[i].rgbBlue);
+
+        if (dist < minDistance) {
+            minDistance = dist;
+            bestIndex = static_cast<BYTE>(i);
+        }
+    }
+    return bestIndex;
 }
