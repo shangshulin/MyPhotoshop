@@ -12,7 +12,8 @@ public:
     void LoadBmp(CString stFileName);
     void ShowBMP(CDC* pDC);
     void GetColor(CClientDC* pDC, int x, int y);
-    std::vector<int> CalculateGrayHistogram();
+    std::vector<int> CalculateGrayHistogramMix();
+    std::vector<std::vector<int>> CalculateRGBHistograms();
 
     HANDLE m_hDib;
 

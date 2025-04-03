@@ -15,7 +15,8 @@ protected: // 仅从序列化创建
 // 特性
 public:
 	CImageProc* pImage;
-	std::vector<int> m_Histogram;
+	std::vector<int> m_HistogramMix;
+	std::vector<std::vector<int>> m_HistogramRGB;
 // 操作
 public:
 
@@ -48,6 +49,8 @@ protected:
 #endif // SHARED_HANDLERS
 public:
 	afx_msg void OnFileOpen();
-	void CalculateHistogram();
-	const std::vector<int>& GetHistogram() const { return m_Histogram; }
+	void CalculateHistogramMix();
+	void CalculateHistogramRGB();
+	const std::vector<int>& GetHistogramMix() const { return m_HistogramMix; }
+	const std::vector<std::vector<int>>& GetHistogramRGB() const { return m_HistogramRGB; }
 };

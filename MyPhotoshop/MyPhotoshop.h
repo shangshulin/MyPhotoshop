@@ -27,7 +27,8 @@ public:
 
 // 实现
 	afx_msg void OnAppAbout();
-	afx_msg void OnToolsHistogram();
+	afx_msg void OnHistogramMix();
+	afx_msg void OnHistogramRGB();
 	DECLARE_MESSAGE_MAP()
 };
 

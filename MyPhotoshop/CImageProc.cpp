@@ -264,8 +264,8 @@ void CImageProc::GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
     blue = pixel[0];
 }
 
-// 计算灰度直方图
-std::vector<int> CImageProc::CalculateGrayHistogram()
+// 计算混合模式灰度直方图
+std::vector<int> CImageProc::CalculateGrayHistogramMix()
 {
     std::vector<int> histogram(256, 0);
 
@@ -319,4 +319,62 @@ std::vector<int> CImageProc::CalculateGrayHistogram()
     }
 
     return histogram;
+}
+
+//计算RGB模式直方图
+std::vector<std::vector<int>> CImageProc::CalculateRGBHistograms()
+{
+    std::vector<std::vector<int>> histograms(3, std::vector<int>(256, 0));
+
+    if (m_hDib == NULL)
+    {
+        return histograms;
+    }
+
+    // 每行字节数 = (每行的bit数 + 31) / 32 * 4
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+
+    float bytePerPixel = float(nBitCount) / 8;
+
+    for (int y = 0; y < nHeight; ++y)
+    {
+        for (int x = 0; x < nWidth; ++x)
+        {
+            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+            BYTE* pixel = pBits + offset;
+
+            BYTE red = 0, green = 0, blue = 0;
+
+            switch (nBitCount)
+            {
+            case 1:
+                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                break;
+            case 4:
+                GetColor4bit(pixel, red, green, blue, x);
+                break;
+            case 8:
+                GetColor8bit(pixel, red, green, blue, x);
+                break;
+            case 16:
+                GetColor16bit(pixel, red, green, blue);
+                break;
+            case 24:
+                GetColor24bit(pixel, red, green, blue);
+                break;
+            case 32:
+                GetColor32bit(pixel, red, green, blue);
+                break;
+            default:
+                continue;
+            }
+
+            // 更新各个颜色通道的直方图
+            histograms[0][red]++;
+            histograms[1][green]++;
+            histograms[2][blue]++;
+        }
+    }
+
+    return histograms;
 }
