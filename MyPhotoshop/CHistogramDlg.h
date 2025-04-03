@@ -32,10 +32,16 @@ protected:
 
 private:
     std::vector<int> m_histogramData;
+    std::vector<std::vector<int>> m_histogramDatas;
     CStatic m_StaticHistogram; // 添加 Picture Control 控件
 
+
 public:
-    void SetHistogramData(const std::vector<int>& histogramData);
+    int m_histogramType;
+
+    void SetHistogramDataMix(const std::vector<int>& histogramData);
+    void SetHistogramDataRGB(const std::vector<std::vector<int>>& histogramData);
+
 };
 
 
