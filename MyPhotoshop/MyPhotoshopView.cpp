@@ -12,7 +12,7 @@
 #include "CImageProc.h"
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
-
+#include <algorithm>
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -31,6 +31,8 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 菜单项点击
 	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新菜单项状态
 	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching)
+    ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)
+    ON_UPDATE_COMMAND_UI(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnUpdateColorStyleVintage)
 END_MESSAGE_MAP()
 
 
@@ -461,4 +463,42 @@ void CMyPhotoshopView::HistogramMatching()
     Invalidate(TRUE);
     pDoc->SetModifiedFlag(TRUE);
     AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
+}
+
+// 复古风格效果
+//复古风格算法实现了以下效果：
+//增强红色调(×1.1)
+//轻微降低绿色调(×0.9)
+//明显降低蓝色调(×0.8)
+//添加褐色调(红色 + 20，绿色 + 10)
+//添加轻微随机噪点模拟老照片质感
+//注意事项
+//此功能只支持24位和32位色图像
+//应用效果前会检查图像是否有效
+//菜单项在没有有效图像时会自动禁用
+//修改后的图像会被标记为已修改(SetModifiedFlag)
+void CMyPhotoshopView::OnColorStyleVintage()
+{
+    // TODO: 在此添加命令处理程序代码
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    // 应用复古风格
+    pDoc->pImage->ApplyVintageStyle();
+
+    // 更新视图
+    Invalidate(TRUE);
+    pDoc->SetModifiedFlag(TRUE);
+}
+
+
+void CMyPhotoshopView::OnUpdateColorStyleVintage(CCmdUI* pCmdUI)
+{
+    // TODO: 在此添加命令更新用户界面处理程序代码
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    pCmdUI->Enable(pDoc && pDoc->pImage && pDoc->pImage->IsValid() &&
+        (pDoc->pImage->nBitCount == 24 || pDoc->pImage->nBitCount == 32));
 }

@@ -13,7 +13,7 @@ public:
     void ShowBMP(CDC* pDC);
     void GetColor(CClientDC* pDC, int x, int y);
     std::vector<int> CalculateGrayHistogram();
-
+    void ApplyVintageStyle();  // 复古风格效果
     HANDLE m_hDib;
 
 public:

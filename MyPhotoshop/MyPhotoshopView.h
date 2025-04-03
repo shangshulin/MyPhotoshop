@@ -51,6 +51,9 @@ public:
 	afx_msg void OnFunctionHistogramMatching();
 private:
 	void HistogramMatching();
+public:
+	afx_msg void OnColorStyleVintage();
+	afx_msg void OnUpdateColorStyleVintage(CCmdUI* pCmdUI);
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本

@@ -420,3 +420,42 @@ void CImageProc::CleanUp()
     }
     InitializeMembers();
 }
+
+// 复古风格效果
+void CImageProc::ApplyVintageStyle()
+{
+    if (!IsValid() || nBitCount < 24) return;
+
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+
+    for (int y = 0; y < nHeight; y++) {
+        BYTE* pPixel = pBits + (nHeight - 1 - y) * rowSize;
+
+        for (int x = 0; x < nWidth; x++) {
+            // 获取原始颜色值
+            BYTE& blue = pPixel[x * 3];
+            BYTE& green = pPixel[x * 3 + 1];
+            BYTE& red = pPixel[x * 3 + 2];
+
+            // 复古风格算法 - 增强红色和黄色调，降低蓝色
+            int newRed = min(255, static_cast<int>(red * 1.1));
+            int newGreen = min(255, static_cast<int>(green * 0.9));
+            int newBlue = min(255, static_cast<int>(blue * 0.8));
+
+            // 添加褐色调
+            newRed = min(255, newRed + 20);
+            newGreen = min(255, newGreen + 10);
+
+            // 添加轻微噪点效果
+            int noise = rand() % 10 - 5; // -5到5的随机数
+            newRed = max(0, min(255, newRed + noise));
+            newGreen = max(0, min(255, newGreen + noise));
+            newBlue = max(0, min(255, newBlue + noise));
+
+            // 设置新颜色值
+            red = static_cast<BYTE>(newRed);
+            green = static_cast<BYTE>(newGreen);
+            blue = static_cast<BYTE>(newBlue);
+        }
+    }
+}
