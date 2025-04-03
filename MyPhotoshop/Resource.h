@@ -13,8 +13,12 @@
 #define IDC_STATIC_HISTOGRAM2           1001
 #define IDC_EDIT_ALPHA                  1001
 #define IDC_EDIT_BETA                   1002
+<<<<<<< Updated upstream
 #define IDC_BUTTON_APPLY                 1003
 #define IDC_BUTTON_CANCEL                1004
+=======
+#define ID_BUTTON_APPLY                 1003
+>>>>>>> Stashed changes
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -47,7 +51,11 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        314
 #define _APS_NEXT_COMMAND_VALUE         32796
+<<<<<<< Updated upstream
 #define _APS_NEXT_CONTROL_VALUE         1005
+=======
+#define _APS_NEXT_CONTROL_VALUE         1004
+>>>>>>> Stashed changes
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

@@ -260,6 +260,15 @@ void CMyPhotoshopApp::OnIntensityTrans()
 	// 创建并显示灰度线性变换对话框
 	CINTENSITYDlg dlgIntensity;
 
+<<<<<<< Updated upstream
+=======
+// 在文件末尾添加以下函数实现
+void CMyPhotoshopApp::OnIntensityTrans()
+{
+	// 创建并显示灰度线性变换对话框
+	CINTENSITYDlg dlgIntensity;
+
+>>>>>>> Stashed changes
 	// 获取活动文档
 	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition();
 	if (pos != NULL)
@@ -294,4 +303,8 @@ void CMyPhotoshopApp::OnIntensityTrans()
 			}
 		}
 	}
+<<<<<<< Updated upstream
 }
+=======
+}
+>>>>>>> Stashed changes

@@ -30,7 +30,10 @@ public:
 	CEdit m_editAlpha;
 	CEdit m_editBeta;
 	afx_msg void OnBnClickedButtonApply(); // 应用按钮点击事件
+<<<<<<< Updated upstream
 	afx_msg void OnBnClickedButtonCancel(); // 取消按钮点击事件
+=======
+>>>>>>> Stashed changes
 	virtual BOOL OnInitDialog();
 	afx_msg void OnCIntensityDlg();
 };
