@@ -176,6 +176,10 @@ void CHistogramDlg::OnPaint()
         // 清除背景
         dc.FillSolidRect(plotRect, RGB(255, 255, 255)); // 白色背景
 
+        // 留白空间
+        int margin = 6;
+        plotRect.DeflateRect(0, 0, margin, 0);
+
         // 绘制坐标轴
         CPen penBlack(PS_SOLID, 1, RGB(0, 0, 0));
         CPen* pOldPen = dc.SelectObject(&penBlack);
@@ -214,7 +218,8 @@ void CHistogramDlg::OnPaint()
         int maxRed = *std::max_element(m_histogramDatas[0].begin(), m_histogramDatas[0].end());
         int maxGreen = *std::max_element(m_histogramDatas[1].begin(), m_histogramDatas[1].end());
         int maxBlue = *std::max_element(m_histogramDatas[2].begin(), m_histogramDatas[2].end());
-        int maxElement = max( maxRed, max( maxGreen, maxBlue) );
+        int maxElement = max(maxRed, max(maxGreen, maxBlue));
+
         // 计算归一化直方图的最大值
         double maxYValue = static_cast<double>(maxElement) / totalPixels;
 
@@ -237,6 +242,9 @@ void CHistogramDlg::OnPaint()
         }
 
         // 绘制归一化的直方图
+        int offset = 6; // 每个颜色通道的偏移量
+        int halfOffset = offset / 2;
+
         for (int i = 0; i < 256; ++i)
         {
             // 归一化数据值到 [0, 1] 范围
@@ -252,23 +260,23 @@ void CHistogramDlg::OnPaint()
             // 定义条形图的矩形区域
             CRect redBarRect(
                 plotRect.left + i * (plotRect.Width()) / 256,          // 左边
-                plotRect.bottom - redBarHeight,                         // 上边
-                plotRect.left + (i + 1) * (plotRect.Width()) / 256,   // 右边
-                plotRect.bottom                                        // 下边
+                plotRect.bottom - redBarHeight,                                     // 上边
+                plotRect.left + (i + 1) * (plotRect.Width()) / 256 ,     // 右边
+                plotRect.bottom                                                   // 下边
             );
 
             CRect greenBarRect(
-                plotRect.left + i * (plotRect.Width()) / 256,          // 左边
-                plotRect.bottom - greenBarHeight,                       // 上边
-                plotRect.left + (i + 1) * (plotRect.Width()) / 256,   // 右边
-                redBarRect.top                                          // 下边
+                plotRect.left + i * (plotRect.Width()) / 256 + halfOffset,                       // 左边
+                plotRect.bottom - greenBarHeight,                                   // 上边
+                plotRect.left + (i + 1) * (plotRect.Width()) / 256 + halfOffset,                 // 右边
+                plotRect.bottom                                                    // 下边
             );
 
             CRect blueBarRect(
-                plotRect.left + i * (plotRect.Width()) / 256,          // 左边
-                plotRect.bottom - blueBarHeight,                        // 上边
-                plotRect.left + (i + 1) * (plotRect.Width()) / 256,   // 右边
-                greenBarRect.top                                       // 下边
+                plotRect.left + i * (plotRect.Width()) / 256 + 2 * halfOffset,           // 左边
+                plotRect.bottom - blueBarHeight,                                    // 上边
+                plotRect.left + (i + 1) * (plotRect.Width()) / 256 + 2 * halfOffset,      // 右边
+                plotRect.bottom                                                   // 下边
             );
 
             // 绘制条形图（红色填充）
