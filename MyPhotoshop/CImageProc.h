@@ -14,6 +14,7 @@ public:
     void GetColor(CClientDC* pDC, int x, int y);
     std::vector<int> CalculateGrayHistogramMix();
     std::vector<std::vector<int>> CalculateRGBHistograms();
+    void Balance_Transformations(CClientDC& dc); // 添加直方图均衡化函数声明
 
     HANDLE m_hDib;
 
