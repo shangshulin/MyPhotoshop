@@ -29,6 +29,7 @@ public:
 	afx_msg void OnAppAbout();
 	afx_msg void OnHistogramMix();
 	afx_msg void OnHistogramRGB();
+	afx_msg void OnHistogramEqualization();
 	DECLARE_MESSAGE_MAP()
 };
 
