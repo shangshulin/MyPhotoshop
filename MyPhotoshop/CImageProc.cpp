@@ -3,6 +3,7 @@
 #include <afxdlgs.h>
 #include <vector>
 
+
 CImageProc::CImageProc()
 {
     m_hDib = NULL;
@@ -379,39 +380,78 @@ std::vector<std::vector<int>> CImageProc::CalculateRGBHistograms()
     return histograms;
 }
 
-
 void CImageProc::Balance_Transformations(CClientDC& dc) {
-    float p[256]; float S[256]; int F[256];
-    std::vector<int> indensity_paint = CalculateGrayHistogramMix(); // 计算灰度直方图
+    float p[256] = { 0 };
+    float S[256] = { 0 };
+    int F[256] = { 0 };
+    std::vector<int> intensity_paint = CalculateGrayHistogramMix();
     int w = nWidth;
     int h = nHeight;
-    int realPitch = (w * 3 + 3) / 4 * 4 - w * 3; // 计算每行字节数的填充
 
+    // 概率分布计算
+    float pixel_count = static_cast<float>(w * h);
     for (int i = 0; i < 256; i++) {
-        float tempu = static_cast<float>(indensity_paint[i]);
-        float tempd = static_cast<float>(w * h);
-        p[i] = tempu / tempd;
+        p[i] = intensity_paint[i] / pixel_count;
     }
 
-    S[0] = 255 * p[0];
+    // 累积分布计算
+    S[0] = 255.0f * p[0];
     for (int n = 1; n < 256; n++) {
-        S[n] = 255 * p[n] + S[n - 1];
+        S[n] = 255.0f * p[n] + S[n - 1];
     }
 
+    // 映射函数计算（带四舍五入和钳位）
     for (int j = 0; j < 256; j++) {
-        F[j] = static_cast<int>(S[j] + 0.5);
+        // 手动四舍五入
+        F[j] = static_cast<int>(S[j] + 0.5f);
+        // 手动钳位到0-255
+        if (F[j] < 0) F[j] = 0;
+        else if (F[j] > 255) F[j] = 255;
     }
 
+    // 像素处理循环
     for (int i = 0; i < nHeight; i++) {
         for (int j = 0; j < nWidth; j++) {
-            int offset = (nHeight - 1 - i) * ((nWidth * 3 + 3) / 4 * 4) + j * 3;
+            int offset = (nHeight - 1 - i) * ((w * 3 + 3) / 4 * 4) + j * 3;
             int r = pBits[offset + 2];
             int g = pBits[offset + 1];
             int b = pBits[offset];
-            int Y = static_cast<int>(0.3 * r + 0.59 * g + 0.11 * b);
+
+            // 亮度计算（四舍五入）
+            int Y = static_cast<int>(0.3f * r + 0.59f * g + 0.11f * b + 0.5f);
+            // 亮度钳位
             if (Y > 255) Y = 255;
-            if (Y == 0) Y = 1;
-            dc.SetPixelV(j, i, RGB(r * F[Y] / Y, g * F[Y] / Y, b * F[Y] / Y));
+            else if (Y < 0) Y = 0;
+
+            // 处理全黑像素
+            if (Y == 0) {
+                dc.SetPixelV(j, i, RGB(0, 0, 0));
+                continue;
+            }
+
+            // 计算新颜色值（浮点运算避免整数截断）
+            int new_r, new_g, new_b;
+            float scale = F[Y] / static_cast<float>(Y);
+
+            // 红色通道
+            float fr = r * scale;
+            new_r = static_cast<int>(fr + 0.5f);
+            if (new_r > 255) new_r = 255;
+            else if (new_r < 0) new_r = 0;
+
+            // 绿色通道
+            float fg = g * scale;
+            new_g = static_cast<int>(fg + 0.5f);
+            if (new_g > 255) new_g = 255;
+            else if (new_g < 0) new_g = 0;
+
+            // 蓝色通道
+            float fb = b * scale;
+            new_b = static_cast<int>(fb + 0.5f);
+            if (new_b > 255) new_b = 255;
+            else if (new_b < 0) new_b = 0;
+
+            dc.SetPixelV(j, i, RGB(new_r, new_g, new_b));
         }
     }
 }
