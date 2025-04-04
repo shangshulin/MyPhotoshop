@@ -28,6 +28,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopApp, CWinApp)
 	ON_COMMAND(ID_FILE_PRINT_SETUP, &CWinApp::OnFilePrintSetup) // 设置打印
 	ON_COMMAND(ID_HISTOGRAM_MIX, &CMyPhotoshopApp::OnHistogramMix) // 直方图混合模式
 	ON_COMMAND(ID_HISTOGRAM_RGB, &CMyPhotoshopApp::OnHistogramRGB) // 直方图RGB模式
+	ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopApp::OnHistogramEqualization)
 
 
 END_MESSAGE_MAP()
@@ -254,4 +255,50 @@ void CMyPhotoshopApp::OnHistogramRGB()
 	}
 }
 
+void CMyPhotoshopApp::OnHistogramEqualization()
+{
+	// 获取活动文档
+	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition();
+	if (pos != NULL)
+	{
+		CDocTemplate* pTemplate = AfxGetApp()->GetNextDocTemplate(pos);
+		POSITION docPos = pTemplate->GetFirstDocPosition();
+		if (docPos != NULL)
+		{
+			CDocument* pDoc = pTemplate->GetNextDoc(docPos);
+			if (pDoc)
+			{
+				CMyPhotoshopDoc* pMyDoc = dynamic_cast<CMyPhotoshopDoc*>(pDoc);
+				if (pMyDoc && pMyDoc->pImage != nullptr)
+				{
+					// 获取视图
+					POSITION viewPos = pMyDoc->GetFirstViewPosition(); // 定义一个变量来存储视图位置
+					if (viewPos != NULL)
+					{
+						CView* pView = pMyDoc->GetNextView(viewPos);
+						if (pView)
+						{
+							CClientDC dc(pView);
+							pMyDoc->pImage->Balance_Transformations(dc); // 执行直方图均衡化
 
+							// 重新计算并显示均衡化后的直方图
+							pMyDoc->CalculateHistogramMix();
+							CHistogramDlg dlgHistogram;
+							dlgHistogram.m_histogramType = 0;
+							dlgHistogram.SetHistogramDataMix(pMyDoc->GetHistogramMix());
+							dlgHistogram.DoModal();
+						}
+					}
+				}
+				else
+				{
+					AfxMessageBox(_T("No image loaded."));
+				}
+			}
+			else
+			{
+				AfxMessageBox(_T("No document opened."));
+			}
+		}
+	}
+}
