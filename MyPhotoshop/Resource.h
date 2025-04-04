@@ -34,6 +34,7 @@
 #define ID_HISTOGRAM_RGB                32792
 #define ID_32793                        32793
 #define ID_32794                        32794
+#define ID_HISTOGRAM_EQUALIZATION       32795 
 
 // Next default values for new objects
 // 
