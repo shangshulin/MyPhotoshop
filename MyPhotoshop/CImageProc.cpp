@@ -378,3 +378,40 @@ std::vector<std::vector<int>> CImageProc::CalculateRGBHistograms()
 
     return histograms;
 }
+
+
+void CImageProc::Balance_Transformations(CClientDC& dc) {
+    float p[256]; float S[256]; int F[256];
+    std::vector<int> indensity_paint = CalculateGrayHistogramMix(); // 计算灰度直方图
+    int w = nWidth;
+    int h = nHeight;
+    int realPitch = (w * 3 + 3) / 4 * 4 - w * 3; // 计算每行字节数的填充
+
+    for (int i = 0; i < 256; i++) {
+        float tempu = static_cast<float>(indensity_paint[i]);
+        float tempd = static_cast<float>(w * h);
+        p[i] = tempu / tempd;
+    }
+
+    S[0] = 255 * p[0];
+    for (int n = 1; n < 256; n++) {
+        S[n] = 255 * p[n] + S[n - 1];
+    }
+
+    for (int j = 0; j < 256; j++) {
+        F[j] = static_cast<int>(S[j] + 0.5);
+    }
+
+    for (int i = 0; i < nHeight; i++) {
+        for (int j = 0; j < nWidth; j++) {
+            int offset = (nHeight - 1 - i) * ((nWidth * 3 + 3) / 4 * 4) + j * 3;
+            int r = pBits[offset + 2];
+            int g = pBits[offset + 1];
+            int b = pBits[offset];
+            int Y = static_cast<int>(0.3 * r + 0.59 * g + 0.11 * b);
+            if (Y > 255) Y = 255;
+            if (Y == 0) Y = 1;
+            dc.SetPixelV(j, i, RGB(r * F[Y] / Y, g * F[Y] / Y, b * F[Y] / Y));
+        }
+    }
+}
