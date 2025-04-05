@@ -380,7 +380,9 @@ std::vector<std::vector<int>> CImageProc::CalculateRGBHistograms()
     return histograms;
 }
 
-void CImageProc::Balance_Transformations(CClientDC& dc) {
+std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
+{
+    std::vector<std::vector<int>> balancedRgbHistograms(3, std::vector<int>(256, 0)); // 区别于原函数的变量名
     float p[256] = { 0 };
     float S[256] = { 0 };
     int F[256] = { 0 };
@@ -388,23 +390,19 @@ void CImageProc::Balance_Transformations(CClientDC& dc) {
     int w = nWidth;
     int h = nHeight;
 
-    // 概率分布计算
     float pixel_count = static_cast<float>(w * h);
     for (int i = 0; i < 256; i++) {
         p[i] = intensity_paint[i] / pixel_count;
     }
 
-    // 累积分布计算
     S[0] = 255.0f * p[0];
     for (int n = 1; n < 256; n++) {
         S[n] = 255.0f * p[n] + S[n - 1];
     }
 
-    // 映射函数计算（带四舍五入和钳位）
     for (int j = 0; j < 256; j++) {
         F[j] = static_cast<int>(S[j] + 0.5f);
-        if (F[j] < 0) F[j] = 0;
-        else if (F[j] > 255) F[j] = 255;
+        F[j] = max(0, min(255, F[j]));
     }
 
     int rowSize = ((w * nBitCount + 31) / 32) * 4;
@@ -440,16 +438,17 @@ void CImageProc::Balance_Transformations(CClientDC& dc) {
                 continue;
             }
 
-            // 计算亮度Y
             int Y = static_cast<int>(0.3f * red + 0.59f * green + 0.11f * blue + 0.5f);
             Y = max(0, min(255, Y));
 
             if (Y == 0) {
                 dc.SetPixelV(x, y, RGB(0, 0, 0));
+                balancedRgbHistograms[0][0]++;  // 记录均衡化后的值
+                balancedRgbHistograms[1][0]++;
+                balancedRgbHistograms[2][0]++;
                 continue;
             }
 
-            // 计算新颜色值
             float scale = F[Y] / static_cast<float>(Y);
             int new_r = static_cast<int>(red * scale + 0.5f);
             int new_g = static_cast<int>(green * scale + 0.5f);
@@ -459,7 +458,14 @@ void CImageProc::Balance_Transformations(CClientDC& dc) {
             new_g = max(0, min(255, new_g));
             new_b = max(0, min(255, new_b));
 
+            // 收集均衡化后的直方图数据
+            balancedRgbHistograms[0][new_r]++;
+            balancedRgbHistograms[1][new_g]++;
+            balancedRgbHistograms[2][new_b]++;
+
             dc.SetPixelV(x, y, RGB(new_r, new_g, new_b));
         }
     }
+
+    return balancedRgbHistograms; // 返回均衡化后的直方图
 }
