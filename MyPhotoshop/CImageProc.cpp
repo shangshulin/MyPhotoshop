@@ -402,56 +402,64 @@ void CImageProc::Balance_Transformations(CClientDC& dc) {
 
     // 映射函数计算（带四舍五入和钳位）
     for (int j = 0; j < 256; j++) {
-        // 手动四舍五入
         F[j] = static_cast<int>(S[j] + 0.5f);
-        // 手动钳位到0-255
         if (F[j] < 0) F[j] = 0;
         else if (F[j] > 255) F[j] = 255;
     }
 
-    // 像素处理循环
-    for (int i = 0; i < nHeight; i++) {
-        for (int j = 0; j < nWidth; j++) {
-            int offset = (nHeight - 1 - i) * ((w * 3 + 3) / 4 * 4) + j * 3;
-            int r = pBits[offset + 2];
-            int g = pBits[offset + 1];
-            int b = pBits[offset];
+    int rowSize = ((w * nBitCount + 31) / 32) * 4;
+    float bytePerPixel = nBitCount / 8.0f;
 
-            // 亮度计算（四舍五入）
-            int Y = static_cast<int>(0.3f * r + 0.59f * g + 0.11f * b + 0.5f);
-            // 亮度钳位
-            if (Y > 255) Y = 255;
-            else if (Y < 0) Y = 0;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int offset = (h - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);
+            BYTE* pixel = pBits + offset;
 
-            // 处理全黑像素
-            if (Y == 0) {
-                dc.SetPixelV(j, i, RGB(0, 0, 0));
+            BYTE red, green, blue;
+
+            switch (nBitCount) {
+            case 1:
+                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                break;
+            case 4:
+                GetColor4bit(pixel, red, green, blue, x);
+                break;
+            case 8:
+                GetColor8bit(pixel, red, green, blue, x);
+                break;
+            case 16:
+                GetColor16bit(pixel, red, green, blue);
+                break;
+            case 24:
+                GetColor24bit(pixel, red, green, blue);
+                break;
+            case 32:
+                GetColor32bit(pixel, red, green, blue);
+                break;
+            default:
                 continue;
             }
 
-            // 计算新颜色值（浮点运算避免整数截断）
-            int new_r, new_g, new_b;
+            // 计算亮度Y
+            int Y = static_cast<int>(0.3f * red + 0.59f * green + 0.11f * blue + 0.5f);
+            Y = max(0, min(255, Y));
+
+            if (Y == 0) {
+                dc.SetPixelV(x, y, RGB(0, 0, 0));
+                continue;
+            }
+
+            // 计算新颜色值
             float scale = F[Y] / static_cast<float>(Y);
+            int new_r = static_cast<int>(red * scale + 0.5f);
+            int new_g = static_cast<int>(green * scale + 0.5f);
+            int new_b = static_cast<int>(blue * scale + 0.5f);
 
-            // 红色通道
-            float fr = r * scale;
-            new_r = static_cast<int>(fr + 0.5f);
-            if (new_r > 255) new_r = 255;
-            else if (new_r < 0) new_r = 0;
+            new_r = max(0, min(255, new_r));
+            new_g = max(0, min(255, new_g));
+            new_b = max(0, min(255, new_b));
 
-            // 绿色通道
-            float fg = g * scale;
-            new_g = static_cast<int>(fg + 0.5f);
-            if (new_g > 255) new_g = 255;
-            else if (new_g < 0) new_g = 0;
-
-            // 蓝色通道
-            float fb = b * scale;
-            new_b = static_cast<int>(fb + 0.5f);
-            if (new_b > 255) new_b = 255;
-            else if (new_b < 0) new_b = 0;
-
-            dc.SetPixelV(j, i, RGB(new_r, new_g, new_b));
+            dc.SetPixelV(x, y, RGB(new_r, new_g, new_b));
         }
     }
 }
