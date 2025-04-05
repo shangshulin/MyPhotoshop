@@ -279,13 +279,14 @@ void CMyPhotoshopApp::OnHistogramEqualization()
 						if (pView)
 						{
 							CClientDC dc(pView);
-							pMyDoc->pImage->Balance_Transformations(dc); // 执行直方图均衡化
+							std::vector<std::vector<int>> histograms_balance;
+							histograms_balance = pMyDoc->pImage->Balance_Transformations(dc); // 执行直方图均衡化
 
 							// 重新计算并显示均衡化后的直方图
-							pMyDoc->CalculateHistogramMix();
+							/*pMyDoc->CalculateHistogramBalance();*/
 							CHistogramDlg dlgHistogram;
-							dlgHistogram.m_histogramType = 0;
-							dlgHistogram.SetHistogramDataMix(pMyDoc->GetHistogramMix());
+							dlgHistogram.m_histogramType = 1;
+							dlgHistogram.SetHistogramDataRGB(histograms_balance);
 							dlgHistogram.DoModal();
 						}
 					}
