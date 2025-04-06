@@ -42,21 +42,24 @@ void CImageProc::CleanUp()
     nWidth = nHeight = nBitCount = 0;
     m_bIs565Format = true;
 }
+
+//打开文件
 void CImageProc::OpenFile()
 {
     CFileDialog fileDlg(TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, L"Bmp File(*.bmp)|*.bmp|JPG File(*.jpg)|*.jpg|All Files(*.*)|*.*||", NULL);
     if (fileDlg.DoModal() == IDOK)
     {
-        CString stpathname = fileDlg.GetPathName();
-        LoadBmp(stpathname);
+		CString stpathname = fileDlg.GetPathName();//获取文件路径
+        LoadBmp(stpathname);//加载图片
     }
     else
         return;
 }
 
+// 加载图片
 void CImageProc::LoadBmp(CString stFileName)
 {
-    CleanUp();
+    CleanUp();//清空内存
 
     CFile file;
     CFileException e;
@@ -70,21 +73,21 @@ void CImageProc::LoadBmp(CString stFileName)
     }
 
     ULONGLONG nFileSize = file.GetLength();
-    if (nFileSize < sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER))
+    if (nFileSize < sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER))//文件大小太小
+    {
+        file.Close();//关闭文件
+        return;
+    }
+
+    m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);//分配内存
+    if (!m_hDib)//分配内存失败
     {
         file.Close();
         return;
     }
 
-    m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);
-    if (!m_hDib)
-    {
-        file.Close();
-        return;
-    }
-
-    pDib = (BYTE*)::GlobalLock(m_hDib);
-    if (!pDib)
+    pDib = (BYTE*)::GlobalLock(m_hDib);//分配内存
+    if (!pDib)//分配内存失败
     {
         GlobalFree(m_hDib);
         m_hDib = NULL;
@@ -92,54 +95,54 @@ void CImageProc::LoadBmp(CString stFileName)
         return;
     }
 
-    UINT nBytesRead = file.Read(pDib, (UINT)nFileSize);
+    UINT nBytesRead = file.Read(pDib, (UINT)nFileSize);//读取文件
     file.Close();
 
-    if (nBytesRead != nFileSize)
+    if (nBytesRead != nFileSize)//读取文件失败
     {
         CleanUp();
         return;
     }
 
-    pBFH = (BITMAPFILEHEADER*)pDib;
-    if (pBFH->bfType != 0x4D42)
+    pBFH = (BITMAPFILEHEADER*)pDib;//获取文件头
+    if (pBFH->bfType != 0x4D42)//检查文件头
     {
         CleanUp();
         return;
     }
 
-    pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];
-    if (pBIH->biSize < sizeof(BITMAPINFOHEADER))
+    pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];//获取信息头
+    if (pBIH->biSize < sizeof(BITMAPINFOHEADER))//检查信息头
     {
         CleanUp();
         return;
     }
 
-    pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + pBIH->biSize];
+    pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + pBIH->biSize];//获取调色板
 
-    if (pBFH->bfOffBits >= nFileSize)
+    if (pBFH->bfOffBits >= nFileSize)//检查文件头
     {
         CleanUp();
         return;
     }
-    pBits = &pDib[pBFH->bfOffBits];
+    pBits = &pDib[pBFH->bfOffBits];//获取位图数据
 
-    nWidth = pBIH->biWidth;
+    nWidth = pBIH->biWidth;//获取宽高和位深
     nHeight = abs(pBIH->biHeight);
     nBitCount = pBIH->biBitCount;
 
-    DWORD dwImageSize = ((nWidth * nBitCount + 31) / 32) * 4 * nHeight;
-    if (pBFH->bfOffBits + dwImageSize > nFileSize)
+	DWORD dwImageSize = ((nWidth * nBitCount + 31) / 32) * 4 * nHeight;//dwImageSize为位图数据的大小
+    if (pBFH->bfOffBits + dwImageSize > nFileSize)//检查位图数据大小
     {
         CleanUp();
         return;
     }
 
-    if (pBIH->biCompression == BI_RGB && nBitCount == 16)
+    if (pBIH->biCompression == BI_RGB && nBitCount == 16)//检查位图数据格式
     {
         m_bIs565Format = false;
     }
-    else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16)
+    else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16)//处理565格式的16位位图数据
     {
         if (sizeof(BITMAPFILEHEADER) + pBIH->biSize + 3 * sizeof(DWORD) <= nFileSize)
         {
@@ -147,7 +150,7 @@ void CImageProc::LoadBmp(CString stFileName)
             DWORD redMask = masks[0];
             DWORD greenMask = masks[1];
             DWORD blueMask = masks[2];
-            m_bIs565Format = (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F);
+            m_bIs565Format = (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F);//检查位图数据格式
         }
         else
         {
@@ -160,32 +163,34 @@ void CImageProc::LoadBmp(CString stFileName)
     }
 }
 
+// 显示图片
 void CImageProc::ShowBMP(CDC* pDC)
 {
     if (m_hDib != NULL)
     {
-        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);
-        ::StretchDIBits(pDC->m_hDC, 0, 0, pBIH->biWidth, pBIH->biHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY);
+        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);//设置拉伸模式为COLORONCOLOR
+        ::StretchDIBits(pDC->m_hDC, 0, 0, pBIH->biWidth, pBIH->biHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY);//显示图片
     }
 }
 
+// 获取像素颜色
 void CImageProc::GetColor(CClientDC* pDC, int x, int y)
 {
     if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
     {
         return;
     }
-
+    // 计算每行字节数
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-
+    // 计算每个像素的字节数
     float bytePerPixel = float(nBitCount) / 8;
-
+    // 计算像素在位图中的偏移量
     int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-
+	// pixel指向当前像素
     BYTE* pixel = pBits + offset;
-
+    // 获取像素颜色
     BYTE red = 0, green = 0, blue = 0;
-
+    // 根据位深获取像素颜色
     switch (nBitCount)
     {
     case 1:
@@ -215,9 +220,9 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     BYTE getPixelGreen = GetGValue(pixelColor);
     BYTE getPixelBlue = GetBValue(pixelColor);
 
-    pDC->SetBkMode(OPAQUE);
+	pDC->SetBkMode(OPAQUE);//设置背景色为不透明
 
-    pDC->SetTextColor(RGB(0, 0, 0));
+    pDC->SetTextColor(RGB(0, 0, 0));//设置文本颜色为黑色
 
     CString str;
     str.Format(L"RGB: (%d, %d, %d)", red, green, blue);
@@ -228,13 +233,13 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     CString location;
     location.Format(L"location:(%d, %d)", x, y);
 
-    pDC->TextOutW(x, y, str);
+    pDC->TextOutW(x, y, str);//显示像素颜色
 
     CSize textSize = pDC->GetTextExtent(str);
 
-    pDC->TextOutW(x, y + textSize.cy, getPixelStr);
+    pDC->TextOutW(x, y + textSize.cy, getPixelStr);//显示GetPixel颜色
 
-    pDC->TextOutW(x, y + textSize.cy * 2, location);
+    pDC->TextOutW(x, y + textSize.cy * 2, location);//显示像素位置
 }
 
 void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC)
@@ -265,7 +270,8 @@ void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
 void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
     WORD pixelValue = *((WORD*)pixel);
-    if (m_bIs565Format) {
+    if (m_bIs565Format) // 处理565格式
+    {
 
         red = (pixelValue & 0xF800) >> 11;    
         green = (pixelValue & 0x07E0) >> 5;   
@@ -275,7 +281,8 @@ void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
         red = (red << 3) | (red >> 2);        
         green = (green << 2) | (green >> 4);  
         blue = (blue << 3) | (blue >> 2);    
-    } else {
+    } else // 处理555格式
+    {
         red = (pixelValue & 0x7C00) >> 10;   
         green = (pixelValue & 0x03E0) >> 5;   
         blue = pixelValue & 0x001F;           
@@ -298,28 +305,27 @@ void CImageProc::GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
     blue = pixel[0];
 }
 
-
+// 计算混合直方图
 std::vector<int> CImageProc::CalculateHistogramMix()
 {
-    std::vector<int> histogram(256, 0);
+    std::vector<int> histogram(256, 0);//创建一个256大小的向量，用于存储每个灰度值的像素数量
 
     if (m_hDib == NULL)
     {
-        return histogram;
+        return histogram;//如果位图数据为空，则返回空直方图
     }
 
-
+    // 计算每行字节数
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-
+    // 计算每个像素的字节数
     float bytePerPixel = float(nBitCount) / 8;
-
+    // 遍历每个像素
     for (int y = 0; y < nHeight; ++y)
     {
         for (int x = 0; x < nWidth; ++x)
         {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);//计算像素在位图中的偏移量
             BYTE* pixel = pBits + offset;
-
             BYTE red = 0, green = 0, blue = 0;
 
             switch (nBitCount)
@@ -347,8 +353,8 @@ std::vector<int> CImageProc::CalculateHistogramMix()
             }
 
 
-            int gray = static_cast<int>(0.299 * red + 0.587 * green + 0.114 * blue);
-            histogram[gray]++;
+            int gray = static_cast<int>(0.299 * red + 0.587 * green + 0.114 * blue);//计算灰度值
+			histogram[gray]++;//将灰度值对应的像素数量加1
         }
     }
 
@@ -358,17 +364,17 @@ std::vector<int> CImageProc::CalculateHistogramMix()
 
 std::vector<std::vector<int>> CImageProc::CalculateHistogramRGB()
 {
-    std::vector<std::vector<int>> histograms(3, std::vector<int>(256, 0));
+    std::vector<std::vector<int>> histograms(3, std::vector<int>(256, 0));//创建一个3x256的二维向量，用于存储每个通道的直方图
 
     if (m_hDib == NULL)
     {
         return histograms;
     }
-
+    // 计算每行字节数
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-
+    // 计算每个像素的字节数
     float bytePerPixel = float(nBitCount) / 8;
-
+    // 遍历每个像素
     for (int y = 0; y < nHeight; ++y)
     {
         for (int x = 0; x < nWidth; ++x)
@@ -402,7 +408,7 @@ std::vector<std::vector<int>> CImageProc::CalculateHistogramRGB()
                 continue;
             }
 
-
+            //将每个通道的灰度值对应的像素数量加1
             histograms[0][red]++;
             histograms[1][green]++;
             histograms[2][blue]++;
@@ -413,28 +419,26 @@ std::vector<std::vector<int>> CImageProc::CalculateHistogramRGB()
 }
 
 
-
+// 应用复古样式
 void CImageProc::ApplyVintageStyle()
 {
     if (!IsValid()) return;
 
     if (nBitCount <= 8) {       
-        ApplyVintageToPalette();
+		ApplyVintageToPalette();//  处理调色板格式的图片
     }
     else if (nBitCount == 16) {  
-        ApplyVintageTo16Bit();
+        ApplyVintageTo16Bit();//  处理16位格式的图片
     }
     else {                     
-        ApplyVintageToTrueColor();
+        ApplyVintageToTrueColor();//  处理真彩色格式的图片
     }
 }
-
+// 处理调色板格式的图片
 void CImageProc::ApplyVintageToPalette()
 {
     if (!pQUAD) return;
-
-
-    CreateVintagePalette();
+    CreateVintagePalette();// 创建复古调色板
 
 
     if (nBitCount == 1) {
@@ -589,7 +593,7 @@ void CImageProc::CreateVintagePalette()
 }
 
 
-
+//直方图均衡化
 std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
 {
     std::vector<std::vector<int>> balancedRgbHistograms(3, std::vector<int>(256, 0)); 
@@ -689,35 +693,23 @@ void CImageProc::ApplyBlackAndWhiteStyle()
         return;
     }
 
-    
-    std::vector<RGBQUAD> grayPalette(256);
-    for (int i = 0; i < 256; ++i)
-    {
-        grayPalette[i].rgbRed = static_cast<BYTE>(i);
-        grayPalette[i].rgbGreen = static_cast<BYTE>(i);
-        grayPalette[i].rgbBlue = static_cast<BYTE>(i);
-        grayPalette[i].rgbReserved = 0;
-    }
-
-
     if (nBitCount == 8)
     {
-        std::vector<RGBQUAD> grayPalette8bit(256);
+        std::vector<RGBQUAD> grayPalette8bit(256);// 创建8位灰度调色板
         for (int i = 0; i < 256; ++i)
         {
-            grayPalette8bit[i].rgbRed = static_cast<BYTE>(255-i);
-            grayPalette8bit[i].rgbGreen = static_cast<BYTE>(255-i);
-            grayPalette8bit[i].rgbBlue = static_cast<BYTE>(255-i);
+            grayPalette8bit[i].rgbRed = static_cast<BYTE>(255 - i);
+            grayPalette8bit[i].rgbGreen = static_cast<BYTE>(255 - i);
+            grayPalette8bit[i].rgbBlue = static_cast<BYTE>(255 - i);
             grayPalette8bit[i].rgbReserved = 0;
         }
         memcpy(pQUAD, grayPalette8bit.data(), sizeof(RGBQUAD) * 256);
-
     }
 
-
+    // 获取图像的行字节数
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
 
-    
+    // 遍历图像的每个像素点
     for (int y = 0; y < nHeight; ++y)
     {
         for (int x = 0; x < nWidth; ++x)
@@ -731,9 +723,6 @@ void CImageProc::ApplyBlackAndWhiteStyle()
             {
             case 1:
                 GetColor1bit(pixel, red, green, blue, x, y, nullptr);
-                break;
-            case 4:
-                GetColor4bit(pixel, red, green, blue, x);
                 break;
             case 8:
                 GetColor8bit(pixel, red, green, blue, x);
@@ -752,10 +741,10 @@ void CImageProc::ApplyBlackAndWhiteStyle()
                 return;
             }
 
-
+            // 计算灰度值
             BYTE grayValue = static_cast<BYTE>((red * 0.299) + (green * 0.587) + (blue * 0.114));
 
-
+            // 根据灰度值设置像素
             switch (nBitCount)
             {
             case 1:
@@ -763,24 +752,11 @@ void CImageProc::ApplyBlackAndWhiteStyle()
                 BYTE bitIndex = x % 8;
                 if (grayValue < 128)
                 {
-                    *pixel &= ~(1 << (7 - bitIndex));
-                    
+                    *pixel &= ~(1 << (7 - bitIndex));// 设置为黑色
                 }
                 else
                 {
-                    *pixel |= (1 << (7 - bitIndex));
-                }
-                break;
-            }
-            case 4:
-            {
-                if (x % 2 == 0)
-                {
-                    *pixel = (*pixel & 0x0F) | ((grayValue >> 4) << 4);
-                }
-                else
-                {
-                    *pixel = (*pixel & 0xF0) | (grayValue & 0x0F);
+					*pixel |= (1 << (7 - bitIndex)); // 设置为白色
                 }
                 break;
             }
@@ -788,16 +764,24 @@ void CImageProc::ApplyBlackAndWhiteStyle()
                 break;
             case 16:
             {
+                WORD newPixel;
                 if (m_bIs565Format)
                 {
-                    WORD newPixel = ((grayValue >> 3) << 11) | ((grayValue >> 2) << 5) | (grayValue >> 3);
-                    *((WORD*)pixel) = newPixel;
+                    // RGB565: 5-6-5
+                    BYTE r = grayValue >> 3;  // 5-bit red
+                    BYTE g = grayValue >> 2;  // 6-bit green
+                    BYTE b = grayValue >> 3;  // 5-bit blue
+                    newPixel = (r << 11) | (g << 5) | b;
                 }
                 else
                 {
-                    WORD newPixel = ((grayValue >> 3) << 10) | ((grayValue >> 3) << 5) | (grayValue >> 3);
-                    *((WORD*)pixel) = newPixel;
+                    // RGB555: 5-5-5
+                    BYTE r = grayValue >> 3;  // 5-bit red
+                    BYTE g = grayValue >> 3;  // 5-bit green
+                    BYTE b = grayValue >> 3;  // 5-bit blue
+                    newPixel = (r << 10) | (g << 5) | b;
                 }
+                *((WORD*)pixel) = newPixel;
                 break;
             }
             case 24:
