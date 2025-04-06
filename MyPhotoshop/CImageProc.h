@@ -22,10 +22,6 @@ public:
 
     // 调色板操作
     void CreateVintagePalette();
-    void OptimizePaletteForVintage();
-
-    // 辅助函数
-    BYTE FindNearestPaletteIndex(BYTE r, BYTE g, BYTE b);
 
 public:
     

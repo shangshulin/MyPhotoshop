@@ -605,25 +605,3 @@ void CImageProc::CreateVintagePalette()
     delete[] newPalette;
 }
 
-//调色板索引查找
-BYTE CImageProc::FindNearestPaletteIndex(BYTE r, BYTE g, BYTE b)
-{
-    if (nBitCount > 8) return 0;
-
-    BYTE bestIndex = 0;
-    int minDistance = INT_MAX;
-    int paletteSize = 1 << nBitCount;
-
-    for (int i = 0; i < paletteSize; i++) {
-        int dist =
-            (r - pQUAD[i].rgbRed) * (r - pQUAD[i].rgbRed) +
-            (g - pQUAD[i].rgbGreen) * (g - pQUAD[i].rgbGreen) +
-            (b - pQUAD[i].rgbBlue) * (b - pQUAD[i].rgbBlue);
-
-        if (dist < minDistance) {
-            minDistance = dist;
-            bestIndex = static_cast<BYTE>(i);
-        }
-    }
-    return bestIndex;
-}
