@@ -30,6 +30,7 @@ public:
 	afx_msg void OnHistogramMix();
 	afx_msg void OnHistogramRGB();
 	afx_msg void OnHistogramEqualization();
+	afx_msg void OnIntensityTrans(); //灰度线性变换菜单项的处理函数
 	DECLARE_MESSAGE_MAP()
 };
 

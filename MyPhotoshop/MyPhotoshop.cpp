@@ -11,6 +11,7 @@
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
 #include "CHistogramDlg.h"
+#include "CINTENSITYDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -29,7 +30,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopApp, CWinApp)
 	ON_COMMAND(ID_HISTOGRAM_MIX, &CMyPhotoshopApp::OnHistogramMix) // 直方图混合模式
 	ON_COMMAND(ID_HISTOGRAM_RGB, &CMyPhotoshopApp::OnHistogramRGB) // 直方图RGB模式
 	ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopApp::OnHistogramEqualization)
-
+	ON_COMMAND(ID_INTENSITY_TRANS, &CMyPhotoshopApp::OnIntensityTrans) // 灰度线性变换
 
 END_MESSAGE_MAP()
 
@@ -255,7 +256,47 @@ void CMyPhotoshopApp::OnHistogramRGB()
 	}
 }
 
-void CMyPhotoshopApp::OnHistogramEqualization()
+// 在文件末尾添加以下函数实现
+void CMyPhotoshopApp::OnIntensityTrans()
+{
+	// 创建并显示灰度线性变换对话框
+	CINTENSITYDlg dlgIntensity;
+
+	// 获取活动文档
+	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition();
+	if (pos != NULL)
+	{
+		CDocTemplate* pTemplate = AfxGetApp()->GetNextDocTemplate(pos);
+		POSITION docPos = pTemplate->GetFirstDocPosition();
+		if (docPos != NULL)
+		{
+			CDocument* pDoc = pTemplate->GetNextDoc(docPos);
+			if (pDoc)
+			{
+				CMyPhotoshopDoc* pMyDoc = dynamic_cast<CMyPhotoshopDoc*>(pDoc);
+				if (pMyDoc && pMyDoc->pImage != nullptr)
+				{
+					// 将图像数据传递给对话框
+					dlgIntensity.SetImageData(pMyDoc->pImage);
+
+					// 显示对话框
+					dlgIntensity.DoModal();
+
+					// 对话框关闭后可以处理返回结果
+					// 例如更新图像并刷新视图
+				}
+				else
+				{
+					AfxMessageBox(_T("未加载图像。"));
+				}
+			}
+			else
+			{
+				AfxMessageBox(_T("未打开文档。"));
+			}
+		}
+	}
+}void CMyPhotoshopApp::OnHistogramEqualization()
 {
 	// 获取活动文档
 	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition();

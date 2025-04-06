@@ -8,8 +8,14 @@
 #define IDR_MyPhotoshopTYPE             130
 #define IDD_DIALOG1                     310
 #define IDD_HISTOGRAM_DLG               310
+#define IDD_INTENSITY_DLG               312
 #define IDC_STATIC_HISTOGRAM            1000
 #define IDC_STATIC_HISTOGRAM2           1001
+#define IDC_EDIT_ALPHA                  1002
+#define IDC_EDIT_BETA                   1003
+#define IDC_BUTTON_APPLY                 1004
+#define IDC_BUTTON_CANCEL                1005
+#define ID_BUTTON_APPLY                 1006
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -36,14 +42,15 @@
 #define ID_COLOR_STYLE_VINTAGE          32794
 #define ID_HISTOGRAM_EQUALIZATION       32795 
 #define ID_STYLE_BLACKWHITE             32796
+#define ID_INTENSITY_TRANS              32797
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        312
-#define _APS_NEXT_COMMAND_VALUE         32797
-#define _APS_NEXT_CONTROL_VALUE         1001
+#define _APS_NEXT_COMMAND_VALUE         32798
+#define _APS_NEXT_CONTROL_VALUE         1007
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif
