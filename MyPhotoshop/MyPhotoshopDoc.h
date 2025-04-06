@@ -15,6 +15,7 @@ protected: // 仅从序列化创建
 // 特性
 public:
 	CImageProc* pImage;
+	CImageProc m_ImageProc;
 	std::vector<int> m_HistogramMix;
 	std::vector<std::vector<int>> m_HistogramRGB;
 // 操作

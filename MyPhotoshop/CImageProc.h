@@ -15,10 +15,17 @@ public:
     std::vector<int> CalculateGrayHistogramMix();
     std::vector<std::vector<int>> CalculateRGBHistograms();
     std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);    void ApplyBlackAndWhiteStyle();
-
     HANDLE m_hDib;
 
-private:
+    void ApplyVintageStyle();  // ���ŷ�� �޸ĺ�������
+    void ApplyVintageToTrueColor(); // 24/32λ����
+    void ApplyVintageToPalette();   // 1/4/8λ����
+    void ApplyVintageTo16Bit();     // 16λ����
+
+    // ��ɫ�����
+    void CreateVintagePalette();
+
+public:
     
     BYTE* pDib;
     BITMAPFILEHEADER* pBFH;
@@ -36,4 +43,9 @@ private:
     void GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
     void GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
     void GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
+
+    void CleanUp();
+    bool IsValid() const { return m_hDib != NULL && pDib != NULL; }
+private:
+    void InitializeMembers();
 };
