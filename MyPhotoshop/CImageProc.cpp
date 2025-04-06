@@ -766,19 +766,19 @@ void CImageProc::ApplyBlackAndWhiteStyle()
             {
                 WORD newPixel;
                 if (m_bIs565Format)
-                {
+                {              
                     // RGB565: 5-6-5
-                    BYTE r = grayValue >> 3;  // 5-bit red
-                    BYTE g = grayValue >> 2;  // 6-bit green
-                    BYTE b = grayValue >> 3;  // 5-bit blue
+                    BYTE r = (grayValue >> 3) & 0x1F;  // 5-bit red
+                    BYTE g = (grayValue >> 2) & 0x3F;  // 6-bit green
+                    BYTE b = (grayValue >> 3) & 0x1F;  // 5-bit blue
                     newPixel = (r << 11) | (g << 5) | b;
                 }
                 else
                 {
                     // RGB555: 5-5-5
-                    BYTE r = grayValue >> 3;  // 5-bit red
-                    BYTE g = grayValue >> 3;  // 5-bit green
-                    BYTE b = grayValue >> 3;  // 5-bit blue
+                    BYTE r = (grayValue >> 3) & 0x1F;;  // 5-bit red
+                    BYTE g = (grayValue >> 3) & 0x1F;;  // 5-bit green
+                    BYTE b = (grayValue >> 3) & 0x1F;;  // 5-bit blue
                     newPixel = (r << 10) | (g << 5) | b;
                 }
                 *((WORD*)pixel) = newPixel;
