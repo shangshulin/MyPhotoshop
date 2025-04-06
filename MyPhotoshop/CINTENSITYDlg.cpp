@@ -75,10 +75,10 @@ void CINTENSITYDlg::OnBnClickedButtonCancel()
 {
 
 	// 应用灰度线性变换
-	ApplyIntensityTransform();
+	//ApplyIntensityTransform();
 
 	// 关闭对话框
-	// CDialogEx::OnOK();
+	 CDialogEx::OnOK();
 }
 
 void CINTENSITYDlg::ApplyIntensityTransform()
