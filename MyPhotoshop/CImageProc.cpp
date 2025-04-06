@@ -144,13 +144,17 @@ void CImageProc::LoadBmp(CString stFileName)
     }
     else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16)//处理565格式的16位位图数据
     {
-        if (sizeof(BITMAPFILEHEADER) + pBIH->biSize + 3 * sizeof(DWORD) <= nFileSize)
+		if (sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + 3 * sizeof(DWORD) <= nFileSize)//pBIH->biSize为信息头的大小
         {
-            DWORD* masks = reinterpret_cast<DWORD*>(&pDib[sizeof(BITMAPFILEHEADER) + pBIH->biSize]);
+            DWORD* masks = reinterpret_cast<DWORD*>(&pDib[sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)]);
             DWORD redMask = masks[0];
             DWORD greenMask = masks[1];
             DWORD blueMask = masks[2];
-            m_bIs565Format = (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F);//检查位图数据格式
+            if (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F)
+            {
+                m_bIs565Format = true;
+            }
+            //m_bIs565Format = (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F);//检查位图数据格式
         }
         else
         {
@@ -657,7 +661,7 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
 
             if (Y == 0) {
                 dc.SetPixelV(x, y, RGB(0, 0, 0));
-                balancedRgbHistograms[0][0]++;  
+                balancedRgbHistograms[0][0]++;  // 记录均衡化后的值
                 balancedRgbHistograms[1][0]++;
                 balancedRgbHistograms[2][0]++;
                 continue;
@@ -672,7 +676,7 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
             new_g = max(0, min(255, new_g));
             new_b = max(0, min(255, new_b));
 
-
+            // 收集均衡化后的直方图数据
             balancedRgbHistograms[0][new_r]++;
             balancedRgbHistograms[1][new_g]++;
             balancedRgbHistograms[2][new_b]++;
@@ -681,9 +685,8 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
         }
     }
 
-    return balancedRgbHistograms; 
+    return balancedRgbHistograms; // 返回均衡化后的直方图
 }
-
 // 转换为黑白风格
 void CImageProc::ApplyBlackAndWhiteStyle()
 {
