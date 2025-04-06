@@ -204,8 +204,10 @@ void CMyPhotoshopApp::OnHistogramMix()
 				CMyPhotoshopDoc* pMyDoc = dynamic_cast<CMyPhotoshopDoc*>(pDoc);// 将文档转换为CMyPhotoshopDoc类型
 				if (pMyDoc && pMyDoc->pImage != nullptr)
 				{
-					pMyDoc->CalculateHistogramMix(); // 计算直方图
-					dlgHistogram.SetHistogramDataMix(pMyDoc->GetHistogramMix()); // 设置直方图数据
+					std::vector<int> m_HistogramMix;					
+					m_HistogramMix = pMyDoc->pImage->CalculateHistogramMix();// 计算灰度直方图
+
+					dlgHistogram.SetHistogramDataMix(m_HistogramMix); // 设置直方图数据
 					dlgHistogram.DoModal();// 显示对话框
 				}
 				else
@@ -239,8 +241,9 @@ void CMyPhotoshopApp::OnHistogramRGB()
 				CMyPhotoshopDoc* pMyDoc = dynamic_cast<CMyPhotoshopDoc*>(pDoc); // 将文档转换为CMyPhotoshopDoc类型
 				if (pMyDoc && pMyDoc->pImage != nullptr)
 				{
-					pMyDoc->CalculateHistogramRGB(); // 计算RGB直方图
-					dlgHistogram.SetHistogramDataRGB(pMyDoc->GetHistogramRGB() ); // 设置RGB直方图数据
+					std::vector<std::vector<int>> m_HistogramRGB;
+					m_HistogramRGB = pMyDoc->pImage->CalculateHistogramRGB(); // 计算RGB直方图
+					dlgHistogram.SetHistogramDataRGB(m_HistogramRGB); // 设置RGB直方图数据
 					dlgHistogram.DoModal(); // 显示对话框
 				}
 				else
@@ -323,11 +326,10 @@ void CMyPhotoshopApp::OnIntensityTrans()
 							std::vector<std::vector<int>> histograms_balance;
 							histograms_balance = pMyDoc->pImage->Balance_Transformations(dc); // 执行直方图均衡化
 
-							// 重新计算并显示均衡化后的直方图
-							/*pMyDoc->CalculateHistogramBalance();*/
+							// 重新显示均衡化后的直方图
 							CHistogramDlg dlgHistogram;
 							dlgHistogram.m_histogramType = 1;
-							dlgHistogram.SetHistogramDataRGB(histograms_balance);
+							dlgHistogram.SetHistogramDataRGB(histograms_balance);// 设置直方图数据
 							dlgHistogram.DoModal();
 						}
 					}

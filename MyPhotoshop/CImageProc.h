@@ -12,19 +12,18 @@ public:
     void LoadBmp(CString stFileName);
     void ShowBMP(CDC* pDC);
     void GetColor(CClientDC* pDC, int x, int y);
-    std::vector<int> CalculateGrayHistogramMix();
-    std::vector<std::vector<int>> CalculateRGBHistograms();
-    std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);    
-    void ApplyBlackAndWhiteStyle();
+	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
+    std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
+	std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);    // 直方图均衡化
+    void ApplyBlackAndWhiteStyle();// 黑白风格
     HANDLE m_hDib;
 
-    void ApplyVintageStyle();  // ���ŷ�� �޸ĺ�������
-    void ApplyVintageToTrueColor(); // 24/32λ����
-    void ApplyVintageToPalette();   // 1/4/8λ����
-    void ApplyVintageTo16Bit();     // 16λ����
+	void ApplyVintageStyle();  // 复古风格
+    void ApplyVintageToTrueColor();  // 处理真彩色的图片
+    void ApplyVintageToPalette();   // 处理调色板格式的图片
+    void ApplyVintageTo16Bit();      // 处理16位格式的图片
 
-    // ��ɫ�����
-    void CreateVintagePalette();
+    void CreateVintagePalette();// 创建复古调色板
 
 public:
     
@@ -45,8 +44,7 @@ public:
     void GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
     void GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
 
-    void CleanUp();
     bool IsValid() const { return m_hDib != NULL && pDib != NULL; }
-private:
-    void InitializeMembers();
+
+    void CleanUp();
 };

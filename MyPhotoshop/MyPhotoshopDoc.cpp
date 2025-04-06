@@ -151,16 +151,6 @@ void CMyPhotoshopDoc::OnFileOpen()
 	pView->Invalidate(TRUE);
 }
 
-void CMyPhotoshopDoc::CalculateHistogramMix()
-{
-	m_HistogramMix = pImage->CalculateGrayHistogramMix();// 计算直方图
-}
-
-void CMyPhotoshopDoc::CalculateHistogramRGB()
-{
-	m_HistogramRGB = pImage->CalculateRGBHistograms();// 计算直方图
-}
-
 void CMyPhotoshopDoc::OnStyleBlackwhite()
 {
 	if (pImage)
