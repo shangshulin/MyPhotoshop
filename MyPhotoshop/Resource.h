@@ -34,14 +34,18 @@
 #define ID_HISTOGRAM_RGB                32792
 #define ID_32793                        32793
 #define ID_32794                        32794
+<<<<<<< HEAD
 #define ID_HISTOGRAM_EQUALIZATION       32795 
+=======
+#define ID_STYLE_BLACKWHITE             32795
+>>>>>>> shangshulin
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        312
-#define _APS_NEXT_COMMAND_VALUE         32795
+#define _APS_NEXT_COMMAND_VALUE         32796
 #define _APS_NEXT_CONTROL_VALUE         1001
 #define _APS_NEXT_SYMED_VALUE           310
 #endif

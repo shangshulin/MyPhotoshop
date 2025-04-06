@@ -14,7 +14,8 @@ public:
     void GetColor(CClientDC* pDC, int x, int y);
     std::vector<int> CalculateGrayHistogramMix();
     std::vector<std::vector<int>> CalculateRGBHistograms();
-    std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);
+    std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);    void ApplyBlackAndWhiteStyle();
+
     HANDLE m_hDib;
 
 private:

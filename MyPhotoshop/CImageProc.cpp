@@ -15,7 +15,7 @@ CImageProc::CImageProc()
     nWidth = 0;
     nHeight = 0;
     nBitCount = 0;
-    m_bIs565Format = true; // Ä¬ÈÏ¼ÙÉèÎª565¸ñÊ½
+    m_bIs565Format = true; // Ä¬ï¿½Ï¼ï¿½ï¿½ï¿½Îª565ï¿½ï¿½Ê½
 }
 CImageProc::~CImageProc()
 {
@@ -28,10 +28,10 @@ CImageProc::~CImageProc()
         GlobalUnlock(m_hDib);
 }
 
-// ´ò¿ªÎÄ¼þ
+// ï¿½ï¿½ï¿½Ä¼ï¿½
 void CImageProc::OpenFile()
 {
-    // TODO: ÔÚ´Ë´¦Ìí¼ÓÊµÏÖ´úÂë.
+    // TODO: ï¿½Ú´Ë´ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½Ö´ï¿½ï¿½ï¿½.
     CFileDialog fileDlg(TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, L"Bmp File(*.bmp)|*.bmp|JPG File(*.jpg)|*.jpg|All Files(*.*)|*.*||", NULL);
     if (fileDlg.DoModal() == IDOK)
     {
@@ -42,12 +42,12 @@ void CImageProc::OpenFile()
         return;
 }
 
-// ¼ÓÔØ BMP ÎÄ¼þ
+// ï¿½ï¿½ï¿½ï¿½ BMP ï¿½Ä¼ï¿½
 void CImageProc::LoadBmp(CString stFileName)
 {
-    // TODO: ÔÚ´Ë´¦Ìí¼ÓÊµÏÖ´úÂë.
-    CFile file;//ÎÄ¼þ¶ÔÏó
-    CFileException e;//ÎÄ¼þÒì³£¶ÔÏó
+    // TODO: ï¿½Ú´Ë´ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½Ö´ï¿½ï¿½ï¿½.
+    CFile file;//ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
+    CFileException e;//ï¿½Ä¼ï¿½ï¿½ì³£ï¿½ï¿½ï¿½ï¿½
     if (!file.Open(stFileName, CFile::modeRead | CFile::shareExclusive, &e))
     {
 #ifdef _DEBUG
@@ -56,25 +56,25 @@ void CImageProc::LoadBmp(CString stFileName)
     }
     else
     {
-        ULONGLONG nFileSize;    //Æ¥ÅäGetLengthº¯ÊýµÄÊý¾ÝÀàÐÍ
-        nFileSize = file.GetLength();   //»ñÈ¡ÎÄ¼þ´óÐ¡
-        m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);   //·ÖÅäÄÚ´æ
-        pDib = (BYTE*)::GlobalLock(m_hDib);   //Ëø¶¨ÄÚ´æ
-        file.Read(pDib, nFileSize);   //¶ÁÈ¡ÎÄ¼þ
-        pBFH = (BITMAPFILEHEADER*)pDib;     //Ö¸ÏòÎÄ¼þÍ·
-        pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];   //Ö¸ÏòÐÅÏ¢Í·
-        pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)];   //Ö¸Ïòµ÷É«°å
-        pBits = (BYTE*)&pDib[pBFH->bfOffBits];   //Ö¸ÏòÎ»Í¼Êý¾Ý
-        nWidth = pBIH->biWidth;     // »ñÈ¡Í¼ÏñµÄ¿í¸ß
+        ULONGLONG nFileSize;    //Æ¥ï¿½ï¿½GetLengthï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        nFileSize = file.GetLength();   //ï¿½ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½Ð¡
+        m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);   //ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½
+        pDib = (BYTE*)::GlobalLock(m_hDib);   //ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½
+        file.Read(pDib, nFileSize);   //ï¿½ï¿½È¡ï¿½Ä¼ï¿½
+        pBFH = (BITMAPFILEHEADER*)pDib;     //Ö¸ï¿½ï¿½ï¿½Ä¼ï¿½Í·
+        pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];   //Ö¸ï¿½ï¿½ï¿½ï¿½Ï¢Í·
+        pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)];   //Ö¸ï¿½ï¿½ï¿½É«ï¿½ï¿½
+        pBits = (BYTE*)&pDib[pBFH->bfOffBits];   //Ö¸ï¿½ï¿½Î»Í¼ï¿½ï¿½ï¿½ï¿½
+        nWidth = pBIH->biWidth;     // ï¿½ï¿½È¡Í¼ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½
         nHeight = pBIH->biHeight;
-		nBitCount = pBIH->biBitCount;   //»ñÈ¡Î»Éî¶È
+		nBitCount = pBIH->biBitCount;   //ï¿½ï¿½È¡Î»ï¿½ï¿½ï¿½
    
         if (pBIH->biCompression == BI_RGB && nBitCount == 16) {
-            //16Î»Í¼Ä¬ÈÏÎª555¸ñÊ½
+            //16Î»Í¼Ä¬ï¿½ï¿½Îª555ï¿½ï¿½Ê½
             m_bIs565Format = false;
         }
         else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16) {
-            // ¼ì²éÑÕÉ«ÑÚÂëÊÇ·ñÎª565
+            // ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½Îª565
             DWORD* masks = reinterpret_cast<DWORD*>(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
             DWORD redMask = masks[0];
             DWORD greenMask = masks[1];
@@ -90,37 +90,37 @@ void CImageProc::LoadBmp(CString stFileName)
 
 void CImageProc::ShowBMP(CDC* pDC)
 {
-    // TODO: ÔÚ´Ë´¦Ìí¼ÓÊµÏÖ´úÂë.
+    // TODO: ï¿½Ú´Ë´ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½Ö´ï¿½ï¿½ï¿½.
     if (m_hDib != NULL)
     {
-        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);      // ÉèÖÃÀ­ÉìÄ£Ê½Îª COLORONCOLOR
-        ::StretchDIBits(pDC->m_hDC, 0, 0, pBIH->biWidth, pBIH->biHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY);       // ½«Î»Í¼Êý¾Ý¸´ÖÆµ½Ä¿±êDCµÄÖ¸¶¨Î»ÖÃ
+        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);      // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½Îª COLORONCOLOR
+        ::StretchDIBits(pDC->m_hDC, 0, 0, pBIH->biWidth, pBIH->biHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY);       // ï¿½ï¿½Î»Í¼ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½Æµï¿½Ä¿ï¿½ï¿½DCï¿½ï¿½Ö¸ï¿½ï¿½Î»ï¿½ï¿½
     }
 }
 
-// »ñÈ¡ÏñËØÑÕÉ«
+// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«
 void CImageProc::GetColor(CClientDC* pDC, int x, int y)
 {
-    //¼ì²é×ø±êÒÔ¼°Í¼ÏñÊÇ·ñÓÐÐ§
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½Í¼ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ð§
     if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
     {
-        return; // ÎÞÐ§×ø±ê»òÎ´¼ÓÔØÍ¼Ïñ
+        return; // ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½
     }
 
-    // Ã¿ÐÐ×Ö½ÚÊý = (Ã¿ÐÐµÄbitÊý + 31) / 32 * 4     ¡¾Ã¿ÐÐ×Ö½ÚÊý±ØÐëÊÇ4µÄ±¶Êý£¬¼´bitÊýÊÇ32µÄ±¶Êý£¬ÏòÉÏÈ¡Õû¡¿
+    // Ã¿ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ = (Ã¿ï¿½Ðµï¿½bitï¿½ï¿½ + 31) / 32 * 4     ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½4ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½bitï¿½ï¿½ï¿½ï¿½32ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
 
 
-    //¸ù¾ÝÎ»Éî¶È¼ÆËã³öÃ¿¸öÏñËØµÄÆðÊ¼Î»ÖÃ
+    //ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½ï¿½ï¿½Ê¼Î»ï¿½ï¿½
 
     float  bytePerPixel = float(nBitCount)/ 8;
-    // Ã¿¸öÏñËØÕ¼ÓÃµÄ×Ö½ÚÊý£¬nNumColors ÎªÃ¿¸öÏñËØµÄÎ»Êý¡¾¸¡µãÊý¼æÈÝµÍÓÚ8bitÎ»Í¼¡¿
+    // Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Ãµï¿½ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½nNumColors ÎªÃ¿ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½ï¿½ï¿½8bitÎ»Í¼ï¿½ï¿½
 
     int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-    // Æ«ÒÆÁ¿ = (Í¼Ïñ¸ß¶È - 1 - ×Ý×ø±ê) * Ã¿ÐÐ×Ö½ÚÊý + ºá×ø±ê * Ã¿¸öÏñËØÕ¼ÓÃµÄ×Ö½ÚÊý   ¡¾yµÄ·¶Î§ÊÇ[0,nHeight-1]¡¿ 
-    // ¡¾Ç¿ÖÆÀàÐÍ×ª»»£¬¶ÔÓÚµÍÓÚ8bitÍ¼Ïñ£¬pixelÖ¸Ïòµ±Ç°ÏñËØËùÔÚ×Ö½ÚµÄÆðÊ¼Î»ÖÃ¡¿
+    // Æ«ï¿½ï¿½ï¿½ï¿½ = (Í¼ï¿½ï¿½ß¶ï¿½ - 1 - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½) * Ã¿ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ + ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ * Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Ãµï¿½ï¿½Ö½ï¿½ï¿½ï¿½   ï¿½ï¿½yï¿½Ä·ï¿½Î§ï¿½ï¿½[0,nHeight-1]ï¿½ï¿½ 
+    // ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½8bitÍ¼ï¿½ï¿½pixelÖ¸ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö½Úµï¿½ï¿½ï¿½Ê¼Î»ï¿½Ã¡ï¿½
 
-    BYTE* pixel = pBits + offset;// »ñÈ¡ÏñËØÔÚÎ»Í¼Êý¾ÝÖÐµÄÎ»ÖÃ£¨ÆðÊ¼µã+Æ«ÒÆÁ¿£©
+    BYTE* pixel = pBits + offset;// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»Í¼ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½Î»ï¿½Ã£ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½+Æ«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
     //  RGB Öµ
     BYTE red = 0, green = 0, blue = 0;
@@ -159,22 +159,22 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
         break;
     }
     default:
-        return; // ²»Ö§³ÖµÄÑÕÉ«Éî¶È
+        return; // ï¿½ï¿½Ö§ï¿½Öµï¿½ï¿½ï¿½É«ï¿½ï¿½ï¿½
     }
 
-    // Ê¹ÓÃ GetPixel »ñÈ¡ÏñËØÑÕÉ«
+    // Ê¹ï¿½ï¿½ GetPixel ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«
     COLORREF pixelColor = pDC->GetPixel(x, y);
     BYTE getPixelRed = GetRValue(pixelColor);
     BYTE getPixelGreen = GetGValue(pixelColor);
     BYTE getPixelBlue = GetBValue(pixelColor);
 
-    // ÉèÖÃÎÄ±¾±³¾°²»Í¸Ã÷
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ï¿½
     pDC->SetBkMode(OPAQUE);
 
-    // ÉèÖÃÎÄ±¾ÑÕÉ«ÎªºÚÉ«
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½É«Îªï¿½ï¿½É«
     pDC->SetTextColor(RGB(0, 0, 0));
 
-    // ¸ñÊ½»¯ RGB ÖµºÍ×ø±êÐÅÏ¢
+    // ï¿½ï¿½Ê½ï¿½ï¿½ RGB Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
     CString str;
     str.Format(L"RGB: (%d, %d, %d)", red, green, blue);
 
@@ -182,18 +182,18 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     getPixelStr.Format(L"GetPixel RGB: (%d, %d, %d)", getPixelRed, getPixelGreen, getPixelBlue);
 
     CString location;
-    location.Format(L"location£º(%d, %d)", x, y);
+    location.Format(L"locationï¿½ï¿½(%d, %d)", x, y);
 
-    // ÔÚÊó±êµã»÷Î»ÖÃÏÔÊ¾ RGB Öµ
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½Ê¾ RGB Öµ
     pDC->TextOutW(x, y, str);
 
-    // »ñÈ¡ÎÄ±¾¸ß¶È
+    // ï¿½ï¿½È¡ï¿½Ä±ï¿½ï¿½ß¶ï¿½
     CSize textSize = pDC->GetTextExtent(str);
 
-    // ÔÚÏÂÒ»ÐÐÏÔÊ¾ GetPixel »ñÈ¡µÄ RGB Öµ
+    // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ê¾ GetPixel ï¿½ï¿½È¡ï¿½ï¿½ RGB Öµ
     pDC->TextOutW(x, y + textSize.cy, getPixelStr);
 
-    // ÔÚÏÂÒ»ÐÐÏÔÊ¾×ø±ê
+    // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
     pDC->TextOutW(x, y + textSize.cy * 2, location);
 
 }
@@ -204,12 +204,12 @@ void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     green = pQUAD[index].rgbGreen;
     blue = pQUAD[index].rgbBlue;
 
-    // ÓÉÓÚÔ­Ê¼Í¼ÏñÖ±½Ó×ª»»³É1bitÍ¼ÏñÖ®ºó£¬ºÚ°×ÏñËØ½»´í·Ö²¼£¬ÄÑÒÔÈ·¶¨ÊÇ·ñÕýÈ·ÏÔÊ¾
-    // ÒÔÏÂ´úÂëÓÃÓÚ²é¿´µ±Ç°ÏñËØÖµ£¬´Ó¶øÑéÖ¤ÊÇ·ñÏÔÊ¾ÕýÈ·
+    // ï¿½ï¿½ï¿½ï¿½Ô­Ê¼Í¼ï¿½ï¿½Ö±ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½1bitÍ¼ï¿½ï¿½Ö®ï¿½ó£¬ºÚ°ï¿½ï¿½ï¿½ï¿½Ø½ï¿½ï¿½ï¿½ï¿½Ö²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½È·ï¿½ï¿½Ê¾
+    // ï¿½ï¿½ï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²é¿´ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½Ó¶ï¿½ï¿½ï¿½Ö¤ï¿½Ç·ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½È·
 
     //CString str2;
-    //str2.Format(L"pixel£º(%u);index£º(%d)", *pixel, index);
-    //// »ñÈ¡ÎÄ±¾¸ß¶È
+    //str2.Format(L"pixelï¿½ï¿½(%u);indexï¿½ï¿½(%d)", *pixel, index);
+    //// ï¿½ï¿½È¡ï¿½Ä±ï¿½ï¿½ß¶ï¿½
     //CSize textSize = pDC->GetTextExtent(str2);
     //pDC->TextOutW(x, y + textSize.cy * 2, str2);
 }
@@ -231,22 +231,22 @@ void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
     WORD pixelValue = *((WORD*)pixel);
     if (m_bIs565Format) {
-        // ÌáÈ¡565¸ñÊ½µÄRGB·ÖÁ¿
+        // ï¿½ï¿½È¡565ï¿½ï¿½Ê½ï¿½ï¿½RGBï¿½ï¿½ï¿½ï¿½
         red = (pixelValue & 0xF800) >> 11;    
         green = (pixelValue & 0x07E0) >> 5;   
         blue = pixelValue & 0x001F;           
 
-        // ½«·ÖÁ¿À©Õ¹µ½8Î»
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½8Î»
         red = (red << 3) | (red >> 2);        
         green = (green << 2) | (green >> 4);  
         blue = (blue << 3) | (blue >> 2);    
     } else {
-        // ÌáÈ¡555¸ñÊ½µÄRGB·ÖÁ¿
+        // ï¿½ï¿½È¡555ï¿½ï¿½Ê½ï¿½ï¿½RGBï¿½ï¿½ï¿½ï¿½
         red = (pixelValue & 0x7C00) >> 10;   
         green = (pixelValue & 0x03E0) >> 5;   
         blue = pixelValue & 0x001F;           
 
-        // ½«·ÖÁ¿À©Õ¹µ½8Î»
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½8Î»
         red = (red << 3) | (red >> 2);
         green = (green << 3) | (green >> 2);
         blue = (blue << 3) | (blue >> 2);
@@ -265,7 +265,7 @@ void CImageProc::GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
     blue = pixel[0];
 }
 
-// ¼ÆËã»ìºÏÄ£Ê½»Ò¶ÈÖ±·½Í¼
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½Ò¶ï¿½Ö±ï¿½ï¿½Í¼
 std::vector<int> CImageProc::CalculateGrayHistogramMix()
 {
     std::vector<int> histogram(256, 0);
@@ -275,7 +275,7 @@ std::vector<int> CImageProc::CalculateGrayHistogramMix()
         return histogram;
     }
 
-    // Ã¿ÐÐ×Ö½ÚÊý = (Ã¿ÐÐµÄbitÊý + 31) / 32 * 4
+    // Ã¿ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ = (Ã¿ï¿½Ðµï¿½bitï¿½ï¿½ + 31) / 32 * 4
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
 
     float bytePerPixel = float(nBitCount) / 8;
@@ -313,7 +313,7 @@ std::vector<int> CImageProc::CalculateGrayHistogramMix()
                 continue;
             }
 
-            // ¼ÆËã»Ò¶ÈÖµ
+            // ï¿½ï¿½ï¿½ï¿½Ò¶ï¿½Öµ
             int gray = static_cast<int>(0.299 * red + 0.587 * green + 0.114 * blue);
             histogram[gray]++;
         }
@@ -322,7 +322,7 @@ std::vector<int> CImageProc::CalculateGrayHistogramMix()
     return histogram;
 }
 
-//¼ÆËãRGBÄ£Ê½Ö±·½Í¼
+//ï¿½ï¿½ï¿½ï¿½RGBÄ£Ê½Ö±ï¿½ï¿½Í¼
 std::vector<std::vector<int>> CImageProc::CalculateRGBHistograms()
 {
     std::vector<std::vector<int>> histograms(3, std::vector<int>(256, 0));
@@ -332,7 +332,7 @@ std::vector<std::vector<int>> CImageProc::CalculateRGBHistograms()
         return histograms;
     }
 
-    // Ã¿ÐÐ×Ö½ÚÊý = (Ã¿ÐÐµÄbitÊý + 31) / 32 * 4
+    // Ã¿ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ = (Ã¿ï¿½Ðµï¿½bitï¿½ï¿½ + 31) / 32 * 4
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
 
     float bytePerPixel = float(nBitCount) / 8;
@@ -370,7 +370,7 @@ std::vector<std::vector<int>> CImageProc::CalculateRGBHistograms()
                 continue;
             }
 
-            // ¸üÐÂ¸÷¸öÑÕÉ«Í¨µÀµÄÖ±·½Í¼
+            // ï¿½ï¿½ï¿½Â¸ï¿½ï¿½ï¿½ï¿½ï¿½É«Í¨ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½Í¼
             histograms[0][red]++;
             histograms[1][green]++;
             histograms[2][blue]++;
@@ -382,7 +382,7 @@ std::vector<std::vector<int>> CImageProc::CalculateRGBHistograms()
 
 std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
 {
-    std::vector<std::vector<int>> balancedRgbHistograms(3, std::vector<int>(256, 0)); // Çø±ðÓÚÔ­º¯ÊýµÄ±äÁ¿Ãû
+    std::vector<std::vector<int>> balancedRgbHistograms(3, std::vector<int>(256, 0)); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½
     float p[256] = { 0 };
     float S[256] = { 0 };
     int F[256] = { 0 };
@@ -443,7 +443,7 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
 
             if (Y == 0) {
                 dc.SetPixelV(x, y, RGB(0, 0, 0));
-                balancedRgbHistograms[0][0]++;  // ¼ÇÂ¼¾ùºâ»¯ºóµÄÖµ
+                balancedRgbHistograms[0][0]++;  // ï¿½ï¿½Â¼ï¿½ï¿½ï¿½â»¯ï¿½ï¿½ï¿½Öµ
                 balancedRgbHistograms[1][0]++;
                 balancedRgbHistograms[2][0]++;
                 continue;
@@ -458,7 +458,7 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
             new_g = max(0, min(255, new_g));
             new_b = max(0, min(255, new_b));
 
-            // ÊÕ¼¯¾ùºâ»¯ºóµÄÖ±·½Í¼Êý¾Ý
+            // ï¿½Õ¼ï¿½ï¿½ï¿½ï¿½â»¯ï¿½ï¿½ï¿½Ö±ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½
             balancedRgbHistograms[0][new_r]++;
             balancedRgbHistograms[1][new_g]++;
             balancedRgbHistograms[2][new_b]++;
@@ -467,5 +467,140 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
         }
     }
 
-    return balancedRgbHistograms; // ·µ»Ø¾ùºâ»¯ºóµÄÖ±·½Í¼
+    return balancedRgbHistograms; // ï¿½ï¿½ï¿½Ø¾ï¿½ï¿½â»¯ï¿½ï¿½ï¿½Ö±ï¿½ï¿½Í¼
+}
+
+// ï¿½ï¿½ï¿½ÓºÚ°×·ï¿½ï¿½ï¿½ï¿½
+void CImageProc::ApplyBlackAndWhiteStyle()
+{
+    if (m_hDib == NULL)
+    {
+        AfxMessageBox(_T("No valid image is loaded."));
+        return;
+    }
+
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ò¶Èµï¿½É«ï¿½ï¿½
+    std::vector<RGBQUAD> grayPalette(256);
+    for (int i = 0; i < 256; ++i)
+    {
+        grayPalette[i].rgbRed = static_cast<BYTE>(i);
+        grayPalette[i].rgbGreen = static_cast<BYTE>(i);
+        grayPalette[i].rgbBlue = static_cast<BYTE>(i);
+        grayPalette[i].rgbReserved = 0;
+    }
+
+    //// ï¿½æ»»Ô­ï¿½Ðµï¿½É«ï¿½å£¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 8 Î»ï¿½ï¿½Î»Í¼ï¿½ï¿½
+    if (nBitCount == 8)
+    {
+        std::vector<RGBQUAD> grayPalette8bit(256);
+        for (int i = 0; i < 256; ++i)
+        {
+            grayPalette8bit[i].rgbRed = static_cast<BYTE>(255-i);
+            grayPalette8bit[i].rgbGreen = static_cast<BYTE>(255-i);
+            grayPalette8bit[i].rgbBlue = static_cast<BYTE>(255-i);
+            grayPalette8bit[i].rgbReserved = 0;
+        }
+        memcpy(pQUAD, grayPalette8bit.data(), sizeof(RGBQUAD) * 256);
+
+    }
+
+    // ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½Ðµï¿½ï¿½Ö½ï¿½ï¿½ï¿½
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+
+    // ï¿½ï¿½ï¿½ï¿½Î»Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½Ò¶Èµï¿½É«ï¿½ï¿½
+    for (int y = 0; y < nHeight; ++y)
+    {
+        for (int x = 0; x < nWidth; ++x)
+        {
+            int offset = (nHeight - 1 - y) * rowSize + (x * (nBitCount / 8));
+            BYTE* pixel = pBits + offset;
+
+            BYTE red = 0, green = 0, blue = 0;
+
+            switch (nBitCount)
+            {
+            case 1:
+                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                break;
+            case 4:
+                GetColor4bit(pixel, red, green, blue, x);
+                break;
+            case 8:
+                GetColor8bit(pixel, red, green, blue, x);
+                break;
+            case 16:
+                GetColor16bit(pixel, red, green, blue);
+                break;
+            case 24:
+                GetColor24bit(pixel, red, green, blue);
+                break;
+            case 32:
+                GetColor32bit(pixel, red, green, blue);
+                break;
+            default:
+                AfxMessageBox(_T("Unsupported bit count."));
+                return;
+            }
+
+            // ï¿½ï¿½ï¿½ï¿½Ò¶ï¿½Öµ
+            BYTE grayValue = static_cast<BYTE>((red * 0.299) + (green * 0.587) + (blue * 0.114));
+
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+            switch (nBitCount)
+            {
+            case 1:
+            {
+                BYTE bitIndex = x % 8;
+                if (grayValue < 128)
+                {
+                    *pixel &= ~(1 << (7 - bitIndex));// ï¿½ï¿½ï¿½Ã¶ï¿½Ó¦Î»Îª0
+                    
+                }
+                else
+                {
+                    *pixel |= (1 << (7 - bitIndex));// ï¿½ï¿½ï¿½Ã¶ï¿½Ó¦Î»Îª1
+                }
+                break;
+            }
+            case 4:
+            {
+                if (x % 2 == 0)
+                {
+                    *pixel = (*pixel & 0x0F) | ((grayValue >> 4) << 4);
+                }
+                else
+                {
+                    *pixel = (*pixel & 0xF0) | (grayValue & 0x0F);
+                }
+                break;
+            }
+            case 8:
+                break;
+            case 16:
+            {
+                if (m_bIs565Format)
+                {
+                    WORD newPixel = ((grayValue >> 3) << 11) | ((grayValue >> 2) << 5) | (grayValue >> 3);
+                    *((WORD*)pixel) = newPixel;
+                }
+                else
+                {
+                    WORD newPixel = ((grayValue >> 3) << 10) | ((grayValue >> 3) << 5) | (grayValue >> 3);
+                    *((WORD*)pixel) = newPixel;
+                }
+                break;
+            }
+            case 24:
+                pixel[0] = grayValue;
+                pixel[1] = grayValue;
+                pixel[2] = grayValue;
+                break;
+            case 32:
+                pixel[0] = grayValue;
+                pixel[1] = grayValue;
+                pixel[2] = grayValue;
+                break;
+            }
+        }
+    }
 }
