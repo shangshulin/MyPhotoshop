@@ -38,12 +38,9 @@ void CINTENSITYDlg::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CINTENSITYDlg, CDialogEx)
 	ON_COMMAND(ID_32777, &CINTENSITYDlg::OnCIntensityDlg)
-<<<<<<< Updated upstream
 	ON_BN_CLICKED(IDC_BUTTON_APPLY, &CINTENSITYDlg::OnBnClickedButtonApply)
 	ON_BN_CLICKED(IDC_BUTTON_CANCEL, &CINTENSITYDlg::OnBnClickedButtonCancel)
-=======
 	ON_BN_CLICKED(ID_BUTTON_APPLY, &CINTENSITYDlg::OnBnClickedButtonApply)
->>>>>>> Stashed changes
 END_MESSAGE_MAP()
 
 
@@ -70,29 +67,18 @@ void CINTENSITYDlg::OnBnClickedButtonApply()
 	// 更新数据
 	UpdateData(TRUE);
 
-<<<<<<< Updated upstream
 	// 应用灰度线性变换
 	ApplyIntensityTransform();
 }
 
 void CINTENSITYDlg::OnBnClickedButtonCancel()
 {
-	// 关闭对话框
-	CDialogEx::OnCancel();
-=======
-	// 检查参数有效性
-	if (m_alpha < 0.0)
-	{
-		AfxMessageBox(_T("Alpha参数必须大于或等于0！"));
-		return;
-	}
 
 	// 应用灰度线性变换
 	ApplyIntensityTransform();
 
 	// 关闭对话框
 	// CDialogEx::OnOK();
->>>>>>> Stashed changes
 }
 
 void CINTENSITYDlg::ApplyIntensityTransform()
