@@ -261,7 +261,7 @@ void CMyPhotoshopApp::OnHistogramRGB()
 	}
 }
 
-// 在文件末尾添加以下函数实现
+// 灰度线性变换菜单项的处理函数
 void CMyPhotoshopApp::OnIntensityTrans()
 {
 	// 创建并显示灰度线性变换对话框
