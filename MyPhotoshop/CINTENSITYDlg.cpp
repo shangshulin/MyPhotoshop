@@ -146,7 +146,7 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 	{
 	case 1:
 	{
-		// 修改颜色表
+		// 修改调色板
 		for (int i = 0; i < 2; i++)
 		{
 			int oldPixel = 0.299 * pRGBQuad[i].rgbRed + 0.587 * pRGBQuad[i].rgbGreen + 0.114 * pRGBQuad[i].rgbBlue;
@@ -176,7 +176,7 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 	}
 	case 8:  // 8位灰度图像
 	{
-		// 修改颜色表
+		// 修改调色板
 		for (int i = 0; i < 256; i++)
 		{
 			int oldPixel = 0.299 * pRGBQuad[i].rgbRed + 0.587 * pRGBQuad[i].rgbGreen + 0.114 * pRGBQuad[i].rgbBlue;

@@ -19,6 +19,7 @@
 CHistogramDlg::CHistogramDlg(CWnd* pParent /*=nullptr*/)
     : CDialogEx(IDD_HISTOGRAM_DLG, pParent)
     , m_histogramData(256, 0)
+    , m_histogramType(0)
 {
     m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
