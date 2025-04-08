@@ -100,6 +100,8 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 		return;
 	}
 
+	BITMAPFILEHEADER* pBFH = (BITMAPFILEHEADER*)pDib;//获取文件头
+
 	// 获取位图信息头
 	BITMAPINFOHEADER* pBIH = (BITMAPINFOHEADER*)(pDib + sizeof(BITMAPFILEHEADER));
 	int nWidth = pBIH->biWidth;
@@ -114,11 +116,11 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 	if (nBitCount <= 8)
 	{
 		pRGBQuad = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
-		pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD) * (1 << nBitCount);
+		pBits = &pDib[pBFH->bfOffBits];//获取位图数据
 	}
 	else
 	{
-		pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+		pBits = &pDib[pBFH->bfOffBits];//获取位图数据
 	}
 
 	// 应用灰度线性变换

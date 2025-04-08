@@ -140,7 +140,7 @@ void CMyPhotoshopView::OnUpdateViewPixelInfo(CCmdUI* pCmdUI)
 	pCmdUI->SetCheck(m_bShowPixelInfo); // 设置菜单项选中状态
 }
 
-
+// 左键点击事件处理程序
 void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
@@ -162,13 +162,8 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 	CView::OnLButtonDown(nFlags, point);
 }
 
-void CMyPhotoshopView::OnFunctionHistogramMatching()
-{
-    HistogramMatching();
-}
-
 // 直方图规格化函数
-void CMyPhotoshopView::HistogramMatching()
+void CMyPhotoshopView::OnFunctionHistogramMatching()
 {
     // 1. 获取文档指针并检查有效性
     CMyPhotoshopDoc* pDoc = GetDocument();
@@ -193,15 +188,15 @@ void CMyPhotoshopView::HistogramMatching()
 
     if (fileDlg.DoModal() != IDOK)
     {
-		// 用户取消了文件选择
+        // 用户取消了文件选择
         return;
     }
 
     // 4. 创建目标图像处理器并加载图像
     CImageProc targetImageProc;// 目标图像处理器
-	CString targetPath = fileDlg.GetPathName();// 获取目标图像路径
+    CString targetPath = fileDlg.GetPathName();// 获取目标图像路径
 
-	// 处理文件加载异常
+    // 处理文件加载异常
     try
     {
         targetImageProc.LoadBmp(targetPath);// 加载目标图像
@@ -251,7 +246,7 @@ void CMyPhotoshopView::HistogramMatching()
     for (int channel = 0; channel < 3; channel++) // B, G, R
     {
         // 7.1 计算直方图
-		std::vector<int> sourceHist(256, 0);//初始化源图像直方图，默认值为0
+        std::vector<int> sourceHist(256, 0);//初始化源图像直方图，默认值为0
         std::vector<int> targetHist(256, 0);
 
         // 计算源图像直方图
@@ -278,7 +273,7 @@ void CMyPhotoshopView::HistogramMatching()
 
             for (int x = 0; x < targetWidth; x++)
             {
-				if (x * 3 + channel < targetRowSize)
+                if (x * 3 + channel < targetRowSize)
                 {
                     BYTE val = pTarget[x * 3 + channel];
                     targetHist[val]++;
@@ -307,28 +302,28 @@ void CMyPhotoshopView::HistogramMatching()
         }
 
         // 7.3 创建映射表
-        std::vector<BYTE> mapping(256, 0);
+        std::vector<BYTE> mapping(256, 0);// 创建映射表，默认值为0
         for (int i = 0; i < 256; i++)
         {
-            double cdf = sourceCDF[i];
+            double cdf = sourceCDF[i];// 像素值为i的CDF值
             int j = 255;
-            while (j > 0 && targetCDF[j] > cdf + 1e-6)
+            while (j > 0 && targetCDF[j] > cdf + 1e-6)// 进行二分查找，找到目标CDF中最接近当前CDF的值
                 j--;
-            mapping[i] = static_cast<BYTE>(j);
+            mapping[i] = static_cast<BYTE>(j);// 将映射表赋值为目标CDF中最接近当前像素值i对应的CDF的值
         }
 
         // 7.4 应用映射
         for (int y = 0; y < height; y++)
         {
-            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;// 获取当前行的像素数据
             if (!pSource) continue;
 
             for (int x = 0; x < width; x++)
             {
                 if (x * 3 + channel < rowSize)
                 {
-                    BYTE origVal = pSource[x * 3 + channel];
-                    pSource[x * 3 + channel] = mapping[origVal];
+                    BYTE origVal = pSource[x * 3 + channel];// 获取当前像素的值
+                    pSource[x * 3 + channel] = mapping[origVal];// 将目标像素值映射到图像
                 }
             }
         }
@@ -339,6 +334,9 @@ void CMyPhotoshopView::HistogramMatching()
     pDoc->SetModifiedFlag(TRUE);
     AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
 }
+
+
+
 
 // 复古风格效果
 //复古风格算法实现了以下效果：

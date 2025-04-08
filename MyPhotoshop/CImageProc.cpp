@@ -14,6 +14,7 @@ CImageProc::CImageProc()
     pBits = NULL;
     nWidth = nHeight = nBitCount = 0;
     m_bIs565Format = true;
+    isPaletteDarkToLight = false;
 }
 CImageProc::~CImageProc()
 {
@@ -41,6 +42,7 @@ void CImageProc::CleanUp()
     pBits = NULL;
     nWidth = nHeight = nBitCount = 0;
     m_bIs565Format = true;
+    isPaletteDarkToLight = false;
 }
 
 //打开文件

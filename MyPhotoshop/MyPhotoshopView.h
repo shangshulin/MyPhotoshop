@@ -49,9 +49,6 @@ public:
 	afx_msg void OnUpdateViewPixelInfo(CCmdUI* pCmdUI); // 更新菜单按钮状态的消息处理函数
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point); // 鼠标左键按下事件处理函数
 	afx_msg void OnFunctionHistogramMatching(); // 直方图规格化菜单项的处理函数
-private:
-	void HistogramMatching();
-public:
 	afx_msg void OnColorStyleVintage();
 	afx_msg void OnUpdateColorStyleVintage(CCmdUI* pCmdUI);
 };
