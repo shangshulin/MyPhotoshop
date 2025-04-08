@@ -25,7 +25,7 @@ public:
     void ApplyVintageTo16Bit();      // 处理16位格式的图片
 
     void CreateVintagePalette();// 创建复古调色板
-
+    bool HistogramMatching(CImageProc& targetImageProc);
 public:
     
     BYTE* pDib;

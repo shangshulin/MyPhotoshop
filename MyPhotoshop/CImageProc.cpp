@@ -878,3 +878,263 @@ void CImageProc::ApplyBlackAndWhiteStyle()
         }
     }
 }
+
+// 实现直方图规格化函数
+
+bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
+{
+    if (!IsValid() || !targetImageProc.IsValid())
+    {
+        AfxMessageBox(_T("图像数据无效"));
+        return false;
+    }
+
+    int width = nWidth;
+    int height = nHeight;
+    int rowSize = ((width * nBitCount + 31) / 32) * 4;
+    int targetWidth = targetImageProc.nWidth;
+    int targetHeight = targetImageProc.nHeight;
+    int targetRowSize = ((targetWidth * targetImageProc.nBitCount + 31) / 32) * 4;
+
+    CWaitCursor waitCursor;
+
+    int numSourceChannels = (nBitCount == 1) ? 1 : (nBitCount / 8);
+    int numTargetChannels = (targetImageProc.nBitCount == 1) ? 1 : (targetImageProc.nBitCount / 8);
+
+    for (int channel = 0; channel < numSourceChannels; channel++)
+    {
+        std::vector<int> sourceHist(256, 0);
+        std::vector<int> targetHist(256, 0);
+
+        // 计算源图像直方图
+        for (int y = 0; y < height; y++)
+        {
+            BYTE* pSource = pBits + (height - 1 - y) * rowSize;
+            if (!pSource) continue;
+
+            for (int x = 0; x < width; x++)
+            {
+                BYTE red, green, blue;
+                switch (nBitCount)
+                {
+                case 1:
+                    GetColor1bit(&pSource[x / 8], red, green, blue, x % 8, y, nullptr);
+                    break;
+                case 4:
+                    GetColor4bit(&pSource[x / 2], red, green, blue, x % 2);
+                    break;
+                case 8:
+                    GetColor8bit(&pSource[x], red, green, blue, x);
+                    break;
+                case 16:
+                    GetColor16bit(&pSource[x * 2], red, green, blue);
+                    break;
+                case 24:
+                    GetColor24bit(&pSource[x * 3], red, green, blue);
+                    break;
+                case 32:
+                    GetColor32bit(&pSource[x * 4], red, green, blue);
+                    break;
+                }
+
+                BYTE val;
+                switch (channel)
+                {
+                case 0:
+                    val = red;
+                    break;
+                case 1:
+                    val = green;
+                    break;
+                case 2:
+                    val = blue;
+                    break;
+                }
+                sourceHist[val]++;
+            }
+        }
+
+        // 计算目标图像直方图
+        for (int y = 0; y < targetHeight; y++)
+        {
+            BYTE* pTarget = targetImageProc.pBits + (targetHeight - 1 - y) * targetRowSize;
+            if (!pTarget) continue;
+
+            for (int x = 0; x < targetWidth; x++)
+            {
+                BYTE red, green, blue;
+                switch (targetImageProc.nBitCount)
+                {
+                case 1:
+                    GetColor1bit(&pTarget[x / 8], red, green, blue, x % 8, y, nullptr);
+                    break;
+                case 4:
+                    GetColor4bit(&pTarget[x / 2], red, green, blue, x % 2);
+                    break;
+                case 8:
+                    GetColor8bit(&pTarget[x], red, green, blue, x);
+                    break;
+                case 16:
+                    GetColor16bit(&pTarget[x * 2], red, green, blue);
+                    break;
+                case 24:
+                    GetColor24bit(&pTarget[x * 3], red, green, blue);
+                    break;
+                case 32:
+                    GetColor32bit(&pTarget[x * 4], red, green, blue);
+                    break;
+                }
+
+                BYTE val;
+                switch (channel % numTargetChannels)
+                {
+                case 0:
+                    val = red;
+                    break;
+                case 1:
+                    val = green;
+                    break;
+                case 2:
+                    val = blue;
+                    break;
+                }
+                targetHist[val]++;
+            }
+        }
+
+        // 计算CDF
+        std::vector<double> sourceCDF(256, 0);
+        std::vector<double> targetCDF(256, 0);
+
+        sourceCDF[0] = sourceHist[0];
+        targetCDF[0] = targetHist[0];
+
+        for (int i = 1; i < 256; i++)
+        {
+            sourceCDF[i] = sourceCDF[i - 1] + sourceHist[i];
+            targetCDF[i] = targetCDF[i - 1] + targetHist[i];
+        }
+
+        // 归一化
+        for (int i = 0; i < 256; i++)
+        {
+            sourceCDF[i] /= (width * height);
+            targetCDF[i] /= (targetWidth * targetHeight);
+        }
+
+        // 创建映射表
+        std::vector<BYTE> mapping(256, 0);
+        for (int i = 0; i < 256; i++)
+        {
+            double cdf = sourceCDF[i];
+            int left = 0, right = 255;
+            int result = 0;
+            while (left <= right)
+            {
+                int mid = left + (right - left) / 2;
+                if (targetCDF[mid] <= cdf)
+                {
+                    result = mid;
+                    left = mid + 1;
+                }
+                else
+                {
+                    right = mid - 1;
+                }
+            }
+            mapping[i] = static_cast<BYTE>(result);
+        }
+
+        // 应用映射
+        for (int y = 0; y < height; y++)
+        {
+            BYTE* pSource = pBits + (height - 1 - y) * rowSize;
+            if (!pSource) continue;
+
+            for (int x = 0; x < width; x++)
+            {
+                BYTE red, green, blue;
+                switch (nBitCount)
+                {
+                case 1:
+                    GetColor1bit(&pSource[x / 8], red, green, blue, x % 8, y, nullptr);
+                    break;
+                case 4:
+                    GetColor4bit(&pSource[x / 2], red, green, blue, x % 2);
+                    break;
+                case 8:
+                    GetColor8bit(&pSource[x], red, green, blue, x);
+                    break;
+                case 16:
+                    GetColor16bit(&pSource[x * 2], red, green, blue);
+                    break;
+                case 24:
+                    GetColor24bit(&pSource[x * 3], red, green, blue);
+                    break;
+                case 32:
+                    GetColor32bit(&pSource[x * 4], red, green, blue);
+                    break;
+                }
+
+                BYTE newRed = red;
+                BYTE newGreen = green;
+                BYTE newBlue = blue;
+                switch (channel)
+                {
+                case 0:
+                    newRed = mapping[red];
+                    break;
+                case 1:
+                    newGreen = mapping[green];
+                    break;
+                case 2:
+                    newBlue = mapping[blue];
+                    break;
+                }
+
+                switch (nBitCount)
+                {
+                case 1:
+                    break;
+                case 4:
+                    break;
+                case 8:
+                    pSource[x] = newRed;
+                    break;
+                case 16:
+                {
+                    WORD newPixel;
+                    if (m_bIs565Format)
+                    {
+                        BYTE r = (newRed >> 3) & 0x1F;
+                        BYTE g = (newGreen >> 2) & 0x3F;
+                        BYTE b = (newBlue >> 3) & 0x1F;
+                        newPixel = (r << 11) | (g << 5) | b;
+                    }
+                    else
+                    {
+                        BYTE r = (newRed >> 3) & 0x1F;
+                        BYTE g = (newGreen >> 3) & 0x1F;
+                        BYTE b = (newBlue >> 3) & 0x1F;
+                        newPixel = (r << 10) | (g << 5) | b;
+                    }
+                    *((WORD*)&pSource[x * 2]) = newPixel;
+                    break;
+                }
+                case 24:
+                    pSource[x * 3] = newBlue;
+                    pSource[x * 3 + 1] = newGreen;
+                    pSource[x * 3 + 2] = newRed;
+                    break;
+                case 32:
+                    pSource[x * 4] = newBlue;
+                    pSource[x * 4 + 1] = newGreen;
+                    pSource[x * 4 + 2] = newRed;
+                    break;
+                }
+            }
+        }
+    }
+
+    return true;
+}

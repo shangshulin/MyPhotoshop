@@ -166,7 +166,6 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 // 直方图规格化函数
 void CMyPhotoshopView::OnFunctionHistogramMatching()
 {
-    // 1. 获取文档指针并检查有效性
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
     {
@@ -174,43 +173,27 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
         return;
     }
 
-    // 2. 获取源图像指针并检查位深度
     CImageProc* pSourceImage = pDoc->pImage;
-    if (pSourceImage->nBitCount != 24)
-    {
-        AfxMessageBox(_T("源图像必须是24位色"));
-        return;
-    }
 
-    // 3. 创建并显示文件选择对话框
     CFileDialog fileDlg(TRUE, _T("bmp"), NULL,
         OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST,
-        _T("24位位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), this);
+        _T("位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), this);
 
     if (fileDlg.DoModal() != IDOK)
     {
-        // 用户取消了文件选择
         return;
     }
 
-    // 4. 创建目标图像处理器并加载图像
-    CImageProc targetImageProc;// 目标图像处理器
-    CString targetPath = fileDlg.GetPathName();// 获取目标图像路径
+    CImageProc targetImageProc;
+    CString targetPath = fileDlg.GetPathName();
 
-    // 处理文件加载异常
     try
     {
-        targetImageProc.LoadBmp(targetPath);// 加载目标图像
+        targetImageProc.LoadBmp(targetPath);
 
         if (!targetImageProc.IsValid())
         {
             AfxMessageBox(_T("无法加载目标图像文件"));
-            return;
-        }
-
-        if (targetImageProc.nBitCount != 24)
-        {
-            AfxMessageBox(_T("选择的目标图像不是24位色，请重新选择"));
             return;
         }
     }
@@ -232,122 +215,13 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
         return;
     }
 
-    // 5. 获取图像尺寸信息
-    int width = pSourceImage->nWidth;
-    int height = pSourceImage->nHeight;
-    int rowSize = ((width * 24 + 31) / 32) * 4;
-    int targetWidth = targetImageProc.nWidth;
-    int targetHeight = targetImageProc.nHeight;
-    int targetRowSize = ((targetWidth * 24 + 31) / 32) * 4;
-
-    // 6. 显示等待光标
-    CWaitCursor waitCursor;
-
-    // 7. 对每个颜色通道进行直方图规格化
-    for (int channel = 0; channel < 3; channel++) // B, G, R
+    if (pSourceImage->HistogramMatching(targetImageProc))
     {
-        // 7.1 计算直方图
-        std::vector<int> sourceHist(256, 0);//初始化源图像直方图，默认值为0
-        std::vector<int> targetHist(256, 0);
-
-        // 计算源图像直方图
-        for (int y = 0; y < height; y++)
-        {
-            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;// 获取当前行的像素数据，pSource是指向当前行的像素数据的指针
-            if (!pSource) continue;
-
-            for (int x = 0; x < width; x++)
-            {
-                if (x * 3 + channel < rowSize)// 检查像素是否在有效范围内，x*3+channel表示当前像素的偏移量，channel表示当前像素的通道
-                {
-                    BYTE val = pSource[x * 3 + channel];// 获取当前像素的值
-                    sourceHist[val]++;// 将当前像素的值加到直方图中
-                }
-            }
-        }
-
-        // 计算目标图像直方图
-        for (int y = 0; y < targetHeight; y++)
-        {
-            BYTE* pTarget = targetImageProc.pBits + (targetHeight - 1 - y) * targetRowSize;// 获取当前行的像素数据
-            if (!pTarget) continue;
-
-            for (int x = 0; x < targetWidth; x++)
-            {
-                if (x * 3 + channel < targetRowSize)
-                {
-                    BYTE val = pTarget[x * 3 + channel];
-                    targetHist[val]++;
-                }
-            }
-        }
-
-        // 7.2 计算CDF
-        std::vector<double> sourceCDF(256, 0);
-        std::vector<double> targetCDF(256, 0);
-
-        sourceCDF[0] = sourceHist[0];
-        targetCDF[0] = targetHist[0];
-
-        for (int i = 1; i < 256; i++)
-        {
-            sourceCDF[i] = sourceCDF[i - 1] + sourceHist[i];
-            targetCDF[i] = targetCDF[i - 1] + targetHist[i];
-        }
-
-        // 归一化
-        for (int i = 0; i < 256; i++)
-        {
-            sourceCDF[i] /= (width * height);
-            targetCDF[i] /= (targetWidth * targetHeight);
-        }
-
-        // 7.3 创建映射表
-        std::vector<BYTE> mapping(256, 0);// 创建映射表，默认值为0
-        for (int i = 0; i < 256; i++)
-        {
-            double cdf = sourceCDF[i];// 像素值为i的CDF值
-            int left = 0, right = 255;
-            int result = 0;
-            while (left <= right)
-            {
-                int mid = left + (right - left) / 2;
-                if (targetCDF[mid] <= cdf)
-                {
-                    result = mid;
-                    left = mid + 1;
-                }
-                else
-                {
-                    right = mid - 1;
-                }
-            }
-            mapping[i] = static_cast<BYTE>(result);// 将映射表赋值为目标CDF中最接近当前像素值i对应的CDF的值
-        }
-
-        // 7.4 应用映射
-        for (int y = 0; y < height; y++)
-        {
-            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;// 获取当前行的像素数据
-            if (!pSource) continue;
-
-            for (int x = 0; x < width; x++)
-            {
-                if (x * 3 + channel < rowSize)
-                {
-                    BYTE origVal = pSource[x * 3 + channel];// 获取当前像素的值
-                    pSource[x * 3 + channel] = mapping[origVal];// 将目标像素值映射到图像
-                }
-            }
-        }
+        Invalidate(TRUE);
+        pDoc->SetModifiedFlag(TRUE);
+        AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
     }
-
-    // 8. 更新视图
-    Invalidate(TRUE);
-    pDoc->SetModifiedFlag(TRUE);
-    AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
 }
-
 
 
 
