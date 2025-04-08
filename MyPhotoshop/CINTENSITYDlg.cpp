@@ -30,10 +30,12 @@ void CINTENSITYDlg::DoDataExchange(CDataExchange* pDX)
 	// 关联控件
 	DDX_Control(pDX, IDC_EDIT_ALPHA, m_editAlpha);
 	DDX_Control(pDX, IDC_EDIT_BETA, m_editBeta);
+	DDX_Control(pDX, IDC_COMBO1, m_Intensity_trans_mode);
+
 	// 关联数据
 	DDX_Text(pDX, IDC_EDIT_ALPHA, m_alpha);
 	DDX_Text(pDX, IDC_EDIT_BETA, m_beta);
-	DDX_Control(pDX, IDC_COMBO1, m_Intensity_trans_mode);
+	
 }
 
 

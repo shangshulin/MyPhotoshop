@@ -123,7 +123,7 @@ void CHistogramDlg::OnPaint()
         int maxElement = *std::max_element(m_histogramData.begin(), m_histogramData.end());
 
         // 计算归一化直方图的最大值
-        double maxYValue = static_cast<double>(maxElement) / totalPixels;
+        //double maxYValue = static_cast<double>(maxElement) / totalPixels;
 
         // 绘制 Y 轴刻度和标签
         int numTicks = 10; // 假设有10个刻度
