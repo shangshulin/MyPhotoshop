@@ -299,7 +299,8 @@ void CMyPhotoshopApp::OnIntensityTrans()
 			}
 		}
 	}
-}void CMyPhotoshopApp::OnHistogramEqualization()
+}
+void CMyPhotoshopApp::OnHistogramEqualization()//直方图均衡化菜单命令的响应函数
 {
 	// 获取活动文档
 	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition();
@@ -307,7 +308,7 @@ void CMyPhotoshopApp::OnIntensityTrans()
 	{
 		CDocTemplate* pTemplate = AfxGetApp()->GetNextDocTemplate(pos);
 		POSITION docPos = pTemplate->GetFirstDocPosition();
-		if (docPos != NULL)
+		if (docPos != NULL)//// 检查是否存在打开的文档
 		{
 			CDocument* pDoc = pTemplate->GetNextDoc(docPos);
 			if (pDoc)
@@ -316,20 +317,21 @@ void CMyPhotoshopApp::OnIntensityTrans()
 				if (pMyDoc && pMyDoc->pImage != nullptr)
 				{
 					// 获取视图
-					POSITION viewPos = pMyDoc->GetFirstViewPosition(); // 定义一个变量来存储视图位置
+					POSITION viewPos = pMyDoc->GetFirstViewPosition(); 
 					if (viewPos != NULL)
 					{
 						CView* pView = pMyDoc->GetNextView(viewPos);
 						if (pView)
 						{
 							CClientDC dc(pView);
+
 							std::vector<std::vector<int>> histograms_balance;
 							histograms_balance = pMyDoc->pImage->Balance_Transformations(dc); // 执行直方图均衡化
 
 							// 重新显示均衡化后的直方图
-							CHistogramDlg dlgHistogram;
-							dlgHistogram.m_histogramType = 1;
-							dlgHistogram.SetHistogramDataRGB(histograms_balance);// 设置直方图数据
+							CHistogramDlg dlgHistogram;//// 创建直方图显示对话框
+							dlgHistogram.m_histogramType = 1;//设置直方图类型为RGB模式
+							dlgHistogram.SetHistogramDataRGB(histograms_balance);//将均衡化数据传递给对话框
 							dlgHistogram.DoModal();
 						}
 					}
