@@ -48,5 +48,5 @@ protected:
 #endif // SHARED_HANDLERS
 public:
 	afx_msg void OnFileOpen();
-	afx_msg void OnStyleBlackwhite();
+
 };

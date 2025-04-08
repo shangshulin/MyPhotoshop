@@ -25,7 +25,7 @@ IMPLEMENT_DYNCREATE(CMyPhotoshopDoc, CDocument)
 
 BEGIN_MESSAGE_MAP(CMyPhotoshopDoc, CDocument)
 	ON_COMMAND(ID_FILE_OPEN, &CMyPhotoshopDoc::OnFileOpen)// 打开文件
-	ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopDoc::OnStyleBlackwhite)// 黑白风格
+
 END_MESSAGE_MAP()
 
 // CMyPhotoshopDoc 构造/析构
@@ -151,21 +151,3 @@ void CMyPhotoshopDoc::OnFileOpen()
 	pView->Invalidate(TRUE);
 }
 
-void CMyPhotoshopDoc::OnStyleBlackwhite()
-{
-	if (pImage)
-	{
-		pImage->ApplyBlackAndWhiteStyle(); // 应用黑白风格
-		// 获取视图并使其重绘
-		POSITION pos = GetFirstViewPosition();
-		if (pos != NULL)
-		{
-			CView* pView = GetNextView(pos);
-			if (pView)
-			{
-				pView->Invalidate(); // 使视图无效，触发重绘
-				pView->UpdateWindow(); // 立即更新窗口
-			}
-		}
-	}
-}

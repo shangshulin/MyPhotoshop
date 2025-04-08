@@ -14,6 +14,7 @@ CImageProc::CImageProc()
     pBits = NULL;
     nWidth = nHeight = nBitCount = 0;
     m_bIs565Format = true;
+    isPaletteDarkToLight = false;
 }
 CImageProc::~CImageProc()
 {
@@ -41,6 +42,7 @@ void CImageProc::CleanUp()
     pBits = NULL;
     nWidth = nHeight = nBitCount = 0;
     m_bIs565Format = true;
+    isPaletteDarkToLight = false;
 }
 
 //打开文件
@@ -365,7 +367,7 @@ std::vector<int> CImageProc::CalculateHistogramMix()
     return histogram;
 }
 
-
+// 计算RGB直方图
 std::vector<std::vector<int>> CImageProc::CalculateHistogramRGB()
 {
     std::vector<std::vector<int>> histograms(3, std::vector<int>(256, 0));//创建一个3x256的二维向量，用于存储每个通道的直方图
@@ -461,7 +463,7 @@ void CImageProc::ApplyVintageToPalette()
     }
 }
 
-
+// 处理16位格式的图片
 void CImageProc::ApplyVintageTo16Bit()
 {
     if (!IsValid() || nBitCount != 16) return;
@@ -526,7 +528,7 @@ void CImageProc::ApplyVintageTo16Bit()
     }
 }
 
-
+// 处理真彩色格式的图片
 void CImageProc::ApplyVintageToTrueColor()
 {
     if (!IsValid() || (nBitCount != 24 && nBitCount != 32)) return;
@@ -571,7 +573,7 @@ void CImageProc::ApplyVintageToTrueColor()
     }
 }
 
-
+// 创建复古调色板
 void CImageProc::CreateVintagePalette()
 {
     if (nBitCount > 8) return;
@@ -714,6 +716,7 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
     // 返回均衡化后的三通道直方图数据
     return balancedRgbHistograms;
 }
+
 // 转换为黑白风格
 void CImageProc::ApplyBlackAndWhiteStyle()
 {
@@ -722,30 +725,89 @@ void CImageProc::ApplyBlackAndWhiteStyle()
         AfxMessageBox(_T("No valid image is loaded."));
         return;
     }
-
-    if (nBitCount == 8)
+    if (nBitCount == 1)
     {
-        std::vector<RGBQUAD> grayPalette8bit(256);// 创建8位灰度调色板
-        for (int i = 0; i < 256; ++i)
+        // 判断原调色板的明暗顺序
+        if (pQUAD[0].rgbRed < pQUAD[1].rgbRed)
         {
-            grayPalette8bit[i].rgbRed = static_cast<BYTE>(255 - i);
-            grayPalette8bit[i].rgbGreen = static_cast<BYTE>(255 - i);
-            grayPalette8bit[i].rgbBlue = static_cast<BYTE>(255 - i);
-            grayPalette8bit[i].rgbReserved = 0;
+            isPaletteDarkToLight = true;
+        }
+        else
+        {
+            isPaletteDarkToLight = false;
+        }
+
+        std::vector<RGBQUAD> grayPalette1bit(2); // 创建1位灰度调色板
+        if (isPaletteDarkToLight)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                grayPalette1bit[i].rgbRed = static_cast<BYTE>(i * 255);
+                grayPalette1bit[i].rgbGreen = static_cast<BYTE>(i * 255);
+                grayPalette1bit[i].rgbBlue = static_cast<BYTE>(i * 255);
+                grayPalette1bit[i].rgbReserved = 0;
+            }
+        }
+        else
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                grayPalette1bit[i].rgbRed = static_cast<BYTE>((2 - i) * 255);
+                grayPalette1bit[i].rgbGreen = static_cast<BYTE>((2 - i) * 255);
+                grayPalette1bit[i].rgbBlue = static_cast<BYTE>((2 - i) * 255);
+                grayPalette1bit[i].rgbReserved = 0;
+            }
+        }
+        memcpy(pQUAD, grayPalette1bit.data(), sizeof(RGBQUAD) * 2);
+    }
+    else if (nBitCount == 8)
+    {
+        if (pQUAD[0].rgbRed < pQUAD[255].rgbRed)
+        {
+            isPaletteDarkToLight = true;
+        }
+        else
+        {
+            isPaletteDarkToLight = false;
+        }
+        std::vector<RGBQUAD> grayPalette8bit(256); // 创建8位灰度调色板
+
+        if (isPaletteDarkToLight)
+        {
+            for (int i = 0; i < 256; i++)
+            {
+                grayPalette8bit[i].rgbRed = static_cast<BYTE>(i);
+                grayPalette8bit[i].rgbGreen = static_cast<BYTE>(i);
+                grayPalette8bit[i].rgbBlue = static_cast<BYTE>(i);
+                grayPalette8bit[i].rgbReserved = 0;
+            }
+        }
+        else
+        {
+            for (int i = 0; i < 256; i++)
+            {
+                grayPalette8bit[i].rgbRed = static_cast<BYTE>(255 - i);
+                grayPalette8bit[i].rgbGreen = static_cast<BYTE>(255 - i);
+                grayPalette8bit[i].rgbBlue = static_cast<BYTE>(255 - i);
+                grayPalette8bit[i].rgbReserved = 0;
+            }
         }
         memcpy(pQUAD, grayPalette8bit.data(), sizeof(RGBQUAD) * 256);
     }
 
+
     // 获取图像的行字节数
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    // 计算每个像素的字节数
+    float bytePerPixel = float(nBitCount) / 8;
 
     // 遍历图像的每个像素点
     for (int y = 0; y < nHeight; ++y)
     {
         for (int x = 0; x < nWidth; ++x)
         {
-            int offset = (nHeight - 1 - y) * rowSize + (x * (nBitCount / 8));
-            BYTE* pixel = pBits + offset;
+            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);//计算像素在位图中的偏移量
+            BYTE* pixel = pBits + offset;// 获取像素的偏移量
 
             BYTE red = 0, green = 0, blue = 0;
 
@@ -778,18 +840,7 @@ void CImageProc::ApplyBlackAndWhiteStyle()
             switch (nBitCount)
             {
             case 1:
-            {
-                BYTE bitIndex = x % 8;
-                if (grayValue < 128)
-                {
-                    *pixel &= ~(1 << (7 - bitIndex));// 设置为黑色
-                }
-                else
-                {
-					*pixel |= (1 << (7 - bitIndex)); // 设置为白色
-                }
                 break;
-            }
             case 8:
                 break;
             case 16:

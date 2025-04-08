@@ -37,10 +37,9 @@ void CINTENSITYDlg::DoDataExchange(CDataExchange* pDX)
 
 
 BEGIN_MESSAGE_MAP(CINTENSITYDlg, CDialogEx)
-	ON_COMMAND(ID_32777, &CINTENSITYDlg::OnCIntensityDlg)
-	ON_BN_CLICKED(IDC_BUTTON_APPLY, &CINTENSITYDlg::OnBnClickedButtonApply)
-	ON_BN_CLICKED(IDC_BUTTON_CANCEL, &CINTENSITYDlg::OnBnClickedButtonCancel)
-	ON_BN_CLICKED(ID_BUTTON_APPLY, &CINTENSITYDlg::OnBnClickedButtonApply)
+	ON_BN_CLICKED(IDC_BUTTON_APPLY, &CINTENSITYDlg::OnBnClickedButtonApply)// 应用按钮
+	ON_BN_CLICKED(IDC_BUTTON_CANCEL, &CINTENSITYDlg::OnBnClickedButtonCancel)// 取消按钮
+
 END_MESSAGE_MAP()
 
 
@@ -73,10 +72,6 @@ void CINTENSITYDlg::OnBnClickedButtonApply()
 
 void CINTENSITYDlg::OnBnClickedButtonCancel()
 {
-
-	// 应用灰度线性变换
-	//ApplyIntensityTransform();
-
 	// 关闭对话框
 	 CDialogEx::OnOK();
 }
@@ -105,6 +100,8 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 		return;
 	}
 
+	BITMAPFILEHEADER* pBFH = (BITMAPFILEHEADER*)pDib;//获取文件头
+
 	// 获取位图信息头
 	BITMAPINFOHEADER* pBIH = (BITMAPINFOHEADER*)(pDib + sizeof(BITMAPFILEHEADER));
 	int nWidth = pBIH->biWidth;
@@ -119,11 +116,11 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 	if (nBitCount <= 8)
 	{
 		pRGBQuad = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
-		pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD) * (1 << nBitCount);
+		pBits = &pDib[pBFH->bfOffBits];//获取位图数据
 	}
 	else
 	{
-		pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+		pBits = &pDib[pBFH->bfOffBits];//获取位图数据
 	}
 
 	// 应用灰度线性变换
@@ -230,8 +227,4 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 			pView->UpdateWindow();
 		}
 	}
-}
-void CINTENSITYDlg::OnCIntensityDlg()
-{
-	// TODO: 在此添加命令处理程序代码
 }
