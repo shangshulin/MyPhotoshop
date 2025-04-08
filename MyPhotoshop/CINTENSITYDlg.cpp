@@ -157,8 +157,8 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 			pRGBQuad[i].rgbGreen = newValue;
 			pRGBQuad[i].rgbBlue = newValue;
 		}
-	}
 	break;
+	}
 
 	case 24:  // 24位彩色图像
 	{
@@ -190,8 +190,9 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 				pBits[offset + 2] = newGray; // R
 			}
 		}
+		break;
 	}
-	break;
+	
 
 	case 32:  // 32位彩色图像
 	{
@@ -220,8 +221,9 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 				pBits[offset + 2] = newGray; // R
 			}
 		}
+		break;
 	}
-	break;
+
 
 	default:
 		AfxMessageBox(_T("不支持的图像格式！"));
