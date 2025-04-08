@@ -307,10 +307,22 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
         for (int i = 0; i < 256; i++)
         {
             double cdf = sourceCDF[i];// 像素值为i的CDF值
-            int j = 255;
-            while (j > 0 && targetCDF[j] > cdf + 1e-6)// 找到目标CDF中最接近当前CDF的值
-                j--;
-            mapping[i] = static_cast<BYTE>(j);// 将映射表赋值为目标CDF中最接近当前像素值i对应的CDF的值
+            int left = 0, right = 255;
+            int result = 0;
+            while (left <= right)
+            {
+                int mid = left + (right - left) / 2;
+                if (targetCDF[mid] <= cdf)
+                {
+                    result = mid;
+                    left = mid + 1;
+                }
+                else
+                {
+                    right = mid - 1;
+                }
+            }
+            mapping[i] = static_cast<BYTE>(result);// 将映射表赋值为目标CDF中最接近当前像素值i对应的CDF的值
         }
 
         // 7.4 应用映射
