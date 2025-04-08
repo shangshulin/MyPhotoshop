@@ -27,9 +27,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopApp, CWinApp)
 	ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen) // 打开文件命令
 	// 标准打印设置命令
 	ON_COMMAND(ID_FILE_PRINT_SETUP, &CWinApp::OnFilePrintSetup) // 设置打印
-	ON_COMMAND(ID_HISTOGRAM_MIX, &CMyPhotoshopApp::OnHistogramMix) // 直方图混合显示模式
-	ON_COMMAND(ID_HISTOGRAM_RGB, &CMyPhotoshopApp::OnHistogramRGB) // 直方图RGB显示模式
-	ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopApp::OnHistogramEqualization)// 直方图均衡化
+	ON_COMMAND(ID_HISTOGRAM_MIX, &CMyPhotoshopApp::OnHistogramMix) // 直方图混合模式
+	ON_COMMAND(ID_HISTOGRAM_RGB, &CMyPhotoshopApp::OnHistogramRGB) // 直方图RGB模式
+	ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopApp::OnHistogramEqualization)
 	ON_COMMAND(ID_INTENSITY_TRANS, &CMyPhotoshopApp::OnIntensityTrans) // 灰度线性变换
 
 END_MESSAGE_MAP()
@@ -185,7 +185,7 @@ void CMyPhotoshopApp::OnAppAbout()
 
 // CMyPhotoshopApp 消息处理程序
 
-// 直方图混合显示模式菜单项的处理函数
+
 void CMyPhotoshopApp::OnHistogramMix()
 {
 	CHistogramDlg dlgHistogram;
@@ -222,8 +222,6 @@ void CMyPhotoshopApp::OnHistogramMix()
 		}
 	}
 }
-
-// 直方图RGB显示模式菜单项的处理函数
 void CMyPhotoshopApp::OnHistogramRGB()
 {
 	CHistogramDlg dlgHistogram;
@@ -261,7 +259,7 @@ void CMyPhotoshopApp::OnHistogramRGB()
 	}
 }
 
-// 灰度线性变换菜单项的处理函数
+// 在文件末尾添加以下函数实现
 void CMyPhotoshopApp::OnIntensityTrans()
 {
 	// 创建并显示灰度线性变换对话框
@@ -302,9 +300,7 @@ void CMyPhotoshopApp::OnIntensityTrans()
 		}
 	}
 }
-
-// 直方图均衡化菜单项的处理函数
-void CMyPhotoshopApp::OnHistogramEqualization()
+void CMyPhotoshopApp::OnHistogramEqualization()//直方图均衡化菜单命令的响应函数
 {
 	// 获取活动文档
 	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition();
@@ -312,7 +308,7 @@ void CMyPhotoshopApp::OnHistogramEqualization()
 	{
 		CDocTemplate* pTemplate = AfxGetApp()->GetNextDocTemplate(pos);
 		POSITION docPos = pTemplate->GetFirstDocPosition();
-		if (docPos != NULL)
+		if (docPos != NULL)//// 检查是否存在打开的文档
 		{
 			CDocument* pDoc = pTemplate->GetNextDoc(docPos);
 			if (pDoc)
@@ -321,20 +317,21 @@ void CMyPhotoshopApp::OnHistogramEqualization()
 				if (pMyDoc && pMyDoc->pImage != nullptr)
 				{
 					// 获取视图
-					POSITION viewPos = pMyDoc->GetFirstViewPosition(); // 定义一个变量来存储视图位置
+					POSITION viewPos = pMyDoc->GetFirstViewPosition(); 
 					if (viewPos != NULL)
 					{
 						CView* pView = pMyDoc->GetNextView(viewPos);
 						if (pView)
 						{
 							CClientDC dc(pView);
+
 							std::vector<std::vector<int>> histograms_balance;
 							histograms_balance = pMyDoc->pImage->Balance_Transformations(dc); // 执行直方图均衡化
 
 							// 重新显示均衡化后的直方图
-							CHistogramDlg dlgHistogram;
-							dlgHistogram.m_histogramType = 1;
-							dlgHistogram.SetHistogramDataRGB(histograms_balance);// 设置直方图数据
+							CHistogramDlg dlgHistogram;//// 创建直方图显示对话框
+							dlgHistogram.m_histogramType = 1;//设置直方图类型为RGB模式
+							dlgHistogram.SetHistogramDataRGB(histograms_balance);//将均衡化数据传递给对话框
 							dlgHistogram.DoModal();
 						}
 					}
