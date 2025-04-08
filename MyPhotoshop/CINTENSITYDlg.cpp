@@ -33,6 +33,7 @@ void CINTENSITYDlg::DoDataExchange(CDataExchange* pDX)
 	// 关联数据
 	DDX_Text(pDX, IDC_EDIT_ALPHA, m_alpha);
 	DDX_Text(pDX, IDC_EDIT_BETA, m_beta);
+	DDX_Control(pDX, IDC_COMBO1, m_Intensity_trans_mode);
 }
 
 
@@ -52,6 +53,14 @@ BOOL CINTENSITYDlg::OnInitDialog()
 	// 设置初始值
 	m_editAlpha.SetWindowText(_T("1.0"));
 	m_editBeta.SetWindowText(_T("0.0"));
+
+	// 添加下拉框选项（顺序：线性、对数、指数）
+	m_Intensity_trans_mode.AddString(_T("线性"));  // 索引 0
+	m_Intensity_trans_mode.AddString(_T("对数"));  // 索引 1
+	m_Intensity_trans_mode.AddString(_T("指数"));  // 索引 2
+
+	// 默认选择第一个选项（线性）
+	m_Intensity_trans_mode.SetCurSel(0);
 
 	return TRUE;
 }
@@ -81,6 +90,14 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 	if (m_pImage == nullptr)
 	{
 		AfxMessageBox(_T("未加载图像！"));
+		return;
+	}
+
+	// 获取用户选择的变换模式
+	int selectedMode = m_Intensity_trans_mode.GetCurSel();
+	if (selectedMode < 0 || selectedMode > 2)
+	{
+		AfxMessageBox(_T("无效的变换模式！"));
 		return;
 	}
 
@@ -133,7 +150,21 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 		for (int i = 0; i < 2; i++)
 		{
 			int oldPixel = 0.299 * pRGBQuad[i].rgbRed + 0.587 * pRGBQuad[i].rgbGreen + 0.114 * pRGBQuad[i].rgbBlue;
-			int newValue = (int)(m_alpha * oldPixel + m_beta);
+			int newValue = 0;
+			switch (selectedMode)
+			{
+			case 0: // 线性变换
+				newValue = (int)(m_alpha * oldPixel + m_beta);
+				break;
+			case 1: // 对数变换
+				newValue = (int)(m_alpha * log(1.0 + oldPixel) + m_beta);
+				break;
+			case 2: // 指数变换
+				newValue = (int)(m_alpha * exp(oldPixel / 255.0) + m_beta);
+				break;
+			}
+
+			// int newValue = (int)(m_alpha * oldPixel + m_beta);
 			// 确保值在0-255范围内
 			newValue = max(0, min(255, newValue));
 
@@ -149,7 +180,21 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 		for (int i = 0; i < 256; i++)
 		{
 			int oldPixel = 0.299 * pRGBQuad[i].rgbRed + 0.587 * pRGBQuad[i].rgbGreen + 0.114 * pRGBQuad[i].rgbBlue;
-			int newValue = (int)(m_alpha * oldPixel + m_beta);
+			
+			int newValue = 0;
+			switch (selectedMode)
+			{
+			case 0: // 线性变换
+				newValue = (int)(m_alpha * oldPixel + m_beta);
+				break;
+			case 1: // 对数变换
+				newValue = (int)(m_alpha * log(1.0 + oldPixel) + m_beta);
+				break;
+			case 2: // 指数变换
+				newValue = (int)(m_alpha * exp(oldPixel / 255.0) + m_beta);
+				break;
+			}
+			//int newValue = (int)(m_alpha * oldPixel + m_beta);
 			// 确保值在0-255范围内
 			newValue = max(0, min(255, newValue));
 
@@ -202,7 +247,20 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 				BYTE gray = (BYTE)(0.299 * red + 0.587 * green + 0.114 * blue);
 
 				// 应用线性变换
-				int newGray = (int)(m_alpha * gray + m_beta);
+				int newGray = 0;
+				switch (selectedMode)
+				{
+				case 0: // 线性变换
+					newGray = (int)(m_alpha * gray + m_beta);
+					break;
+				case 1: // 对数变换
+					newGray = (int)(m_alpha * log(1.0 + gray) + m_beta);
+					break;
+				case 2: // 指数变换
+					newGray = (int)(m_alpha * exp(gray / 255.0) + m_beta);
+					break;
+				}
+				//int newGray = (int)(m_alpha * gray + m_beta);
 				newGray = max(0, min(255, newGray)); // 确保值在0-255范围内
 
 				// 将灰度值转换回16位格式
@@ -249,7 +307,20 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 				BYTE gray = (BYTE)(0.299 * red + 0.587 * green + 0.114 * blue);
 
 				// 应用线性变换
-				int newGray = (int)(m_alpha * gray + m_beta);
+				int newGray = 0;
+				switch (selectedMode)
+				{
+				case 0: // 线性变换
+					newGray = (int)(m_alpha * gray + m_beta);
+					break;
+				case 1: // 对数变换
+					newGray = (int)(m_alpha * log(1.0 + gray) + m_beta);
+					break;
+				case 2: // 指数变换
+					newGray = (int)(m_alpha * exp(gray / 255.0) + m_beta);
+					break;
+				}
+				//int newGray = (int)(m_alpha * gray + m_beta);
 				// 确保值在0-255范围内
 				newGray = max(0, min(255, newGray));
 
@@ -280,7 +351,20 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 				BYTE gray = (BYTE)(0.299 * red + 0.587 * green + 0.114 * blue);
 
 				// 应用线性变换
-				int newGray = (int)(m_alpha * gray + m_beta);
+				int newGray = 0;
+				switch (selectedMode)
+				{
+				case 0: // 线性变换
+					newGray = (int)(m_alpha * gray + m_beta);
+					break;
+				case 1: // 对数变换
+					newGray = (int)(m_alpha * log(1.0 + gray) + m_beta);
+					break;
+				case 2: // 指数变换
+					newGray = (int)(m_alpha * exp(gray / 255.0) + m_beta);
+					break;
+				}
+				//int newGray = (int)(m_alpha * gray + m_beta);
 				// 确保值在0-255范围内
 				newGray = max(0, min(255, newGray));
 

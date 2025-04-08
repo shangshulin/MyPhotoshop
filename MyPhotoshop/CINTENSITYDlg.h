@@ -32,4 +32,5 @@ public:
 	afx_msg void OnBnClickedButtonApply(); // 应用按钮点击事件
 	afx_msg void OnBnClickedButtonCancel(); // 取消按钮点击事件
 	virtual BOOL OnInitDialog();
+	CComboBox m_Intensity_trans_mode;
 };
