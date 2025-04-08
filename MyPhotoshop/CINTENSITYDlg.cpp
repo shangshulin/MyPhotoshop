@@ -159,7 +159,76 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 		}
 	break;
 	}
+	case 16: // 16位图像
+	{
+		bool is565 = m_pImage->m_bIs565Format; // 判断是否为565格式
+		int bytesPerLine = ((nWidth * 2 + 3) / 4) * 4; // 每行字节数（4字节对齐）
 
+		for (int y = 0; y < nHeight; y++)
+		{
+			for (int x = 0; x < nWidth; x++)
+			{
+				int offset = y * bytesPerLine + x * 2;
+				WORD pixel = *(WORD*)(pBits + offset);
+
+				BYTE red, green, blue;
+
+				if (is565)
+				{
+					// 提取RGB值 (565格式)
+					red = (pixel >> 11) & 0x1F;
+					green = (pixel >> 5) & 0x3F;
+					blue = pixel & 0x1F;
+
+					// 转换到0-255范围
+					red = (red * 255) / 31;
+					green = (green * 255) / 63;
+					blue = (blue * 255) / 31;
+				}
+				else
+				{
+					// 提取RGB值 (555格式)
+					red = (pixel >> 10) & 0x1F;
+					green = (pixel >> 5) & 0x1F;
+					blue = pixel & 0x1F;
+
+					// 转换到0-255范围
+					red = (red * 255) / 31;
+					green = (green * 255) / 31;
+					blue = (blue * 255) / 31;
+				}
+
+				// 计算灰度值
+				BYTE gray = (BYTE)(0.299 * red + 0.587 * green + 0.114 * blue);
+
+				// 应用线性变换
+				int newGray = (int)(m_alpha * gray + m_beta);
+				newGray = max(0, min(255, newGray)); // 确保值在0-255范围内
+
+				// 将灰度值转换回16位格式
+				if (is565)
+				{
+					red = (newGray * 31) / 255;
+					green = (newGray * 63) / 255;
+					blue = (newGray * 31) / 255;
+
+					pixel = (red << 11) | (green << 5) | blue;
+				}
+				else
+				{
+					red = (newGray * 31) / 255;
+					green = (newGray * 31) / 255;
+					blue = (newGray * 31) / 255;
+
+					pixel = (red << 10) | (green << 5) | blue;
+				}
+
+				// 更新像素值
+				*(WORD*)(pBits + offset) = pixel;
+			}
+		}
+		break;
+	}
 	case 24:  // 24位彩色图像
 	{
 		// 计算每行字节数（需要4字节对齐）
