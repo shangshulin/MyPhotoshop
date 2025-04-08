@@ -127,12 +127,29 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 	// 公式: newPixel = alpha * oldPixel + beta
 	switch (nBitCount)
 	{
+	case 1:
+	{
+		// 修改颜色表
+		for (int i = 0; i < 2; i++)
+		{
+			int oldPixel = 0.299 * pRGBQuad[i].rgbRed + 0.587 * pRGBQuad[i].rgbGreen + 0.114 * pRGBQuad[i].rgbBlue;
+			int newValue = (int)(m_alpha * oldPixel + m_beta);
+			// 确保值在0-255范围内
+			newValue = max(0, min(255, newValue));
+
+			pRGBQuad[i].rgbRed = newValue;
+			pRGBQuad[i].rgbGreen = newValue;
+			pRGBQuad[i].rgbBlue = newValue;
+		}
+	break;
+	}
 	case 8:  // 8位灰度图像
 	{
 		// 修改颜色表
 		for (int i = 0; i < 256; i++)
 		{
-			int newValue = (int)(m_alpha * i + m_beta);
+			int oldPixel = 0.299 * pRGBQuad[i].rgbRed + 0.587 * pRGBQuad[i].rgbGreen + 0.114 * pRGBQuad[i].rgbBlue;
+			int newValue = (int)(m_alpha * oldPixel + m_beta);
 			// 确保值在0-255范围内
 			newValue = max(0, min(255, newValue));
 

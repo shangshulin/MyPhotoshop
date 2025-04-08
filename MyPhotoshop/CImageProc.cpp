@@ -128,7 +128,6 @@ void CImageProc::LoadBmp(CString stFileName)
         return;
     }
     pBits = &pDib[pBFH->bfOffBits];//获取位图数据
-
     nWidth = pBIH->biWidth;//获取宽高和位深
     nHeight = abs(pBIH->biHeight);
     nBitCount = pBIH->biBitCount;
