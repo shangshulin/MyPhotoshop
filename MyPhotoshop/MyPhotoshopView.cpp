@@ -28,11 +28,11 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
 	ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
 	ON_WM_LBUTTONDOWN() // 左键点击
-	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 菜单项点击
-	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新菜单项状态
-	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching)
-    ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)
-    ON_UPDATE_COMMAND_UI(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnUpdateColorStyleVintage)
+	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 显示像素点信息
+	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
+	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
+	ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
+	ON_UPDATE_COMMAND_UI(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnUpdateColorStyleVintage)// 更新复古风格菜单项状态
 END_MESSAGE_MAP()
 
 
@@ -167,134 +167,7 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
     HistogramMatching();
 }
 
-//允许用户自行选择图像，但有断言错误
-//void CMyPhotoshopView::HistogramMatching()
-//{
-//    CMyPhotoshopDoc* pDoc = GetDocument();
-//    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_hDib)
-//    {
-//        AfxMessageBox(_T("请先打开有效的源图像文件"));
-//        return;
-//    }
-//
-//    CImageProc* pSourceImage = pDoc->pImage; // 源图像
-//    if (pSourceImage->nBitCount != 24)
-//    {
-//        AfxMessageBox(_T("源图像必须是24位色"));
-//        return;
-//    }
-//
-//    // 让用户选择目标图像
-//    CFileDialog fileDlg(TRUE, _T("bmp"), NULL,
-//        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
-//        _T("24位位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), this);
-//
-//    if (fileDlg.DoModal() != IDOK)
-//    {
-//        return; // 用户取消了选择
-//    }
-//
-//    CString targetPath = fileDlg.GetPathName();
-//
-//    // 加载目标图像
-//    CImageProc targetImageProc;
-//    try {
-//        targetImageProc.LoadBmp(targetPath);
-//        if (!targetImageProc.m_hDib || targetImageProc.nBitCount != 24)
-//        {
-//            AfxMessageBox(_T("选择的目标图像不是24位色，请重新选择"));
-//            return;
-//        }
-//    }
-//    catch (...) {
-//        AfxMessageBox(_T("加载目标图像失败，请检查文件是否有效"));
-//        return;
-//    }
-//
-//    int width = pSourceImage->nWidth;
-//    int height = pSourceImage->nHeight;
-//    int rowSize = ((width * 24 + 31) / 32) * 4;
-//    int targetRowSize = ((targetImageProc.nWidth * 24 + 31) / 32) * 4;
-//
-//    // 对每个颜色通道(R,G,B)分别进行直方图规格化
-//    for (int channel = 0; channel < 3; channel++) // 0:B, 1:G, 2:R
-//    {
-//        // 1. 计算源图像当前通道的直方图
-//        std::vector<int> sourceHist(256, 0);
-//        // 计算源图像直方图
-//        for (int y = 0; y < height; y++)
-//        {
-//            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
-//            for (int x = 0; x < width; x++)
-//            {
-//                sourceHist[pSource[x * 3 + channel]]++;
-//            }
-//        }
-//
-//        // 2. 计算目标图像当前通道的直方图
-//        std::vector<int> targetHist(256, 0);
-//        int targetWidth = targetImageProc.nWidth;
-//        int targetHeight = targetImageProc.nHeight;
-//        for (int y = 0; y < targetHeight; y++)
-//        {
-//            BYTE* pTarget = targetImageProc.pBits + (targetHeight - 1 - y) * targetRowSize;
-//            for (int x = 0; x < targetWidth; x++)
-//            {
-//                targetHist[pTarget[x * 3 + channel]]++;
-//            }
-//        }
-//
-//        // 3. 计算源图像当前通道的CDF
-//        std::vector<double> sourceCDF(256, 0);
-//        sourceCDF[0] = sourceHist[0];
-//        for (int i = 1; i < 256; i++) {
-//            sourceCDF[i] = sourceCDF[i - 1] + sourceHist[i];
-//        }
-//        // 归一化
-//        for (int i = 0; i < 256; i++) {
-//            sourceCDF[i] /= (width * height);
-//        }
-//
-//        // 4. 计算目标图像当前通道的CDF
-//        std::vector<double> targetCDF(256, 0);
-//        targetCDF[0] = targetHist[0];
-//        for (int i = 1; i < 256; i++) {
-//            targetCDF[i] = targetCDF[i - 1] + targetHist[i];
-//        }
-//        // 归一化
-//        for (int i = 0; i < 256; i++) {
-//            targetCDF[i] /= (targetWidth * targetHeight);
-//        }
-//
-//        // 5. 创建当前通道的映射表
-//        std::vector<BYTE> mapping(256, 0);
-//        for (int i = 0; i < 256; i++)
-//        {
-//            double cdfValue = sourceCDF[i];
-//            int j = 255;
-//            while (j > 0 && targetCDF[j] > cdfValue + 1e-6) {
-//                j--;
-//            }
-//            mapping[i] = static_cast<BYTE>(j);
-//        }
-//
-//        // 6. 应用映射到源图像当前通道
-//        for (int y = 0; y < height; y++)
-//        {
-//            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
-//            for (int x = 0; x < width; x++)
-//            {
-//                pSource[x * 3 + channel] = mapping[pSource[x * 3 + channel]];
-//            }
-//        }
-//    }
-//
-//    // 7. 更新视图
-//    Invalidate(TRUE);
-//    pDoc->SetModifiedFlag(TRUE);
-//    AfxMessageBox(_T("直方图规格化完成，已根据选择的图像调整"));
-//}
-
+// 直方图规格化函数
 void CMyPhotoshopView::HistogramMatching()
 {
     // 1. 获取文档指针并检查有效性
@@ -320,16 +193,18 @@ void CMyPhotoshopView::HistogramMatching()
 
     if (fileDlg.DoModal() != IDOK)
     {
+		// 用户取消了文件选择
         return;
     }
 
     // 4. 创建目标图像处理器并加载图像
-    CImageProc targetImageProc;
-    CString targetPath = fileDlg.GetPathName();
+    CImageProc targetImageProc;// 目标图像处理器
+	CString targetPath = fileDlg.GetPathName();// 获取目标图像路径
 
+	// 处理文件加载异常
     try
     {
-        targetImageProc.LoadBmp(targetPath);
+        targetImageProc.LoadBmp(targetPath);// 加载目标图像
 
         if (!targetImageProc.IsValid())
         {
@@ -376,21 +251,21 @@ void CMyPhotoshopView::HistogramMatching()
     for (int channel = 0; channel < 3; channel++) // B, G, R
     {
         // 7.1 计算直方图
-        std::vector<int> sourceHist(256, 0);
+		std::vector<int> sourceHist(256, 0);//初始化源图像直方图，默认值为0
         std::vector<int> targetHist(256, 0);
 
         // 计算源图像直方图
         for (int y = 0; y < height; y++)
         {
-            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;
+            BYTE* pSource = pSourceImage->pBits + (height - 1 - y) * rowSize;// 获取当前行的像素数据，pSource是指向当前行的像素数据的指针
             if (!pSource) continue;
 
             for (int x = 0; x < width; x++)
             {
-                if (x * 3 + channel < rowSize)
+                if (x * 3 + channel < rowSize)// 检查像素是否在有效范围内，x*3+channel表示当前像素的偏移量，channel表示当前像素的通道
                 {
-                    BYTE val = pSource[x * 3 + channel];
-                    sourceHist[val]++;
+                    BYTE val = pSource[x * 3 + channel];// 获取当前像素的值
+                    sourceHist[val]++;// 将当前像素的值加到直方图中
                 }
             }
         }
@@ -398,12 +273,12 @@ void CMyPhotoshopView::HistogramMatching()
         // 计算目标图像直方图
         for (int y = 0; y < targetHeight; y++)
         {
-            BYTE* pTarget = targetImageProc.pBits + (targetHeight - 1 - y) * targetRowSize;
+            BYTE* pTarget = targetImageProc.pBits + (targetHeight - 1 - y) * targetRowSize;// 获取当前行的像素数据
             if (!pTarget) continue;
 
             for (int x = 0; x < targetWidth; x++)
             {
-                if (x * 3 + channel < targetRowSize)
+				if (x * 3 + channel < targetRowSize)
                 {
                     BYTE val = pTarget[x * 3 + channel];
                     targetHist[val]++;
@@ -477,11 +352,13 @@ void CMyPhotoshopView::HistogramMatching()
 //应用效果前会检查图像是否有效
 //菜单项在没有有效图像时会自动禁用
 //修改后的图像会被标记为已修改(SetModifiedFlag)
+
+// 复古风格
 void CMyPhotoshopView::OnColorStyleVintage()
 {
     // TODO: 在此添加命令处理程序代码
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+	if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {// 检查文档和图像有效性
         AfxMessageBox(_T("请先打开有效的图像文件"));
         return;
     }
@@ -494,12 +371,10 @@ void CMyPhotoshopView::OnColorStyleVintage()
     pDoc->SetModifiedFlag(TRUE);
 }
 
-
+// 更新复古风格菜单项状态
 void CMyPhotoshopView::OnUpdateColorStyleVintage(CCmdUI* pCmdUI)
 {
     // TODO: 在此添加命令更新用户界面处理程序代码
-    CMyPhotoshopDoc* pDoc = GetDocument();
-    //pCmdUI->Enable(pDoc && pDoc->pImage && pDoc->pImage->IsValid() &&
-    //    (pDoc->pImage->nBitCount == 24 || pDoc->pImage->nBitCount == 32));
-    pCmdUI->Enable(pDoc && pDoc->pImage && pDoc->pImage->IsValid());
+	CMyPhotoshopDoc* pDoc = GetDocument();// 获取文档指针
+	pCmdUI->Enable(pDoc && pDoc->pImage && pDoc->pImage->IsValid());// 启用菜单项
 }

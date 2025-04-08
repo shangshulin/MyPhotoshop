@@ -16,6 +16,7 @@ public:
     std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
 	std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);    // 直方图均衡化
     void ApplyBlackAndWhiteStyle();// 黑白风格
+    bool isPaletteDarkToLight;
     HANDLE m_hDib;
 
 	void ApplyVintageStyle();  // 复古风格
@@ -45,6 +46,7 @@ public:
     void GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
 
     bool IsValid() const { return m_hDib != NULL && pDib != NULL; }
+
 
     void CleanUp();
 };

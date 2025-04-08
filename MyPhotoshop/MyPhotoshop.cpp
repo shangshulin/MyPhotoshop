@@ -27,9 +27,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopApp, CWinApp)
 	ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen) // 打开文件命令
 	// 标准打印设置命令
 	ON_COMMAND(ID_FILE_PRINT_SETUP, &CWinApp::OnFilePrintSetup) // 设置打印
-	ON_COMMAND(ID_HISTOGRAM_MIX, &CMyPhotoshopApp::OnHistogramMix) // 直方图混合模式
-	ON_COMMAND(ID_HISTOGRAM_RGB, &CMyPhotoshopApp::OnHistogramRGB) // 直方图RGB模式
-	ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopApp::OnHistogramEqualization)
+	ON_COMMAND(ID_HISTOGRAM_MIX, &CMyPhotoshopApp::OnHistogramMix) // 直方图混合显示模式
+	ON_COMMAND(ID_HISTOGRAM_RGB, &CMyPhotoshopApp::OnHistogramRGB) // 直方图RGB显示模式
+	ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopApp::OnHistogramEqualization)// 直方图均衡化
 	ON_COMMAND(ID_INTENSITY_TRANS, &CMyPhotoshopApp::OnIntensityTrans) // 灰度线性变换
 
 END_MESSAGE_MAP()
@@ -185,7 +185,7 @@ void CMyPhotoshopApp::OnAppAbout()
 
 // CMyPhotoshopApp 消息处理程序
 
-
+// 直方图混合显示模式菜单项的处理函数
 void CMyPhotoshopApp::OnHistogramMix()
 {
 	CHistogramDlg dlgHistogram;
@@ -222,6 +222,8 @@ void CMyPhotoshopApp::OnHistogramMix()
 		}
 	}
 }
+
+// 直方图RGB显示模式菜单项的处理函数
 void CMyPhotoshopApp::OnHistogramRGB()
 {
 	CHistogramDlg dlgHistogram;
@@ -299,7 +301,10 @@ void CMyPhotoshopApp::OnIntensityTrans()
 			}
 		}
 	}
-}void CMyPhotoshopApp::OnHistogramEqualization()
+}
+
+// 直方图均衡化菜单项的处理函数
+void CMyPhotoshopApp::OnHistogramEqualization()
 {
 	// 获取活动文档
 	POSITION pos = AfxGetApp()->GetFirstDocTemplatePosition();

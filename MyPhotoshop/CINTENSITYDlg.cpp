@@ -37,10 +37,9 @@ void CINTENSITYDlg::DoDataExchange(CDataExchange* pDX)
 
 
 BEGIN_MESSAGE_MAP(CINTENSITYDlg, CDialogEx)
-	ON_COMMAND(ID_32777, &CINTENSITYDlg::OnCIntensityDlg)
-	ON_BN_CLICKED(IDC_BUTTON_APPLY, &CINTENSITYDlg::OnBnClickedButtonApply)
-	ON_BN_CLICKED(IDC_BUTTON_CANCEL, &CINTENSITYDlg::OnBnClickedButtonCancel)
-	ON_BN_CLICKED(ID_BUTTON_APPLY, &CINTENSITYDlg::OnBnClickedButtonApply)
+	ON_BN_CLICKED(IDC_BUTTON_APPLY, &CINTENSITYDlg::OnBnClickedButtonApply)// 应用按钮
+	ON_BN_CLICKED(IDC_BUTTON_CANCEL, &CINTENSITYDlg::OnBnClickedButtonCancel)// 取消按钮
+
 END_MESSAGE_MAP()
 
 
@@ -73,10 +72,6 @@ void CINTENSITYDlg::OnBnClickedButtonApply()
 
 void CINTENSITYDlg::OnBnClickedButtonCancel()
 {
-
-	// 应用灰度线性变换
-	//ApplyIntensityTransform();
-
 	// 关闭对话框
 	 CDialogEx::OnOK();
 }
@@ -230,8 +225,4 @@ void CINTENSITYDlg::ApplyIntensityTransform()
 			pView->UpdateWindow();
 		}
 	}
-}
-void CINTENSITYDlg::OnCIntensityDlg()
-{
-	// TODO: 在此添加命令处理程序代码
 }
