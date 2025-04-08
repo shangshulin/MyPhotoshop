@@ -597,95 +597,122 @@ void CImageProc::CreateVintagePalette()
 }
 
 
-//直方图均衡化
+// 函数定义：直方图均衡化处理，返回均衡化后的RGB三通道直方图数据
+// 输入参数：dc为设备上下文对象，用于像素操作
 std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
 {
-    std::vector<std::vector<int>> balancedRgbHistograms(3, std::vector<int>(256, 0)); 
-    float p[256] = { 0 };
-    float S[256] = { 0 };
-    int F[256] = { 0 };
+    //创建一个 ​​3 × 256 的二维数组(一个嵌套的二维动态数组)​​：(外层有 ​​3 个元素​​（对应 RGB 三个颜色通道）,外层 vector 中每个元素的初始化模板。)
+    // 每个外层元素是一个长度为 ​​256​​ 的 vector<int>（对应 0~255 的灰度级）
+    std::vector<std::vector<int>> balancedRgbHistograms(3, std::vector<int>(256, 0)); //存储均衡化后的RGB三通道直方图数据
+
+    // 定义概率密度数组、累积分布数组、映射函数数组
+    float p[256] = { 0 };      
+    float S[256] = { 0 };       
+    int F[256] = { 0 };        
+
+    // 调用成员函数获取混合直方图数据
     std::vector<int> intensity_paint = CalculateHistogramMix();
+
+    // 获取图像宽高
     int w = nWidth;
     int h = nHeight;
 
-    float pixel_count = static_cast<float>(w * h);
+   //w * h 计算图像的总像素数，将结果转换为float类型，避免计算概率密度时整数除法截断误差
+    float pixel_count = static_cast<float>(w * h); 
+
+    // 计算每个灰度级的概率密度 p[i] = 灰度i的像素数/总像素数
     for (int i = 0; i < 256; i++) {
         p[i] = intensity_paint[i] / pixel_count;
     }
 
-    S[0] = 255.0f * p[0];
+    // 计算累积分布函数S[n]（CDF）
+    S[0] = 255.0f * p[0];//初始化累积分布的起点
     for (int n = 1; n < 256; n++) {
-        S[n] = 255.0f * p[n] + S[n - 1];
+        S[n] = 255.0f * p[n] + S[n - 1];//递推计算累积分布
     }
 
+    // 灰度映射函数F[j]：将CDF四舍五入并约束到0-255
     for (int j = 0; j < 256; j++) {
-        F[j] = static_cast<int>(S[j] + 0.5f);
-        F[j] = max(0, min(255, F[j]));
+        F[j] = static_cast<int>(S[j] + 0.5f);  // 浮点转整型，四舍五入(：C++浮点转整数会直接截断小数部分)
+        F[j] = max(0, min(255, F[j]));         // 防止越界
     }
 
+    // 计算每行像素数据的字节对齐长度（兼容32位对齐规则）
     int rowSize = ((w * nBitCount + 31) / 32) * 4;
+    // 计算每个像素占用的字节数（根据位深度nBitCount）
     float bytePerPixel = nBitCount / 8.0f;
 
+    // 遍历图像每个像素,进行均衡化处理
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            int offset = (h - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            // 计算当前像素的内存偏移量（考虑图像倒置存储）
+            int offset = (h - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);//图像倒置存储+当前行内像素的水平偏移
+            // 获取像素指针（pBits为类内图像数据指针）
+            BYTE* pixel = pBits + offset;//pixel指向当前像素的起始位置
 
+            // 定义RGB分量变量
             BYTE red, green, blue;
 
+            // 根据位深度调用不同的颜色解析方法
             switch (nBitCount) {
-            case 1:
+            case 1:  // 1位色：调色板索引模式
                 GetColor1bit(pixel, red, green, blue, x, y, nullptr);
                 break;
-            case 4:
+            case 4:  // 4位色：16色模式
                 GetColor4bit(pixel, red, green, blue, x);
                 break;
-            case 8:
+            case 8:  // 8位色：256色模式
                 GetColor8bit(pixel, red, green, blue, x);
                 break;
-            case 16:
+            case 16: // 16位高彩色（可能含透明度）
                 GetColor16bit(pixel, red, green, blue);
                 break;
-            case 24:
+            case 24: // 24位真彩色（RGB各8位）
                 GetColor24bit(pixel, red, green, blue);
                 break;
-            case 32:
+            case 32: // 32位色（含Alpha通道）
                 GetColor32bit(pixel, red, green, blue);
                 break;
-            default:
+            default: // 不支持其他位深度
                 continue;
             }
 
+            // 根据人眼对颜色的敏感度（绿 > 红 > 蓝），使用加权系数计算亮度（ITU-R BT.601标准加权：Y=0.299R+0.587G+0.114B）
             int Y = static_cast<int>(0.3f * red + 0.59f * green + 0.11f * blue + 0.5f);
-            Y = max(0, min(255, Y));
+            Y = max(0, min(255, Y)); // 约束到0-255范围
 
+            // 特殊处理纯黑像素,直接跳过缩放计算，​​保持像素为黑色
             if (Y == 0) {
-                dc.SetPixelV(x, y, RGB(0, 0, 0));
-                balancedRgbHistograms[0][0]++;  // 记录均衡化后的值
-                balancedRgbHistograms[1][0]++;
-                balancedRgbHistograms[2][0]++;
+                dc.SetPixelV(x, y, RGB(0, 0, 0));  // 设置纯黑色
+                balancedRgbHistograms[0][0]++;      // 记录R通道直方图
+                balancedRgbHistograms[1][0]++;      // 记录G通道直方图
+                balancedRgbHistograms[2][0]++;      // 记录B通道直方图
                 continue;
             }
 
+            // 计算缩放系数：F[Y]/Y（基于均衡化后的亮度与原亮度的比例）
             float scale = F[Y] / static_cast<float>(Y);
+
+            // 计算新的RGB值（四舍五入并约束范围）
             int new_r = static_cast<int>(red * scale + 0.5f);
             int new_g = static_cast<int>(green * scale + 0.5f);
             int new_b = static_cast<int>(blue * scale + 0.5f);
-
             new_r = max(0, min(255, new_r));
             new_g = max(0, min(255, new_g));
             new_b = max(0, min(255, new_b));
 
-            // 收集均衡化后的直方图数据
+            // 更新均衡化后的直方图数据
             balancedRgbHistograms[0][new_r]++;
             balancedRgbHistograms[1][new_g]++;
             balancedRgbHistograms[2][new_b]++;
 
+            // 设置设备上下文的像素颜色
             dc.SetPixelV(x, y, RGB(new_r, new_g, new_b));
         }
     }
 
-    return balancedRgbHistograms; // 返回均衡化后的直方图
+    // 返回均衡化后的三通道直方图数据
+    return balancedRgbHistograms;
 }
 // 转换为黑白风格
 void CImageProc::ApplyBlackAndWhiteStyle()
