@@ -169,12 +169,16 @@ void CImageProc::LoadBmp(CString stFileName)
 }
 
 // 显示图片
-void CImageProc::ShowBMP(CDC* pDC)
+void CImageProc::ShowBMP(CDC* pDC, float zoomFactor)
 {
     if (m_hDib != NULL)
     {
-        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);//设置拉伸模式为COLORONCOLOR
-        ::StretchDIBits(pDC->m_hDC, 0, 0, pBIH->biWidth, pBIH->biHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY);//显示图片
+        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR); // 设置拉伸模式为 COLORONCOLOR
+
+        int newWidth = static_cast<int>(pBIH->biWidth * zoomFactor);
+        int newHeight = static_cast<int>(pBIH->biHeight * zoomFactor);
+
+        ::StretchDIBits(pDC->m_hDC, 0, 0, newWidth, newHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY); // 显示图片
     }
 }
 
