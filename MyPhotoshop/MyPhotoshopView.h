@@ -11,7 +11,6 @@ class CMyPhotoshopView : public CView
 {
 protected:
 	bool m_bShowPixelInfo; // 控制是否显示像素点信息
-	float m_zoomFactor; // 缩放因子
 
 protected: // 仅从序列化创建
 	CMyPhotoshopView() noexcept;
@@ -53,7 +52,6 @@ public:
 	afx_msg void OnColorStyleVintage();
 	afx_msg void OnUpdateColorStyleVintage(CCmdUI* pCmdUI);
 	afx_msg void OnStyleBlackwhite();
-	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本

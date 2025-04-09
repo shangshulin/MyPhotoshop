@@ -28,7 +28,6 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
 	ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
 	ON_WM_LBUTTONDOWN() // 左键点击
-    ON_WM_MOUSEWHEEL()// 鼠标滚轮
 	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 显示像素点信息
 	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
 	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
@@ -44,7 +43,6 @@ END_MESSAGE_MAP()
 
 CMyPhotoshopView::CMyPhotoshopView() noexcept
 	: m_bShowPixelInfo(false) // 默认不显示像素点信息
-    , m_zoomFactor(1.0f) // 初始化缩放因子为 1.0
 {
 	// TODO: 在此处添加构造代码
 
@@ -66,15 +64,16 @@ BOOL CMyPhotoshopView::PreCreateWindow(CREATESTRUCT& cs)
 
 void CMyPhotoshopView::OnDraw(CDC* pDC)
 {
-    CMyPhotoshopDoc* pDoc = GetDocument();
-    ASSERT_VALID(pDoc);
-    if (!pDoc)
-        return;
+	CMyPhotoshopDoc* pDoc = GetDocument();
+	ASSERT_VALID(pDoc);
+	if (!pDoc)
+		return;
 
-    if (pDoc->pImage->m_hDib != NULL)
-    {
-        pDoc->pImage->ShowBMP(pDC, m_zoomFactor);
-    }
+	// TODO: 在此处为本机数据添加绘制代码
+	if (pDoc->pImage->m_hDib != NULL)
+	{
+		pDoc->pImage->ShowBMP(pDC);
+	}
 }
 
 
@@ -141,8 +140,6 @@ void CMyPhotoshopView::OnUpdateViewPixelInfo(CCmdUI* pCmdUI)
 {
 	pCmdUI->SetCheck(m_bShowPixelInfo); // 设置菜单项选中状态
 }
-
-
 
 // 左键点击事件处理程序
 void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
@@ -279,35 +276,4 @@ void CMyPhotoshopView::OnStyleBlackwhite()
         Invalidate(); // 使视图无效，触发重绘
         UpdateWindow(); // 立即更新窗口
     }
-}
-
-BOOL CMyPhotoshopView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
-{
-    if (nFlags & MK_CONTROL) // 判断 Ctrl 键是否被按下
-    {
-        CMyPhotoshopDoc* pDoc = GetDocument();
-        ASSERT_VALID(pDoc);
-
-        if (zDelta > 0) // 鼠标滚轮向上滚动，放大图像
-        {
-            m_zoomFactor *= 1.1f; // 每次放大 10%
-        }
-        else if (zDelta < 0) // 鼠标滚轮向下滚动，缩小图像
-        {
-            m_zoomFactor /= 1.1f; // 每次缩小 10%
-            if (m_zoomFactor < 0.1f) // 最小缩放比例为 0.1
-            {
-                m_zoomFactor = 0.1f;
-            }
-        }
-
-       
-        // 重绘视图
-        Invalidate();
-        UpdateWindow();
-
-        return TRUE; // 表示消息已处理
-    }
-
-    return CView::OnMouseWheel(nFlags, zDelta, pt);
 }

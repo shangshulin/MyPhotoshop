@@ -10,7 +10,7 @@ public:
 
     void OpenFile();
     void LoadBmp(CString stFileName);
-    void ShowBMP(CDC* pDC, float zoomFactor);
+    void ShowBMP(CDC* pDC);
     void GetColor(CClientDC* pDC, int x, int y);
 	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
     std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
