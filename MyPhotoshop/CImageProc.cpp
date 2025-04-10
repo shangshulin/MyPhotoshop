@@ -430,171 +430,126 @@ void CImageProc::ApplyVintageStyle()
     if (!IsValid()) return;
 
     if (nBitCount <= 8) {       
-		ApplyVintageToPalette();//  处理调色板格式的图片
+        if (!pQUAD) return;
+       
+        int paletteSize = 1 << nBitCount;
+        RGBQUAD* newPalette = new RGBQUAD[paletteSize];
+
+
+        for (int i = 0; i < paletteSize; i++) {
+            BYTE r = pQUAD[i].rgbRed;
+            BYTE g = pQUAD[i].rgbGreen;
+            BYTE b = pQUAD[i].rgbBlue;
+
+            newPalette[i].rgbRed = min(255, static_cast<int>(r * 1.1 + 15));
+            newPalette[i].rgbGreen = min(255, static_cast<int>(g * 0.9 + 10));
+            newPalette[i].rgbBlue = min(255, static_cast<int>(b * 0.8));
+            newPalette[i].rgbReserved = 0;
+        }
+
+
+        memcpy(pQUAD, newPalette, paletteSize * sizeof(RGBQUAD));
+        delete[] newPalette;
+
+
+        if (nBitCount == 1) {
+
+            for (int i = 0; i < 2; i++) {
+                BYTE gray = static_cast<BYTE>(0.299 * pQUAD[i].rgbRed +
+                    0.587 * pQUAD[i].rgbGreen +
+                    0.114 * pQUAD[i].rgbBlue);
+                pQUAD[i] = {
+                    static_cast<BYTE>(gray * 0.7),
+                    static_cast<BYTE>(gray * 0.6),
+                    static_cast<BYTE>(gray * 0.4),
+                    0
+                };
+            }
+        }
     }
     else if (nBitCount == 16) {  
-        ApplyVintageTo16Bit();//  处理16位格式的图片
+        if (!IsValid() || nBitCount != 16) return;
+
+        int rowSize = ((nWidth * 16 + 31) / 32) * 4;
+
+        for (int y = 0; y < nHeight; y++) {
+            BYTE* pPixel = pBits + (nHeight - 1 - y) * rowSize;
+
+            for (int x = 0; x < nWidth; x++) {
+                WORD* pixel = reinterpret_cast<WORD*>(&pPixel[x * 2]);
+                WORD oldPixel = *pixel;
+
+                BYTE r, g, b;
+                GetColor16bit(reinterpret_cast<BYTE*>(&oldPixel), r, g, b);
+
+                int newR = min(255, static_cast<int>(r * 1.15 + 15));
+                int newG = min(255, static_cast<int>(g * 0.85 + 5));
+                int newB = min(255, static_cast<int>(b * 0.7));
+
+
+                int noise = (rand() % 7) - 3;
+                newR = max(0, min(255, newR + noise));
+                newG = max(0, min(255, newG + noise));
+                newB = max(0, min(255, newB + noise));
+
+
+                if (m_bIs565Format) {
+
+                    *pixel = ((newR >> 3) << 11) |
+                        ((newG >> 2) << 5) |
+                        (newB >> 3);
+                }
+                else {
+
+                    *pixel = ((newR >> 3) << 10) |
+                        ((newG >> 3) << 5) |
+                        (newB >> 3);
+                }
+            }
+        }
     }
     else {                     
-        ApplyVintageToTrueColor();//  处理真彩色格式的图片
-    }
-}
-// 处理调色板格式的图片
-void CImageProc::ApplyVintageToPalette()
-{
-    if (!pQUAD) return;
-    CreateVintagePalette();// 创建复古调色板
+        if (!IsValid() || (nBitCount != 24 && nBitCount != 32)) return;
+
+        int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+        int bytesPerPixel = nBitCount / 8;
+
+        for (int y = 0; y < nHeight; y++) {
+            BYTE* pPixel = pBits + (nHeight - 1 - y) * rowSize;
+
+            for (int x = 0; x < nWidth; x++) {
+
+                BYTE* pixel = &pPixel[x * bytesPerPixel];
 
 
-    if (nBitCount == 1) {
+                BYTE& blue = pixel[0];
+                BYTE& green = pixel[1];
+                BYTE& red = pixel[2];
 
-        for (int i = 0; i < 2; i++) {
-            BYTE gray = static_cast<BYTE>(0.299 * pQUAD[i].rgbRed +
-                0.587 * pQUAD[i].rgbGreen +
-                0.114 * pQUAD[i].rgbBlue);
-            pQUAD[i] = {
-                static_cast<BYTE>(gray * 0.7),  
-                static_cast<BYTE>(gray * 0.6),
-                static_cast<BYTE>(gray * 0.4),
-                0
-            };
-        }
-    }
-}
+                int newRed = min(255, static_cast<int>(red * 1.15));
+                int newGreen = min(255, static_cast<int>(green * 0.85));
+                int newBlue = min(255, static_cast<int>(blue * 0.7));
 
-// 处理16位格式的图片
-void CImageProc::ApplyVintageTo16Bit()
-{
-    if (!IsValid() || nBitCount != 16) return;
+                newRed = min(255, newRed + 25);
+                newGreen = min(255, newGreen + 15);
 
-    int rowSize = ((nWidth * 16 + 31) / 32) * 4;
+                int noise = (rand() % 11) - 5;
+                newRed = max(0, min(255, newRed + noise));
+                newGreen = max(0, min(255, newGreen + noise));
+                newBlue = max(0, min(255, newBlue + noise));
 
-    for (int y = 0; y < nHeight; y++) {
-        BYTE* pPixel = pBits + (nHeight - 1 - y) * rowSize;
-
-        for (int x = 0; x < nWidth; x++) {
-            WORD* pixel = reinterpret_cast<WORD*>(&pPixel[x * 2]);
-            WORD oldPixel = *pixel;
+                newRed = static_cast<int>(newRed * 0.95 + 10);
+                newGreen = static_cast<int>(newGreen * 0.95 + 5);
+                newBlue = static_cast<int>(newBlue * 0.95);
 
 
-            BYTE r, g, b;
-            if (m_bIs565Format) {
+                red = static_cast<BYTE>(newRed);
+                green = static_cast<BYTE>(newGreen);
+                blue = static_cast<BYTE>(newBlue);
 
-                r = (oldPixel & 0xF800) >> 11 ;
-                g = (oldPixel & 0x07E0) >> 5;  
-                b = oldPixel         & 0x001F;  
-                
-
-                r = (r << 3) | (r >> 2);  
-                g = (g << 2) | (g >> 4);  
-                b = (b << 3) | (b >> 2);
-            } else {
-
-                r = (oldPixel & 0x7C00) >> 10;
-                g = (oldPixel & 0x03E0) >> 5;
-                b = oldPixel & 0x001F;
-                
-
-                r = (r << 3) | (r >> 2);
-                g = (g << 3) | (g >> 2);
-                b = (b << 3) | (b >> 2);
-            }
-
-
-            int newR = min(255, static_cast<int>(r * 1.15 + 15));
-            int newG = min(255, static_cast<int>(g * 0.85 + 5));
-            int newB = min(255, static_cast<int>(b * 0.7));
-
-
-            int noise = (rand() % 7) - 3;
-            newR = max(0, min(255, newR + noise));
-            newG = max(0, min(255, newG + noise));
-            newB = max(0, min(255, newB + noise));
-
-
-            if (m_bIs565Format) {
-               
-                *pixel = ((newR >> 3) << 11) | 
-                         ((newG >> 2) << 5)  | 
-                         (newB >> 3);
-            } else {
-
-                *pixel = ((newR >> 3) << 10) | 
-                         ((newG >> 3) << 5)  | 
-                         (newB >> 3);
             }
         }
     }
-}
-
-// 处理真彩色格式的图片
-void CImageProc::ApplyVintageToTrueColor()
-{
-    if (!IsValid() || (nBitCount != 24 && nBitCount != 32)) return;
-
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    int bytesPerPixel = nBitCount / 8; 
-
-    for (int y = 0; y < nHeight; y++) {
-        BYTE* pPixel = pBits + (nHeight - 1 - y) * rowSize;
-
-        for (int x = 0; x < nWidth; x++) {
-
-            BYTE* pixel = &pPixel[x * bytesPerPixel];
-
-
-            BYTE& blue = pixel[0];
-            BYTE& green = pixel[1];
-            BYTE& red = pixel[2];
-
-            int newRed = min(255, static_cast<int>(red * 1.15));
-            int newGreen = min(255, static_cast<int>(green * 0.85));
-            int newBlue = min(255, static_cast<int>(blue * 0.7));
-
-            newRed = min(255, newRed + 25);
-            newGreen = min(255, newGreen + 15);
-
-            int noise = (rand() % 11) - 5; 
-            newRed = max(0, min(255, newRed + noise));
-            newGreen = max(0, min(255, newGreen + noise));
-            newBlue = max(0, min(255, newBlue + noise));
-
-            newRed = static_cast<int>(newRed * 0.95 + 10);
-            newGreen = static_cast<int>(newGreen * 0.95 + 5);
-            newBlue = static_cast<int>(newBlue * 0.95);
-
-
-            red = static_cast<BYTE>(newRed);
-            green = static_cast<BYTE>(newGreen);
-            blue = static_cast<BYTE>(newBlue);
-
-        }
-    }
-}
-
-// 创建复古调色板
-void CImageProc::CreateVintagePalette()
-{
-    if (nBitCount > 8) return;
-
-    int paletteSize = 1 << nBitCount;
-    RGBQUAD* newPalette = new RGBQUAD[paletteSize];
-
-
-    for (int i = 0; i < paletteSize; i++) {
-        BYTE r = pQUAD[i].rgbRed;
-        BYTE g = pQUAD[i].rgbGreen;
-        BYTE b = pQUAD[i].rgbBlue;
-
-        newPalette[i].rgbRed = min(255, static_cast<int>(r * 1.1 + 15));
-        newPalette[i].rgbGreen = min(255, static_cast<int>(g * 0.9 + 10));
-        newPalette[i].rgbBlue = min(255, static_cast<int>(b * 0.8));
-        newPalette[i].rgbReserved = 0;
-    }
-
-
-    memcpy(pQUAD, newPalette, paletteSize * sizeof(RGBQUAD));
-    delete[] newPalette;
 }
 
 

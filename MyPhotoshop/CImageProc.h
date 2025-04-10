@@ -15,16 +15,13 @@ public:
 	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
     std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
 	std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);    // 直方图均衡化
-    void ApplyBlackAndWhiteStyle();// 黑白风格
+
     bool isPaletteDarkToLight;
     HANDLE m_hDib;
 
+    void ApplyBlackAndWhiteStyle();// 黑白风格
 	void ApplyVintageStyle();  // 复古风格
-    void ApplyVintageToTrueColor();  // 处理真彩色的图片
-    void ApplyVintageToPalette();   // 处理调色板格式的图片
-    void ApplyVintageTo16Bit();      // 处理16位格式的图片
 
-    void CreateVintagePalette();// 创建复古调色板
     bool HistogramMatching(CImageProc& targetImageProc);
 public:
     
