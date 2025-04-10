@@ -455,9 +455,8 @@ void CImageProc::ApplyVintageStyle()
         if (nBitCount == 1) {
 
             for (int i = 0; i < 2; i++) {
-                BYTE gray = static_cast<BYTE>(0.299 * pQUAD[i].rgbRed +
-                    0.587 * pQUAD[i].rgbGreen +
-                    0.114 * pQUAD[i].rgbBlue);
+                BYTE gray = static_cast<BYTE>(0.299 * pQUAD[i].rgbRed + 0.587 * pQUAD[i].rgbGreen + 0.114 * pQUAD[i].rgbBlue);
+                
                 pQUAD[i] = {
                     static_cast<BYTE>(gray * 0.7),
                     static_cast<BYTE>(gray * 0.6),

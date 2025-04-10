@@ -32,7 +32,6 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
 	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
 	ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
-	ON_UPDATE_COMMAND_UI(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnUpdateColorStyleVintage)// 更新复古风格菜单项状态
     ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
 END_MESSAGE_MAP()
 
@@ -251,18 +250,11 @@ void CMyPhotoshopView::OnColorStyleVintage()
     // 应用复古风格
     pDoc->pImage->ApplyVintageStyle();
 
-    // 更新视图
-    Invalidate(TRUE);
-    pDoc->SetModifiedFlag(TRUE);
+    // 视图重绘
+    Invalidate(); // 使视图无效，触发重绘
+    UpdateWindow(); // 立即更新窗口
 }
 
-// 更新复古风格菜单项状态
-void CMyPhotoshopView::OnUpdateColorStyleVintage(CCmdUI* pCmdUI)
-{
-    // TODO: 在此添加命令更新用户界面处理程序代码
-	CMyPhotoshopDoc* pDoc = GetDocument();// 获取文档指针
-	pCmdUI->Enable(pDoc && pDoc->pImage && pDoc->pImage->IsValid());// 启用菜单项
-}
 
 // 黑白风格
 void CMyPhotoshopView::OnStyleBlackwhite()
