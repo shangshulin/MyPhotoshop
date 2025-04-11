@@ -23,6 +23,7 @@ public:
 	void ApplyVintageStyle();  // 复古风格
 
     bool HistogramMatching(CImageProc& targetImageProc);
+    void AddSaltAndPepperNoise(double noiseRatio = 0.05); // 添加椒盐噪声，默认噪声比例为5%
 public:
     
     BYTE* pDib;

@@ -1092,3 +1092,166 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
 
     return true;
 }
+
+void CImageProc::AddSaltAndPepperNoise(double noiseRatio)
+{
+    if (!IsValid())
+    {
+        AfxMessageBox(_T("No valid image is loaded."));
+        return;
+    }
+
+    // 确保噪声比例在合理范围内(0-1)
+    noiseRatio = max(0.0, min(1.0, noiseRatio));
+
+    // 计算要添加噪声的像素数量
+    int totalPixels = nWidth * nHeight;
+    int noisePixels = static_cast<int>(totalPixels * noiseRatio);
+
+    // 获取随机数种子
+    srand(static_cast<unsigned int>(time(nullptr)));
+
+    // 计算行大小和每个像素的字节数
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    float bytePerPixel = float(nBitCount) / 8;
+
+    for (int i = 0; i < noisePixels; ++i)
+    {
+        // 随机选择像素位置
+        int x = rand() % nWidth;
+        int y = rand() % nHeight;
+
+        // 计算像素偏移量
+        int offset = (nHeight - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);
+        BYTE* pixel = pBits + offset;
+
+        // 随机决定是椒(黑)还是盐(白)
+        bool isSalt = (rand() % 2) == 0;
+
+        // 根据位深度处理噪声
+        switch (nBitCount)
+        {
+        case 1: // 1位图像
+        {
+            // 获取当前像素值
+            BYTE currentByte = *pixel;
+            int bitPos = 7 - (x % 8);
+            int currentBit = (currentByte >> bitPos) & 0x01;
+
+            // 设置新值(椒=0,盐=1)
+            int newBit = isSalt ? 1 : 0;
+
+            // 更新字节
+            if (currentBit != newBit)
+            {
+                *pixel ^= (1 << bitPos);
+            }
+        }
+        break;
+
+        case 4: // 4位图像
+        {
+            BYTE currentByte = *pixel;
+            bool isHighNibble = (x % 2) == 0;
+            BYTE newValue = isSalt ? 0x0F : 0x00; // 盐=15(白),椒=0(黑)
+
+            if (isHighNibble)
+            {
+                *pixel = (newValue << 4) | (currentByte & 0x0F);
+            }
+            else
+            {
+                *pixel = (currentByte & 0xF0) | newValue;
+            }
+        }
+        break;
+
+        case 8: // 8位灰度图像
+        {
+            BYTE newValue = isSalt ? 255 : 0;
+            *pixel = newValue;
+        }
+        break;
+
+        case 16: // 16位图像
+        {
+            WORD newValue;
+            if (m_bIs565Format)
+            {
+                // RGB565格式
+                if (isSalt)
+                {
+                    // 白色: 0xFFFF
+                    newValue = 0xFFFF;
+                }
+                else
+                {
+                    // 黑色: 0x0000
+                    newValue = 0x0000;
+                }
+            }
+            else
+            {
+                // RGB555格式
+                if (isSalt)
+                {
+                    // 白色: 0x7FFF
+                    newValue = 0x7FFF;
+                }
+                else
+                {
+                    // 黑色: 0x0000
+                    newValue = 0x0000;
+                }
+            }
+            *reinterpret_cast<WORD*>(pixel) = newValue;
+        }
+        break;
+
+        case 24: // 24位真彩色
+        {
+            if (isSalt)
+            {
+                // 白色(255,255,255)
+                pixel[0] = 255; // B
+                pixel[1] = 255; // G
+                pixel[2] = 255; // R
+            }
+            else
+            {
+                // 黑色(0,0,0)
+                pixel[0] = 0; // B
+                pixel[1] = 0; // G
+                pixel[2] = 0; // R
+            }
+        }
+        break;
+
+        case 32: // 32位图像
+        {
+            if (isSalt)
+            {
+                // 白色(255,255,255), Alpha不变
+                pixel[0] = 255; // B
+                pixel[1] = 255; // G
+                pixel[2] = 255; // R
+                // pixel[3]保持不变(Alpha)
+            }
+            else
+            {
+                // 黑色(0,0,0), Alpha不变
+                pixel[0] = 0; // B
+                pixel[1] = 0; // G
+                pixel[2] = 0; // R
+                // pixel[3]保持不变(Alpha)
+            }
+        }
+        break;
+
+        default:
+            // 不支持的位深度
+            AfxMessageBox(_T("Unsupported bit count."));
+            return;
+        }
+    }
+}

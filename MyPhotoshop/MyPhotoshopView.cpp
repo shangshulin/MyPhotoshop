@@ -33,6 +33,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
 	ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
     ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
+    ON_COMMAND(ID_FUNCTION_SALTANDPEPPER, &CMyPhotoshopView::OnFunctionSaltandpepper)
 END_MESSAGE_MAP()
 
 
@@ -263,6 +264,21 @@ void CMyPhotoshopView::OnStyleBlackwhite()
     if (pDoc->pImage)
     {
         pDoc->pImage->ApplyBlackAndWhiteStyle(); // 应用黑白风格
+
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+
+void CMyPhotoshopView::OnFunctionSaltandpepper()
+{
+    // TODO: 在此添加命令处理程序代码
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->AddSaltAndPepperNoise(); // 应用黑白风格
 
         // 视图重绘
         Invalidate(); // 使视图无效，触发重绘
