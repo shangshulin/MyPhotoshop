@@ -49,8 +49,10 @@ public:
 	afx_msg void OnUpdateViewPixelInfo(CCmdUI* pCmdUI); // 更新菜单按钮状态的消息处理函数
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point); // 鼠标左键按下事件处理函数
 	afx_msg void OnFunctionHistogramMatching(); // 直方图规格化菜单项的处理函数
-	afx_msg void OnColorStyleVintage();
-	afx_msg void OnStyleBlackwhite();
+	afx_msg void OnColorStyleVintage();//复古样式菜单项的处理函数
+	afx_msg void OnStyleBlackwhite();// 黑白风格菜单项的处理函数
+	afx_msg void OnEdgeDetectionSobel();//Sobel边缘检测菜单项的处理函数
+	afx_msg void OnEdgeDetectionPrewitt();//Prewitt边缘检测菜单项的处理函数
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本

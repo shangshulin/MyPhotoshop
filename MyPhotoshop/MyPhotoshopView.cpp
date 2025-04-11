@@ -27,12 +27,17 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FILE_PRINT, &CView::OnFilePrint)
 	ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
 	ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
+	// 像素点信息
 	ON_WM_LBUTTONDOWN() // 左键点击
 	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 显示像素点信息
 	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
+	//灰度处理
 	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
 	ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
-    ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
+	ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
+	//边缘检测
+	ON_COMMAND(ID_EDGE_SOBEL, &CMyPhotoshopView::OnEdgeDetectionSobel)// 边缘检测-Sobel算子
+	ON_COMMAND(ID_EDGE_PREWITT, &CMyPhotoshopView::OnEdgeDetectionPrewitt)
 END_MESSAGE_MAP()
 
 
@@ -165,61 +170,61 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 // 直方图规格化函数
 void CMyPhotoshopView::OnFunctionHistogramMatching()
 {
-    CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
-    {
-        AfxMessageBox(_T("请先打开有效的源图像文件"));
-        return;
-    }
+	CMyPhotoshopDoc* pDoc = GetDocument();
+	if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+	{
+		AfxMessageBox(_T("请先打开有效的源图像文件"));
+		return;
+	}
 
-    CImageProc* pSourceImage = pDoc->pImage;
+	CImageProc* pSourceImage = pDoc->pImage;
 
-    CFileDialog fileDlg(TRUE, _T("bmp"), NULL,
-        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST,
-        _T("位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), this);
+	CFileDialog fileDlg(TRUE, _T("bmp"), NULL,
+		OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST,
+		_T("位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), this);
 
-    if (fileDlg.DoModal() != IDOK)
-    {
-        return;
-    }
+	if (fileDlg.DoModal() != IDOK)
+	{
+		return;
+	}
 
-    CImageProc targetImageProc;
-    CString targetPath = fileDlg.GetPathName();
+	CImageProc targetImageProc;
+	CString targetPath = fileDlg.GetPathName();
 
-    try
-    {
-        targetImageProc.LoadBmp(targetPath);
+	try
+	{
+		targetImageProc.LoadBmp(targetPath);
 
-        if (!targetImageProc.IsValid())
-        {
-            AfxMessageBox(_T("无法加载目标图像文件"));
-            return;
-        }
-    }
-    catch (CMemoryException* e)
-    {
-        e->Delete();
-        AfxMessageBox(_T("内存不足，无法加载目标图像"));
-        return;
-    }
-    catch (CFileException* e)
-    {
-        e->Delete();
-        AfxMessageBox(_T("文件加载失败，请检查文件是否有效"));
-        return;
-    }
-    catch (...)
-    {
-        AfxMessageBox(_T("加载目标图像时发生未知错误"));
-        return;
-    }
+		if (!targetImageProc.IsValid())
+		{
+			AfxMessageBox(_T("无法加载目标图像文件"));
+			return;
+		}
+	}
+	catch (CMemoryException* e)
+	{
+		e->Delete();
+		AfxMessageBox(_T("内存不足，无法加载目标图像"));
+		return;
+	}
+	catch (CFileException* e)
+	{
+		e->Delete();
+		AfxMessageBox(_T("文件加载失败，请检查文件是否有效"));
+		return;
+	}
+	catch (...)
+	{
+		AfxMessageBox(_T("加载目标图像时发生未知错误"));
+		return;
+	}
 
-    if (pSourceImage->HistogramMatching(targetImageProc))
-    {
-        Invalidate(TRUE);
-        pDoc->SetModifiedFlag(TRUE);
-        AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
-    }
+	if (pSourceImage->HistogramMatching(targetImageProc))
+	{
+		Invalidate(TRUE);
+		pDoc->SetModifiedFlag(TRUE);
+		AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
+	}
 }
 
 
@@ -240,32 +245,56 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
 // 复古风格
 void CMyPhotoshopView::OnColorStyleVintage()
 {
-    // TODO: 在此添加命令处理程序代码
-    CMyPhotoshopDoc* pDoc = GetDocument();
+	// TODO: 在此添加命令处理程序代码
+	CMyPhotoshopDoc* pDoc = GetDocument();
 	if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {// 检查文档和图像有效性
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
+		AfxMessageBox(_T("请先打开有效的图像文件"));
+		return;
+	}
 
-    // 应用复古风格
-    pDoc->pImage->ApplyVintageStyle();
+	// 应用复古风格
+	pDoc->pImage->ApplyVintageStyle();
 
-    // 视图重绘
-    Invalidate(); // 使视图无效，触发重绘
-    UpdateWindow(); // 立即更新窗口
+	// 视图重绘
+	Invalidate(); // 使视图无效，触发重绘
+	UpdateWindow(); // 立即更新窗口
 }
 
 
 // 黑白风格
 void CMyPhotoshopView::OnStyleBlackwhite()
 {
-    CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
-    {
-        pDoc->pImage->ApplyBlackAndWhiteStyle(); // 应用黑白风格
+	CMyPhotoshopDoc* pDoc = GetDocument();
+	if (pDoc->pImage)
+	{
+		pDoc->pImage->ApplyBlackAndWhiteStyle(); // 应用黑白风格
 
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
-    }
+		// 视图重绘
+		Invalidate(); // 使视图无效，触发重绘
+		UpdateWindow(); // 立即更新窗口
+	}
+}
+
+void CMyPhotoshopView::OnEdgeDetectionSobel()
+{
+	CMyPhotoshopDoc* pDoc = GetDocument();
+	if (pDoc->pImage)
+	{
+		pDoc->pImage->ApplySobelEdgeDetection(); // 应用Sobel边缘检测
+		// 视图重绘
+		Invalidate(); // 使视图无效，触发重绘
+		UpdateWindow(); // 立即更新窗口
+	}
+}
+
+void CMyPhotoshopView::OnEdgeDetectionPrewitt()
+{
+	CMyPhotoshopDoc* pDoc = GetDocument();
+	if (pDoc->pImage)
+	{
+		pDoc->pImage->ApplyPrewittEdgeDetection(); // 应用Prewitt边缘检测
+		// 视图重绘
+		Invalidate(); // 使视图无效，触发重绘
+		UpdateWindow(); // 立即更新窗口
+	}
 }
