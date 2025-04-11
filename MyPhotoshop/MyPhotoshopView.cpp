@@ -35,6 +35,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
     ON_COMMAND(ID_FUNCTION_SALTANDPEPPER, &CMyPhotoshopView::OnFunctionSaltandpepper)
     ON_COMMAND(ID_FUNCTION_IMPULSE, &CMyPhotoshopView::OnFunctionImpulse)
+    ON_COMMAND(ID_FUNCTION_GAUSSIAN, &CMyPhotoshopView::OnFunctionGaussian)
 END_MESSAGE_MAP()
 
 
@@ -295,6 +296,21 @@ void CMyPhotoshopView::OnFunctionImpulse()
     if (pDoc->pImage)
     {
 		pDoc->pImage->AddImpulseNoise(0.05, 0, 255); // 添加脉冲噪声
+
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+
+void CMyPhotoshopView::OnFunctionGaussian()
+{
+    // TODO: 在此添加命令处理程序代码
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->AddGaussianNoise(0.0, 30.0); // 添加脉冲噪声
 
         // 视图重绘
         Invalidate(); // 使视图无效，触发重绘

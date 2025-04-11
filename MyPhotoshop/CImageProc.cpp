@@ -1378,3 +1378,152 @@ void CImageProc::AddImpulseNoise(double noiseRatio, BYTE noiseValue1, BYTE noise
     }
 }
 
+#include <random> // 用于生成高斯分布随机数
+// 添加高斯噪声
+void CImageProc::AddGaussianNoise(double mean, double sigma)
+{
+    if (!IsValid())
+    {
+        AfxMessageBox(_T("No valid image is loaded."));
+        return;
+    }
+
+    // 设置随机数生成器
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<> dist(mean, sigma);
+
+    // 计算行大小和每个像素的字节数
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    float bytePerPixel = float(nBitCount) / 8;
+
+    // 遍历所有像素
+    for (int y = 0; y < nHeight; ++y)
+    {
+        for (int x = 0; x < nWidth; ++x)
+        {
+            // 计算像素偏移量
+            int offset = (nHeight - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);
+            BYTE* pixel = pBits + offset;
+
+            // 获取当前像素颜色
+            BYTE red = 0, green = 0, blue = 0;
+            switch (nBitCount)
+            {
+            case 1:
+                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                break;
+            case 4:
+                GetColor4bit(pixel, red, green, blue, x);
+                break;
+            case 8:
+                GetColor8bit(pixel, red, green, blue, x);
+                break;
+            case 16:
+                GetColor16bit(pixel, red, green, blue);
+                break;
+            case 24:
+                GetColor24bit(pixel, red, green, blue);
+                break;
+            case 32:
+                GetColor32bit(pixel, red, green, blue);
+                break;
+            default:
+                continue;
+            }
+
+            // 为每个颜色通道添加高斯噪声
+            int newRed = red + static_cast<int>(dist(gen));
+            int newGreen = green + static_cast<int>(dist(gen));
+            int newBlue = blue + static_cast<int>(dist(gen));
+
+            // 确保值在0-255范围内
+            newRed = max(0, min(255, newRed));
+            newGreen = max(0, min(255, newGreen));
+            newBlue = max(0, min(255, newBlue));
+
+            // 设置新像素值
+            switch (nBitCount)
+            {
+            case 1: // 1位图像转换为灰度后处理
+            {
+                // 计算灰度值
+                BYTE gray = static_cast<BYTE>(0.299 * newRed + 0.587 * newGreen + 0.114 * newBlue);
+                // 转换为1位
+                BYTE bitValue = (gray > 127) ? 1 : 0;
+                // 获取当前像素值
+                BYTE currentByte = *pixel;
+                int bitPos = 7 - (x % 8);
+                int currentBit = (currentByte >> bitPos) & 0x01;
+                // 设置新值
+                if (currentBit != bitValue)
+                {
+                    *pixel ^= (1 << bitPos);
+                }
+            }
+            break;
+
+            case 4: // 4位图像
+            {
+                BYTE gray = static_cast<BYTE>(0.299 * newRed + 0.587 * newGreen + 0.114 * newBlue);
+                BYTE quantized = gray >> 4; // 转换为4位
+                BYTE currentByte = *pixel;
+                bool isHighNibble = (x % 2) == 0;
+
+                if (isHighNibble)
+                {
+                    *pixel = (quantized << 4) | (currentByte & 0x0F);
+                }
+                else
+                {
+                    *pixel = (currentByte & 0xF0) | quantized;
+                }
+            }
+            break;
+
+            case 8: // 8位灰度图像
+            {
+                BYTE gray = static_cast<BYTE>(0.299 * newRed + 0.587 * newGreen + 0.114 * newBlue);
+                *pixel = gray;
+            }
+            break;
+
+            case 16: // 16位图像
+            {
+                WORD newPixel;
+                if (m_bIs565Format)
+                {
+                    // RGB565格式
+                    BYTE r = (newRed >> 3) & 0x1F;  // 5-bit red
+                    BYTE g = (newGreen >> 2) & 0x3F; // 6-bit green
+                    BYTE b = (newBlue >> 3) & 0x1F;  // 5-bit blue
+                    newPixel = (r << 11) | (g << 5) | b;
+                }
+                else
+                {
+                    // RGB555格式
+                    BYTE r = (newRed >> 3) & 0x1F;  // 5-bit red
+                    BYTE g = (newGreen >> 3) & 0x1F; // 5-bit green
+                    BYTE b = (newBlue >> 3) & 0x1F;  // 5-bit blue
+                    newPixel = (r << 10) | (g << 5) | b;
+                }
+                *reinterpret_cast<WORD*>(pixel) = newPixel;
+            }
+            break;
+
+            case 24: // 24位真彩色
+                pixel[0] = static_cast<BYTE>(newBlue);
+                pixel[1] = static_cast<BYTE>(newGreen);
+                pixel[2] = static_cast<BYTE>(newRed);
+                break;
+
+            case 32: // 32位图像
+                pixel[0] = static_cast<BYTE>(newBlue);
+                pixel[1] = static_cast<BYTE>(newGreen);
+                pixel[2] = static_cast<BYTE>(newRed);
+                // pixel[3]保持不变(Alpha)
+                break;
+            }
+        }
+    }
+}
