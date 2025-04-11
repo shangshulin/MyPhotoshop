@@ -54,6 +54,7 @@ public:
 	afx_msg void OnFunctionSaltandpepper();
 	afx_msg void OnFunctionImpulse();
 	afx_msg void OnFunctionGaussian();
+	afx_msg void OnFunctionGaussianwhite();
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本
