@@ -37,7 +37,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
 	//边缘检测
 	ON_COMMAND(ID_EDGE_SOBEL, &CMyPhotoshopView::OnEdgeDetectionSobel)// 边缘检测-Sobel算子
-	ON_COMMAND(ID_EDGE_PREWITT, &CMyPhotoshopView::OnEdgeDetectionPrewitt)
+	ON_COMMAND(ID_EDGE_PREWITT, &CMyPhotoshopView::OnEdgeDetectionPrewitt)// 边缘检测-Prewitt算子
+	ON_COMMAND(ID_EDGE_ROBERT, &CMyPhotoshopView::OnEdgeDetectionRobert)// 边缘检测-Robert算子
+
 END_MESSAGE_MAP()
 
 
@@ -293,6 +295,18 @@ void CMyPhotoshopView::OnEdgeDetectionPrewitt()
 	if (pDoc->pImage)
 	{
 		pDoc->pImage->ApplyPrewittEdgeDetection(); // 应用Prewitt边缘检测
+		// 视图重绘
+		Invalidate(); // 使视图无效，触发重绘
+		UpdateWindow(); // 立即更新窗口
+	}
+}
+// Robert边缘检测
+void CMyPhotoshopView::OnEdgeDetectionRobert()
+{
+	CMyPhotoshopDoc* pDoc = GetDocument();
+	if (pDoc->pImage)
+	{
+		pDoc->pImage->ApplyRobertEdgeDetection(); // 应用Robert边缘检测
 		// 视图重绘
 		Invalidate(); // 使视图无效，触发重绘
 		UpdateWindow(); // 立即更新窗口
