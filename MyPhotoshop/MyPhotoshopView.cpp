@@ -34,6 +34,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
     ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
     ON_COMMAND(ID_FUNCTION_SALTANDPEPPER, &CMyPhotoshopView::OnFunctionSaltandpepper)
+    ON_COMMAND(ID_FUNCTION_IMPULSE, &CMyPhotoshopView::OnFunctionImpulse)
 END_MESSAGE_MAP()
 
 
@@ -278,7 +279,22 @@ void CMyPhotoshopView::OnFunctionSaltandpepper()
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (pDoc->pImage)
     {
-        pDoc->pImage->AddSaltAndPepperNoise(); // 应用黑白风格
+        pDoc->pImage->AddSaltAndPepperNoise(); // 添加椒盐噪音
+
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+
+void CMyPhotoshopView::OnFunctionImpulse()
+{
+    // TODO: 在此添加命令处理程序代码
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+		pDoc->pImage->AddImpulseNoise(0.05, 0, 255); // 添加脉冲噪声
 
         // 视图重绘
         Invalidate(); // 使视图无效，触发重绘

@@ -24,6 +24,7 @@ public:
 
     bool HistogramMatching(CImageProc& targetImageProc);
     void AddSaltAndPepperNoise(double noiseRatio = 0.05); // 添加椒盐噪声，默认噪声比例为5%
+    void AddImpulseNoise(double noiseRatio = 0.05, BYTE noiseValue1 = 0, BYTE noiseValue2 = 255); // 添加脉冲噪声
 public:
     
     BYTE* pDib;

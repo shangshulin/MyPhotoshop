@@ -52,6 +52,7 @@ public:
 	afx_msg void OnColorStyleVintage();
 	afx_msg void OnStyleBlackwhite();
 	afx_msg void OnFunctionSaltandpepper();
+	afx_msg void OnFunctionImpulse();
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本
