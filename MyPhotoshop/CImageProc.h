@@ -36,7 +36,16 @@ public:
     void ApplySobelEdgeDetection();// Sobel算子边缘检测
     void ApplyPrewittEdgeDetection();// Prewitt算子边缘检测
 	void ApplyRobertEdgeDetection();// Robert算子边缘检测
+    void ApplyLaplaceEdgeDetection();// Laplace算子边缘检测
 
+    //图像增强
+	void ApplyEnhancement();// 图像增强
+	void MultiplyImages(CImageProc& img1, CImageProc& img2);// 图像相乘
+    void Create(int width, int height, int bitCount);// 创建图像
+    void ApplyMedianFilter(int kernelSize);// 中值滤波
+    void ApplyGaussianBlur(int kernelSize, double sigma);// 高斯滤波
+    void AddImages(CImageProc& img1, CImageProc& img2);// 图像相加
+    void InvertBrightness();// 图像反色
 
 public:
     BYTE* pDib;
