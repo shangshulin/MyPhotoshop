@@ -1334,3 +1334,177 @@ void CImageProc::ApplyRobertEdgeDetection()
 		}
 	}
 }
+
+void CImageProc::ApplyCannyEdgeDetection()
+{
+	double lowThreshold = 50;
+	double highThreshold = 150;
+	int kernelSize = 3;
+	if (!IsValid() || nBitCount < 8)
+	{
+		AfxMessageBox(_T("不支持此图像格式"));
+		return;
+	}
+	// 创建临时缓冲区存储灰度图像
+	std::vector<BYTE> grayImage(nWidth * nHeight);
+	int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+	float bytePerPixel = float(nBitCount) / 8;
+	// 转换为灰度图像
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+			BYTE red = 0, green = 0, blue = 0;
+			switch (nBitCount) {
+			case 8: GetColor8bit(pixel, red, green, blue, x); break;
+			case 16: GetColor16bit(pixel, red, green, blue); break;
+			case 24: GetColor24bit(pixel, red, green, blue); break;
+			case 32: GetColor32bit(pixel, red, green, blue); break;
+			}
+			grayImage[y * nWidth + x] = static_cast<BYTE>(0.299 * red + 0.587 * green + 0.114 * blue);
+		}
+	}
+	// 高斯模糊
+	std::vector<BYTE> blurredImage(nWidth * nHeight);
+	const int gaussianKernel[3][3] = {
+		{ 1, 2, 1 },
+		{ 2, 4, 2 },
+		{ 1, 2, 1 }
+	};
+	const int gaussianKernelSum = 16;
+	for (int y = 1; y < nHeight - 1; ++y) {
+		for (int x = 1; x < nWidth - 1; ++x) {
+			int sum = 0;
+			for (int ky = -1; ky <= 1; ++ky) {
+				for (int kx = -1; kx <= 1; ++kx) {
+					sum += grayImage[(y + ky) * nWidth + (x + kx)] * gaussianKernel[ky + 1][kx + 1];
+				}
+			}
+			blurredImage[y * nWidth + x] = static_cast<BYTE>(sum / gaussianKernelSum);
+		}
+	}
+	// 利用Sobel算子计算梯度和方向
+	const int sobelX[3][3] = { {-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1} };
+	const int sobelY[3][3] = { {-1, -2, -1}, {0, 0, 0}, {1, 2, 1} };
+	std::vector<double> gradientMagnitude(nWidth * nHeight, 0);
+	std::vector<double> gradientDirection(nWidth * nHeight, 0);
+	for (int y = 1; y < nHeight - 1; ++y) {
+		for (int x = 1; x < nWidth - 1; ++x) {
+			double gx = 0, gy = 0;
+			for (int ky = -1; ky <= 1; ++ky) {
+				for (int kx = -1; kx <= 1; ++kx) {
+					BYTE val = blurredImage[(y + ky) * nWidth + (x + kx)];
+					gx += val * sobelX[ky + 1][kx + 1];
+					gy += val * sobelY[ky + 1][kx + 1];
+				}
+			}
+			gradientMagnitude[y * nWidth + x] = sqrt(gx * gx + gy * gy);
+			gradientDirection[y * nWidth + x] = atan2(gy, gx);
+		}
+	}
+
+	// 非极大值抑制
+	std::vector<BYTE> nonMaxSuppressed(nWidth * nHeight, 0);
+	for (int y = 1; y < nHeight - 1; ++y) {
+		for (int x = 1; x < nWidth - 1; ++x) {
+			int direction = gradientDirection[y * nWidth + x];
+			int magnitude = gradientMagnitude[y * nWidth + x];
+			
+			//归一化方向到0-180度
+			if (direction < 0)direction += 180;
+			int neighbor1 = 0;
+			int neighbor2 = 0;
+			if ((direction >= 0 && direction < 22.5) || (direction >= 157.5 && direction <= 180))
+			{
+				neighbor1 = gradientMagnitude[y * nWidth + (x - 1)];
+				neighbor2 = gradientMagnitude[y * nWidth + (x + 1)];
+			}
+			else if ((direction >= 22.5 && direction < 67.5))
+			{
+				neighbor1 = gradientMagnitude[(y - 1) * nWidth + (x + 1)];
+				neighbor2 = gradientMagnitude[(y + 1) * nWidth + (x - 1)];
+			}
+			else if ((direction >= 67.5 && direction < 112.5))
+			{
+				neighbor1 = gradientMagnitude[(y - 1) * nWidth + x];
+				neighbor2 = gradientMagnitude[(y + 1) * nWidth + x];
+			}
+			else if ((direction >= 112.5 && direction < 157.5))
+			{
+				neighbor1 = gradientMagnitude[(y - 1) * nWidth + (x - 1)];
+				neighbor2 = gradientMagnitude[(y + 1) * nWidth + (x + 1)];
+			}
+			if (magnitude >= neighbor1 && magnitude >= neighbor2)
+			{
+				nonMaxSuppressed[y * nWidth + x] = static_cast<BYTE>(magnitude);
+			}
+			else
+			{
+				nonMaxSuppressed[y * nWidth + x] = 0;
+			}
+		}
+	}
+
+	// 双阈值滞后处理
+	std::vector<BYTE> edgeImage(nWidth * nHeight, 0);
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int magnitude = nonMaxSuppressed[y * nWidth + x];
+			if (magnitude >= highThreshold) {
+				edgeImage[y * nWidth + x] = 255; // 强边缘
+			}
+			else if (magnitude >= lowThreshold) {
+				edgeImage[y * nWidth + x] = 128; // 弱边缘
+			}
+			else {
+				edgeImage[y * nWidth + x] = 0; // 非边缘
+			}
+		}
+	}
+
+	//弱边缘连接
+	for (int y = 1; y < nHeight - 1; ++y) {
+		for (int x = 1; x < nWidth - 1; ++x) {
+			if (edgeImage[y * nWidth + x] == 128) {
+				// 检查8邻域
+				for (int ky = -1; ky <= 1; ++ky) {
+					for (int kx = -1; kx <= 1; ++kx) {
+						if (edgeImage[(y + ky) * nWidth + (x + kx)] == 255) {
+							edgeImage[y * nWidth + x] = 255; // 转换为强边缘
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	//更新图像数据
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+			BYTE value = edgeImage[y * nWidth + x];
+			switch (nBitCount) {
+			case 8:
+				*pixel = value;
+				break;
+			case 16: {
+				WORD newPixel;
+				if (m_bIs565Format) {
+					newPixel = (value << 11) | (value << 5) | value;
+				}
+				else {
+					newPixel = (value << 10) | (value << 5) | value;
+				}
+				*reinterpret_cast<WORD*>(pixel) = newPixel;
+				break;
+			}
+			case 24:
+			case 32:
+				pixel[0] = pixel[1] = pixel[2] = value;
+				break;
+			}
+		}
+	}
+}

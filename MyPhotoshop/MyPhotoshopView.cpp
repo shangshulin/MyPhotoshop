@@ -39,7 +39,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_EDGE_SOBEL, &CMyPhotoshopView::OnEdgeDetectionSobel)// 边缘检测-Sobel算子
 	ON_COMMAND(ID_EDGE_PREWITT, &CMyPhotoshopView::OnEdgeDetectionPrewitt)// 边缘检测-Prewitt算子
 	ON_COMMAND(ID_EDGE_ROBERT, &CMyPhotoshopView::OnEdgeDetectionRobert)// 边缘检测-Robert算子
-	ON_COMMAND(ID_EDGE_LAPLACE, &CMyPhotoshopView::OnEdgeDetectionLaplace)// 边缘检测-Laplace算子
+	ON_COMMAND(ID_EDGE_CANNY, &CMyPhotoshopView::OnEdgeDetectionCanny)// 边缘检测-Canny算子
 
 END_MESSAGE_MAP()
 
@@ -313,14 +313,13 @@ void CMyPhotoshopView::OnEdgeDetectionRobert()
 		UpdateWindow(); // 立即更新窗口
 	}
 }
-
-// Laplace边缘检测
-void CMyPhotoshopView::OnEdgeDetectionLaplace()
+// Canny边缘检测
+void CMyPhotoshopView::OnEdgeDetectionCanny()
 {
 	CMyPhotoshopDoc* pDoc = GetDocument();
 	if (pDoc->pImage)
 	{
-		pDoc->pImage->ApplyLaplaceEdgeDetection(); // 应用Laplace边缘检测
+		pDoc->pImage->ApplyCannyEdgeDetection(); // 应用Canny边缘检测
 		// 视图重绘
 		Invalidate(); // 使视图无效，触发重绘
 		UpdateWindow(); // 立即更新窗口
