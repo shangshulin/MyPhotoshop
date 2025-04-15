@@ -6,6 +6,7 @@
 #include "afxwin.h"
 #include "CImageProc.h"
 #include "CHistogramDlg.h"
+#include "NoiseRatioDialog.h"
 
 class CMyPhotoshopView : public CView
 {

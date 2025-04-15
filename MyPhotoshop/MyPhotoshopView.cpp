@@ -277,16 +277,33 @@ void CMyPhotoshopView::OnStyleBlackwhite()
 
 void CMyPhotoshopView::OnFunctionSaltandpepper()
 {
-    // TODO: 在此添加命令处理程序代码
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
     {
-        pDoc->pImage->AddSaltAndPepperNoise(); // 添加椒盐噪音
-
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
     }
+
+    // 创建并显示比例设置对话框
+    CNoiseRatioDialog dlg;
+    if (dlg.DoModal() != IDOK)
+    {
+        return; // 用户取消操作
+    }
+
+    // 获取用户选择的比例
+    double saltRatio = dlg.GetSaltRatio();
+
+    // 添加噪声(默认5%的噪声比例)
+    pDoc->pImage->AddSaltAndPepperNoise(0.05, saltRatio);
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    CString msg;
+    msg.Format(_T("已添加椒盐噪声(盐噪声比例: %.0f%%)"), saltRatio * 100);
+    AfxMessageBox(msg);
 }
 
 

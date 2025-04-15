@@ -191,6 +191,7 @@
     <ClInclude Include="MyPhotoshop.h" />
     <ClInclude Include="MyPhotoshopDoc.h" />
     <ClInclude Include="MyPhotoshopView.h" />
+    <ClInclude Include="NoiseRatioDialog.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
@@ -203,6 +204,7 @@
     <ClCompile Include="MyPhotoshop.cpp" />
     <ClCompile Include="MyPhotoshopDoc.cpp" />
     <ClCompile Include="MyPhotoshopView.cpp" />
+    <ClCompile Include="NoiseRatioDialog.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

@@ -1093,7 +1093,7 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
     return true;
 }
 
-void CImageProc::AddSaltAndPepperNoise(double noiseRatio)
+void CImageProc::AddSaltAndPepperNoise(double noiseRatio, double saltRatio)
 {
     if (!IsValid())
     {
@@ -1126,7 +1126,7 @@ void CImageProc::AddSaltAndPepperNoise(double noiseRatio)
         BYTE* pixel = pBits + offset;
 
         // 随机决定是椒(黑)还是盐(白)
-        bool isSalt = (rand() % 2) == 0;
+        bool isSalt = (rand() % 100) < (saltRatio * 100);
 
         // 根据位深度处理噪声
         switch (nBitCount)

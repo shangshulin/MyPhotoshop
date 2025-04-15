@@ -9,6 +9,7 @@
 #define IDD_DIALOG1                     310
 #define IDD_HISTOGRAM_DLG               310
 #define IDD_INTENSITY_DLG               312
+#define IDD_NOISE_RATIO_DIALOG          314
 #define IDC_STATIC_HISTOGRAM            1000
 #define IDC_STATIC_HISTOGRAM2           1001
 #define IDC_EDIT_ALPHA                  1002
@@ -16,6 +17,9 @@
 #define IDC_BUTTON_APPLY                1004
 #define IDC_BUTTON_CANCEL               1005
 #define IDC_COMBO1                      1006
+#define IDC_SALT_RATIO_SLIDER           1007
+#define IDC_EDIT1                       1008
+#define IDC_SALT_RATIO_EDIT             1008
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -54,9 +58,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        314
+#define _APS_NEXT_RESOURCE_VALUE        316
 #define _APS_NEXT_COMMAND_VALUE         32804
-#define _APS_NEXT_CONTROL_VALUE         1007
+#define _APS_NEXT_CONTROL_VALUE         1009
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif
