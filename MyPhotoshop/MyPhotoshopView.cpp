@@ -377,14 +377,31 @@ void CMyPhotoshopView::OnFunctionGaussian()
 
 void CMyPhotoshopView::OnFunctionGaussianwhite()
 {
-    // TODO: 在此添加命令处理程序代码
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
     {
-        pDoc->pImage->AddGaussianWhiteNoise(30.0); // 添加脉冲噪声
-
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
     }
+
+    // 创建并显示参数设置对话框
+    CGaussianWhiteNoiseDialog dlg;
+    if (dlg.DoModal() != IDOK)
+    {
+        return; // 用户取消操作
+    }
+
+    // 获取用户选择的标准差
+    double sigma = dlg.GetSigma();
+
+    // 添加高斯白噪声
+    pDoc->pImage->AddGaussianWhiteNoise(sigma);
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    CString msg;
+    msg.Format(_T("已添加高斯白噪声\n标准差(σ): %.1f"), sigma);
+    AfxMessageBox(msg);
 }

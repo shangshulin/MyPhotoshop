@@ -9,6 +9,7 @@
 #include "NoiseRatioDialog.h"
 #include "ImpulseNoiseDialog.h"
 #include "GaussianNoiseDialog.h"
+#include "GaussianWhiteNoiseDialog.h"
 
 class CMyPhotoshopView : public CView
 {
