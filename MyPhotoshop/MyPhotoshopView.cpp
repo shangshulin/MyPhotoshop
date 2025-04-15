@@ -309,16 +309,36 @@ void CMyPhotoshopView::OnFunctionSaltandpepper()
 
 void CMyPhotoshopView::OnFunctionImpulse()
 {
-    // TODO: 在此添加命令处理程序代码
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
     {
-		pDoc->pImage->AddImpulseNoise(0.05, 0, 255); // 添加脉冲噪声
-
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
     }
+
+    // 创建并显示参数设置对话框
+    CImpulseNoiseDialog dlg;
+    if (dlg.DoModal() != IDOK)
+    {
+        return; // 用户取消操作
+    }
+
+    // 获取用户选择的参数
+    double noiseRatio = dlg.GetNoiseRatio();
+    BYTE noiseValue1 = dlg.GetNoiseValue1();
+    BYTE noiseValue2 = dlg.GetNoiseValue2();
+
+    // 添加脉冲噪声
+    pDoc->pImage->AddImpulseNoise(noiseRatio, noiseValue1, noiseValue2);
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    CString msg;
+    msg.Format(_T("已添加脉冲噪声\n噪声比例: %.0f%%\n噪声值1: %d\n噪声值2: %d"),
+        noiseRatio * 100, noiseValue1, noiseValue2);
+    AfxMessageBox(msg);
 }
 
 

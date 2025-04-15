@@ -187,6 +187,7 @@
     <ClInclude Include="CImageProc.h" />
     <ClInclude Include="CINTENSITYDlg.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="ImpulseNoiseDialog.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="MyPhotoshop.h" />
     <ClInclude Include="MyPhotoshopDoc.h" />
@@ -200,6 +201,7 @@
     <ClCompile Include="CHistogramDlg.cpp" />
     <ClCompile Include="CImageProc.cpp" />
     <ClCompile Include="CINTENSITYDlg.cpp" />
+    <ClCompile Include="ImpulseNoiseDialog.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="MyPhotoshop.cpp" />
     <ClCompile Include="MyPhotoshopDoc.cpp" />

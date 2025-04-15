@@ -7,6 +7,7 @@
 #include "CImageProc.h"
 #include "CHistogramDlg.h"
 #include "NoiseRatioDialog.h"
+#include "ImpulseNoiseDialog.h"
 
 class CMyPhotoshopView : public CView
 {
