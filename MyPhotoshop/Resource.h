@@ -11,6 +11,7 @@
 #define IDD_INTENSITY_DLG               312
 #define IDD_NOISE_RATIO_DIALOG          314
 #define IDD_IMPULSE_NOISE_DIALOG        316
+#define IDD_GAUSSIAN_NOISE_DIALOG       318
 #define IDC_STATIC_HISTOGRAM            1000
 #define IDC_STATIC_HISTOGRAM2           1001
 #define IDC_EDIT_ALPHA                  1002
@@ -24,9 +25,13 @@
 #define IDC_NOISE_VALUE2_EDIT           1010
 #define IDC_NOISE_RATIO_SLIDER          1011
 #define IDC_NOISE_VALUE2_SLIDER         1012
-#define IDC_NOISE_VALUE1_EDIT2          1013
+#define IDC_MEAN_EDIT                   1012
 #define IDC_NOISE_VALUE1_EDIT           1013
+#define IDC_MEAN_SLIDER                 1013
 #define IDC_NOISE_VALUE1_SLIDER         1014
+#define IDC_SIGMA_EDIT                  1014
+#define IDC_MEAN_SLIDER2                1015
+#define IDC_SIGMA_SLIDER                1015
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -65,9 +70,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        318
+#define _APS_NEXT_RESOURCE_VALUE        320
 #define _APS_NEXT_COMMAND_VALUE         32804
-#define _APS_NEXT_CONTROL_VALUE         1012
+#define _APS_NEXT_CONTROL_VALUE         1014
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

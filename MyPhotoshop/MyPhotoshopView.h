@@ -8,6 +8,7 @@
 #include "CHistogramDlg.h"
 #include "NoiseRatioDialog.h"
 #include "ImpulseNoiseDialog.h"
+#include "GaussianNoiseDialog.h"
 
 class CMyPhotoshopView : public CView
 {
