@@ -26,6 +26,57 @@ CImageProc::~CImageProc()
 	}
 }
 
+CImageProc& CImageProc::operator=(const CImageProc& other) {
+	if (this != &other) {
+		// 释放当前对象的DIB数据
+		if (m_hDib != NULL) {
+			::GlobalFree(m_hDib);
+			m_hDib = NULL;
+		}
+
+		// 复制基本成员变量
+		nWidth = other.nWidth;
+		nHeight = other.nHeight;
+		nBitCount = other.nBitCount;
+		// ... 复制其他基本成员变量 ...
+
+		// 深拷贝DIB数据
+		if (other.m_hDib != NULL) {
+			// 计算DIB总大小
+			DWORD dwSize = ::GlobalSize(other.m_hDib);
+
+			// 分配新内存
+			m_hDib = ::GlobalAlloc(GHND, dwSize);
+			if (m_hDib == NULL) {
+				AfxThrowMemoryException();
+			}
+
+			// 锁定内存并复制数据
+			LPBYTE lpDest = (LPBYTE)::GlobalLock(m_hDib);
+			LPBYTE lpSrc = (LPBYTE)::GlobalLock(other.m_hDib);
+			memcpy(lpDest, lpSrc, dwSize);
+			::GlobalUnlock(m_hDib);
+			::GlobalUnlock(other.m_hDib);
+
+			// 重新设置指针
+			pDib = (LPBYTE)::GlobalLock(m_hDib);
+			pBFH = (LPBITMAPFILEHEADER)pDib;
+			pBIH = (LPBITMAPINFOHEADER)(pDib + sizeof(BITMAPFILEHEADER));
+
+			// 计算调色板和像素数据位置
+			if (nBitCount <= 8) {
+				pQUAD = (LPRGBQUAD)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+				pBits = pDib + pBFH->bfOffBits;
+			}
+			else {
+				pQUAD = NULL;
+				pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+			}
+		}
+	}
+	return *this;
+}
+
 void CImageProc::CleanUp()
 {
 	if (m_hDib) {
@@ -178,8 +229,46 @@ void CImageProc::ShowBMP(CDC* pDC)
 	}
 }
 
-// 获取像素颜色
-void CImageProc::GetColor(CClientDC* pDC, int x, int y)
+//获取像素颜色
+void CImageProc::GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue)
+{
+	if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
+	{
+		return;
+	}
+	// 计算每行字节数
+	int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+	// 计算每个像素的字节数
+	float bytePerPixel = float(nBitCount) / 8;
+	// 计算像素在位图中的偏移量
+	int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+	// pixel指向当前像素
+	BYTE* pixel = pBits + offset;
+	// 获取像素颜色
+	switch (nBitCount)
+	{
+
+	case 4:
+		CImageProc::GetColor4bit(pixel, red, green, blue, x);
+		break;
+	case 8:
+		CImageProc::GetColor8bit(pixel, red, green, blue, x);
+		break;
+	case 16:
+		CImageProc::GetColor16bit(pixel, red, green, blue);
+		break;
+	case 24:
+		CImageProc::GetColor24bit(pixel, red, green, blue);
+		break;
+	case 32:
+		CImageProc::GetColor32bit(pixel, red, green, blue);
+		break;
+	default:
+		return;
+	}
+}
+// 获取并显示像素颜色
+void CImageProc::DisplayColor(CClientDC* pDC, int x, int y)
 {
 	if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
 	{
@@ -1510,7 +1599,7 @@ void CImageProc::ApplyCannyEdgeDetection()
 	}
 }
 
-// 实现拉普拉斯边缘检测
+// 边缘检测-拉普拉斯算子
 void CImageProc::ApplyLaplaceEdgeDetection()
 {
 	if (!IsValid() || nBitCount < 8)
@@ -1542,14 +1631,14 @@ void CImageProc::ApplyLaplaceEdgeDetection()
 		}
 	}
 
-	// 拉普拉斯算子 (4邻域)
-	const int laplacianKernel[3][3] = {
-		{ 0, -1,  0},
-		{-1,  4, -1},
-		{ 0, -1,  0}
+	// 反相拉普拉斯算子 (8邻域)
+	const int invertedLaplacianKernel[3][3] = {
+		{ -1,  -1,  -1},
+		{ -1, 8,  -1},
+		{ -1,  -1,  -1}
 	};
 
-	// 应用拉普拉斯算子
+	// 应用反相拉普拉斯算子
 	for (int y = 1; y < nHeight - 1; ++y) {
 		for (int x = 1; x < nWidth - 1; ++x) {
 			int sum = 0;
@@ -1557,7 +1646,7 @@ void CImageProc::ApplyLaplaceEdgeDetection()
 			// 计算卷积
 			for (int ky = -1; ky <= 1; ++ky) {
 				for (int kx = -1; kx <= 1; ++kx) {
-					sum += grayImage[(y + ky) * nWidth + (x + kx)] * laplacianKernel[ky + 1][kx + 1];
+					sum += grayImage[(y + ky) * nWidth + (x + kx)] * invertedLaplacianKernel[ky + 1][kx + 1];
 				}
 			}
 
@@ -1589,6 +1678,286 @@ void CImageProc::ApplyLaplaceEdgeDetection()
 			case 24:
 			case 32:
 				pixel[0] = pixel[1] = pixel[2] = static_cast<BYTE>(magnitude);
+				break;
+			}
+		}
+	}
+}
+
+void CImageProc::Add(CImageProc& img,double weight1,double weight2)
+{
+	if (!IsValid() || !img.IsValid() ||
+		nWidth != img.nWidth || nHeight != img.nHeight ||
+		nBitCount != img.nBitCount)
+	{
+		AfxMessageBox(_T("图像尺寸或位深不匹配"));
+		return;
+	}
+
+
+	// 逐像素相加
+	int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+	float bytePerPixel = float(nBitCount) / 8;
+
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int offset = (nHeight - 1 - y) * rowSize + int(x * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+
+			BYTE r1, g1, b1, r2, g2, b2;
+			GetColor( x, y, r1, g1, b1);
+
+			img.GetColor( x, y, r2, g2, b2);
+
+			// 加权相加并限制在0-255范围
+			BYTE r = min(255, static_cast<int>(r1 * weight1 + r2 * weight2));
+			BYTE g = min(255, static_cast<int>(g1 * weight1 + g2 * weight2));
+			BYTE b = min(255, static_cast<int>(b1 * weight1 + b2 * weight2));
+
+			// 根据位深设置像素
+			switch (nBitCount) {
+			case 8: *pixel = 0.299 * r + 0.587 * g + 0.114 * b; break;
+			case 16: {
+				WORD newPixel;
+				if (m_bIs565Format) {
+					newPixel = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+				}
+				else {
+					newPixel = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+				}
+				*((WORD*)pixel) = newPixel;
+				break;
+			}
+			case 24:
+			case 32:
+				pixel[0] = b;
+				pixel[1] = g;
+				pixel[2] = r;
+				break;
+			}
+		}
+	}
+}
+
+void CImageProc::Multiply(CImageProc& img)
+{
+	if (!IsValid() || !img.IsValid() ||
+		nWidth != img.nWidth || nHeight != img.nHeight ||
+		nBitCount != img.nBitCount)
+	{
+		AfxMessageBox(_T("图像尺寸或位深不匹配"));
+		return;
+	}
+
+	// 逐像素相乘
+	int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+	float bytePerPixel = float(nBitCount) / 8;
+
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int offset = (nHeight - 1 - y) * rowSize + int(x * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+
+			BYTE r1, g1, b1, r2, g2, b2;
+			GetColor( x, y, r1, g1, b1);
+			img.GetColor( x, y, r2, g2, b2);
+
+			// 相乘并归一化到0-255范围
+			BYTE r = (r1 * r2) / 255;
+			BYTE g = (g1 * g2) / 255;
+			BYTE b = (b1 * b2) / 255;
+
+			// 根据位深设置像素
+			switch (nBitCount) {
+			case 8: *pixel = 0.299 * r + 0.587 * g + 0.114 * b; break;
+			case 16: {
+				WORD newPixel;
+				if (m_bIs565Format) {
+					newPixel = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+				}
+				else {
+					newPixel = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+				}
+				*((WORD*)pixel) = newPixel;
+				break;
+			}
+			case 24:
+			case 32:
+				pixel[0] = b;
+				pixel[1] = g;
+				pixel[2] = r;
+				break;
+			}
+		}
+	}
+}
+
+void CImageProc::PowerTransform(double gamma)
+{
+	if (!IsValid()) return;
+
+	// 创建查找表加速计算
+	BYTE lut[256];
+	for (int i = 0; i < 256; ++i) {
+		lut[i] = min(255, (int)(pow(i / 255.0, gamma) * 255 + 0.5));
+	}
+
+	int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+	float bytePerPixel = float(nBitCount) / 8;
+
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int offset = (nHeight - 1 - y) * rowSize + int(x * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+
+			BYTE r, g, b;
+			GetColor( x, y, r, g, b);
+
+			// 应用幂律变换
+			r = lut[r];
+			g = lut[g];
+			b = lut[b];
+
+			// 根据位深设置像素
+			switch (nBitCount) {
+			case 8: *pixel = 0.299 * r + 0.587 * g + 0.114 * b; break;
+			case 16: {
+				WORD newPixel;
+				if (m_bIs565Format) {
+					newPixel = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+				}
+				else {
+					newPixel = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+				}
+				*((WORD*)pixel) = newPixel;
+				break;
+			}
+			case 24:
+			case 32:
+				pixel[0] = b;
+				pixel[1] = g;
+				pixel[2] = r;
+				break;
+			}
+		}
+	}
+}
+void CImageProc::ApplyMeanFilter()
+{
+	if (!IsValid() || nBitCount < 8) {
+		AfxMessageBox(_T("不支持此图像格式"));
+		return;
+	}
+
+	// 创建临时缓冲区
+	std::vector<BYTE> tempBuffer(pBIH->biSizeImage);
+	memcpy(tempBuffer.data(), pBits, pBIH->biSizeImage);
+
+	int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+	float bytePerPixel = float(nBitCount) / 8;
+
+	// 3x3均值滤波
+	for (int y = 1; y < nHeight - 1; ++y) {
+		for (int x = 1; x < nWidth - 1; ++x) {
+			int sumR = 0, sumG = 0, sumB = 0;
+
+			// 计算3x3邻域和
+			for (int ky = -1; ky <= 1; ++ky) {
+				for (int kx = -1; kx <= 1; ++kx) {
+					int offset = (nHeight - 1 - (y + ky)) * rowSize + int((x + kx) * bytePerPixel);
+					BYTE* pixel = tempBuffer.data() + offset;
+
+					BYTE r, g, b;
+					GetColor(x + kx, y + ky, r, g, b);
+
+					sumR += r;
+					sumG += g;
+					sumB += b;
+				}
+			}
+
+			// 计算平均值
+			BYTE avgR = sumR / 9;
+			BYTE avgG = sumG / 9;
+			BYTE avgB = sumB / 9;
+
+			// 更新当前像素
+			int offset = (nHeight - 1 - y) * rowSize + int(x * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+
+			switch (nBitCount) {
+			case 8: *pixel = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB; break;
+			case 16: {
+				WORD newPixel;
+				if (m_bIs565Format) {
+					newPixel = ((avgR >> 3) << 11) | ((avgG >> 2) << 5) | (avgB >> 3);
+				}
+				else {
+					newPixel = ((avgR >> 3) << 10) | ((avgG >> 3) << 5) | (avgB >> 3);
+				}
+				*((WORD*)pixel) = newPixel;
+				break;
+			}
+			case 24:
+			case 32:
+				pixel[0] = avgB;
+				pixel[1] = avgG;
+				pixel[2] = avgR;
+				break;
+			}
+		}
+	}
+}
+
+// 灰度反转函数
+void CImageProc::InvertGrayscale()
+{
+	if (!IsValid()) {
+		AfxMessageBox(_T("图像数据无效"));
+		return;
+	}
+
+	int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+	float bytePerPixel = float(nBitCount) / 8;
+
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int offset = (nHeight - 1 - y) * rowSize + int(x * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+
+			BYTE red, green, blue;
+			GetColor( x, y, red, green, blue);
+
+			// 计算反转后的RGB值
+			BYTE invertedRed = 255 - red;
+			BYTE invertedGreen = 255 - green;
+			BYTE invertedBlue = 255 - blue;
+
+			// 根据位深设置像素
+			switch (nBitCount) {
+			case 8:
+				*pixel = 0.299 * invertedRed + 0.587 * invertedGreen + 0.114 * invertedBlue;
+				break;
+			case 16: {
+				WORD newPixel;
+				if (m_bIs565Format) {
+					newPixel = ((invertedRed >> 3) << 11) |
+						((invertedGreen >> 2) << 5) |
+						(invertedBlue >> 3);
+				}
+				else {
+					newPixel = ((invertedRed >> 3) << 10) |
+						((invertedGreen >> 3) << 5) |
+						(invertedBlue >> 3);
+				}
+				*((WORD*)pixel) = newPixel;
+				break;
+			}
+			case 24:
+			case 32:
+				pixel[0] = invertedBlue;
+				pixel[1] = invertedGreen;
+				pixel[2] = invertedRed;
 				break;
 			}
 		}

@@ -57,6 +57,7 @@ public:
 	afx_msg void OnEdgeDetectionRobert();//Robert边缘检测菜单项的处理函数
 	afx_msg void OnEdgeDetectionCanny();//Canny边缘检测菜单项的处理函数
 	afx_msg void OnEdgeDetectionLaplace();//Laplace边缘检测菜单项的处理函数
+	afx_msg void OnEnhancement();// 图像增强菜单项的处理函数
 
 };
 

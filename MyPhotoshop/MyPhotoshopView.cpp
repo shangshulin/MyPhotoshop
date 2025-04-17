@@ -41,6 +41,8 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_EDGE_ROBERT, &CMyPhotoshopView::OnEdgeDetectionRobert)// 边缘检测-Robert算子
 	ON_COMMAND(ID_EDGE_CANNY, &CMyPhotoshopView::OnEdgeDetectionCanny)// 边缘检测-Canny算子
 	ON_COMMAND(ID_EDGE_LAPLACE, &CMyPhotoshopView::OnEdgeDetectionLaplace)// 边缘检测-Laplace算子
+	//图像增强
+	ON_COMMAND(ID_ENHANCEMENT, &CMyPhotoshopView::OnEnhancement)// 图像增强
 
 END_MESSAGE_MAP()
 
@@ -166,7 +168,8 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 			CClientDC dc(this);
 			CMyPhotoshopDoc* pDoc = GetDocument();// 获取文档中的图像数据
 			ASSERT_VALID(pDoc);
-			pDoc->pImage->GetColor(&dc, point.x, point.y);
+			pDoc->pImage->DisplayColor(&dc, point.x, point.y);// 获取像素颜色
+
 		}
 	}
 	CView::OnLButtonDown(nFlags, point);
@@ -341,3 +344,18 @@ void CMyPhotoshopView::OnEdgeDetectionLaplace()
 	}
 }
 
+// 图像增强
+void CMyPhotoshopView::OnEnhancement()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+	// 检查文档和图像有效性
+	if (pDoc->pImage)
+    {
+        // 应用图像增强
+		pDoc->ApplyImageEnhancement();
+
+		// 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}

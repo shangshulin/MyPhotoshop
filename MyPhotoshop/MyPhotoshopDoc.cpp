@@ -34,12 +34,15 @@ CMyPhotoshopDoc::CMyPhotoshopDoc() noexcept
 {
 	// TODO: 在此添加一次性构造代码
 	pImage = new CImageProc;
-
+	pTemp1 = new CImageProc; // 初始化临时图像处理对象
+	pTemp2 = new CImageProc; // 初始化第二个临时图像处理对象
 }
 
 CMyPhotoshopDoc::~CMyPhotoshopDoc()
 {
 	delete pImage;
+	delete pTemp1; // 释放临时图像处理对象
+	delete pTemp2;
 }
 
 BOOL CMyPhotoshopDoc::OnNewDocument()
@@ -151,3 +154,39 @@ void CMyPhotoshopDoc::OnFileOpen()
 	pView->Invalidate(TRUE);
 }
 
+// 图像增强
+void CMyPhotoshopDoc::ApplyImageEnhancement()
+{
+	if (!pImage->IsValid()) {
+		AfxMessageBox(_T("图像数据无效"));
+		return;
+	}
+
+	// 1. 保存原图像
+	*pTemp1 = *pImage;
+	
+	// 2. 拉普拉斯算子处理
+	pImage->ApplyLaplaceEdgeDetection();
+
+	// 3. 原图和拉普拉斯相加形成锐化图像
+	pImage->Add(*pTemp1, 1.0, 1.0); // 锐化图像 = 原图 + 拉普拉斯
+
+	*pTemp2 = *pImage;// 保存锐化图像
+
+	// 4. Sobel算子处理
+	pImage->ApplySobelEdgeDetection();
+
+	// 5. 对Sobel结果均值滤波
+	pImage->ApplyMeanFilter();
+
+	// 6. 锐化图像和滤波后梯度相乘形成掩蔽
+	pImage->Multiply(*pTemp2); // 掩蔽 = 锐化图像 × 滤波梯度
+
+	// 7. 原图和掩蔽求和
+	pImage->Add(*pTemp1, 1.0, 1.0); // 原图 + 掩蔽
+
+	// 8. 幂律变换（γ=0.5）
+	pImage->PowerTransform(0.5);
+
+
+}
