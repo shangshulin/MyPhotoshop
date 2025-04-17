@@ -16,6 +16,7 @@ protected: // 仅从序列化创建
 public:
 	CImageProc* pImage;
 	CImageProc m_ImageProc;
+
 // 操作
 public:
 

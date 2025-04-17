@@ -1335,6 +1335,7 @@ void CImageProc::ApplyRobertEdgeDetection()
 	}
 }
 
+// 实现Canny边缘检测
 void CImageProc::ApplyCannyEdgeDetection()
 {
 	double lowThreshold = 50;
@@ -1503,6 +1504,91 @@ void CImageProc::ApplyCannyEdgeDetection()
 			case 24:
 			case 32:
 				pixel[0] = pixel[1] = pixel[2] = value;
+				break;
+			}
+		}
+	}
+}
+
+// 实现拉普拉斯边缘检测
+void CImageProc::ApplyLaplaceEdgeDetection()
+{
+	if (!IsValid() || nBitCount < 8)
+	{
+		AfxMessageBox(_T("不支持此图像格式"));
+		return;
+	}
+
+	// 创建临时缓冲区存储灰度图像
+	std::vector<BYTE> grayImage(nWidth * nHeight);
+	int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+	float bytePerPixel = float(nBitCount) / 8;
+
+	// 转换为灰度图像
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+
+			BYTE red = 0, green = 0, blue = 0;
+			switch (nBitCount) {
+			case 8: GetColor8bit(pixel, red, green, blue, x); break;
+			case 16: GetColor16bit(pixel, red, green, blue); break;
+			case 24: GetColor24bit(pixel, red, green, blue); break;
+			case 32: GetColor32bit(pixel, red, green, blue); break;
+			}
+
+			grayImage[y * nWidth + x] = static_cast<BYTE>(0.299 * red + 0.587 * green + 0.114 * blue);
+		}
+	}
+
+	// 拉普拉斯算子 (4邻域)
+	const int laplacianKernel[3][3] = {
+		{ 0, -1,  0},
+		{-1,  4, -1},
+		{ 0, -1,  0}
+	};
+
+	// 应用拉普拉斯算子
+	for (int y = 1; y < nHeight - 1; ++y) {
+		for (int x = 1; x < nWidth - 1; ++x) {
+			int sum = 0;
+
+			// 计算卷积
+			for (int ky = -1; ky <= 1; ++ky) {
+				for (int kx = -1; kx <= 1; ++kx) {
+					sum += grayImage[(y + ky) * nWidth + (x + kx)] * laplacianKernel[ky + 1][kx + 1];
+				}
+			}
+
+			// 计算绝对值并约束到0-255范围
+			int magnitude = abs(sum);
+			magnitude = min(255, max(0, magnitude));
+
+			// 更新像素
+			int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+
+			switch (nBitCount) {
+			case 8:
+				*pixel = static_cast<BYTE>(magnitude);
+				break;
+			case 16: {
+				WORD newPixel;
+				if (m_bIs565Format) {
+					BYTE v = magnitude >> 3;
+					newPixel = (v << 11) | (v << 5) | v;
+				}
+				else {
+					BYTE v = magnitude >> 3;
+					newPixel = (v << 10) | (v << 5) | v;
+				}
+				*reinterpret_cast<WORD*>(pixel) = newPixel;
+				break;
+			}
+			case 24:
+			case 32:
+				pixel[0] = pixel[1] = pixel[2] = static_cast<BYTE>(magnitude);
 				break;
 			}
 		}

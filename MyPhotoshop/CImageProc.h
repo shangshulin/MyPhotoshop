@@ -37,6 +37,8 @@ public:
     void ApplyPrewittEdgeDetection();// Prewitt算子边缘检测
 	void ApplyRobertEdgeDetection();// Robert算子边缘检测
 	void ApplyCannyEdgeDetection();// Canny算子边缘检测
+	void ApplyLaplaceEdgeDetection();// 拉普拉斯算子边缘检测
+
 
 public:
     BYTE* pDib;

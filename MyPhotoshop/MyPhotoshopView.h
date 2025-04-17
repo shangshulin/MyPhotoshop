@@ -27,6 +27,7 @@ public:
 public:
 	virtual void OnDraw(CDC* pDC);  // 重写以绘制该视图
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+	
 protected:
 	virtual BOOL OnPreparePrinting(CPrintInfo* pInfo);
 	virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
@@ -55,6 +56,8 @@ public:
 	afx_msg void OnEdgeDetectionPrewitt();//Prewitt边缘检测菜单项的处理函数
 	afx_msg void OnEdgeDetectionRobert();//Robert边缘检测菜单项的处理函数
 	afx_msg void OnEdgeDetectionCanny();//Canny边缘检测菜单项的处理函数
+	afx_msg void OnEdgeDetectionLaplace();//Laplace边缘检测菜单项的处理函数
+
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本
