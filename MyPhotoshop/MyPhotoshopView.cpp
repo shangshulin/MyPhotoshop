@@ -40,7 +40,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_EDGE_PREWITT, &CMyPhotoshopView::OnEdgeDetectionPrewitt)// 边缘检测-Prewitt算子
 	ON_COMMAND(ID_EDGE_ROBERT, &CMyPhotoshopView::OnEdgeDetectionRobert)// 边缘检测-Robert算子
 	ON_COMMAND(ID_EDGE_CANNY, &CMyPhotoshopView::OnEdgeDetectionCanny)// 边缘检测-Canny算子
-
+	ON_COMMAND(ID_EDGE_LOG, &CMyPhotoshopView::OnEdgeDetectionLog)// 边缘检测-LoG算子
 END_MESSAGE_MAP()
 
 
@@ -320,6 +320,18 @@ void CMyPhotoshopView::OnEdgeDetectionCanny()
 	if (pDoc->pImage)
 	{
 		pDoc->pImage->ApplyCannyEdgeDetection(); // 应用Canny边缘检测
+		// 视图重绘
+		Invalidate(); // 使视图无效，触发重绘
+		UpdateWindow(); // 立即更新窗口
+	}
+}
+//LoG边缘检测
+void CMyPhotoshopView::OnEdgeDetectionLog()
+{
+	CMyPhotoshopDoc* pDoc = GetDocument();
+	if (pDoc->pImage)
+	{
+		pDoc->pImage->ApplyLoGEdgeDetection(); // 应用LoG边缘检测
 		// 视图重绘
 		Invalidate(); // 使视图无效，触发重绘
 		UpdateWindow(); // 立即更新窗口

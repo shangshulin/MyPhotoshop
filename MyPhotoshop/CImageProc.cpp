@@ -2,6 +2,7 @@
 #include "CImageProc.h"
 #include <afxdlgs.h>
 #include <vector>
+#include <algorithm>
 
 
 CImageProc::CImageProc()
@@ -1335,10 +1336,27 @@ void CImageProc::ApplyRobertEdgeDetection()
 	}
 }
 
+
+// 定义递归函数
+void TraceWeakEdge(int x, int y, int nWidth, int nHeight, std::vector<BYTE>& edgeImage, std::vector<bool>& visited) {
+	visited[y * nWidth + x] = true;
+	const int dx[8] = { -1, 0, 1, -1, 1, -1, 0, 1 };
+	const int dy[8] = { -1, -1, -1, 0, 0, 1, 1, 1 };
+	for (int k = 0; k < 8; ++k) {
+		int nx = x + dx[k], ny = y + dy[k];
+		if (nx >= 0 && nx < nWidth && ny >= 0 && ny < nHeight) {
+			int idx = ny * nWidth + nx;
+			if (!visited[idx] && edgeImage[idx] == 128) {
+				edgeImage[idx] = 255;
+				TraceWeakEdge(nx, ny, nWidth, nHeight, edgeImage, visited);
+			}
+		}
+	}
+}
+
+//Canny边缘检测
 void CImageProc::ApplyCannyEdgeDetection()
 {
-	double lowThreshold = 50;
-	double highThreshold = 150;
 	int kernelSize = 3;
 	if (!IsValid() || nBitCount < 8)
 	{
@@ -1366,12 +1384,14 @@ void CImageProc::ApplyCannyEdgeDetection()
 	}
 	// 高斯模糊
 	std::vector<BYTE> blurredImage(nWidth * nHeight);
-	const int gaussianKernel[3][3] = {
-		{ 1, 2, 1 },
-		{ 2, 4, 2 },
-		{ 1, 2, 1 }
+	const int gaussianKernel[5][5] = {
+			{ 2, 4, 5, 4, 2 },
+			{ 4, 9, 12, 9, 4 },
+			{ 5, 12, 15, 12, 5 },
+			{ 4, 9, 12, 9, 4 },
+			{ 2, 4, 5, 4, 2 }
 	};
-	const int gaussianKernelSum = 16;
+	const int gaussianKernelSum = 159;
 	for (int y = 1; y < nHeight - 1; ++y) {
 		for (int x = 1; x < nWidth - 1; ++x) {
 			int sum = 0;
@@ -1383,6 +1403,7 @@ void CImageProc::ApplyCannyEdgeDetection()
 			blurredImage[y * nWidth + x] = static_cast<BYTE>(sum / gaussianKernelSum);
 		}
 	}
+
 	// 利用Sobel算子计算梯度和方向
 	const int sobelX[3][3] = { {-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1} };
 	const int sobelY[3][3] = { {-1, -2, -1}, {0, 0, 0}, {1, 2, 1} };
@@ -1399,54 +1420,92 @@ void CImageProc::ApplyCannyEdgeDetection()
 				}
 			}
 			gradientMagnitude[y * nWidth + x] = sqrt(gx * gx + gy * gy);
-			gradientDirection[y * nWidth + x] = atan2(gy, gx);
+			gradientDirection[y * nWidth + x] = atan2(gy, gx) * 180.0 / 3.14159265358979323846;
 		}
 	}
+	// 计算梯度幅值直方图
+	std::vector<int> gradHist(256, 0);
+	for (int i = 0; i < nWidth * nHeight; ++i) {
+		int mag = static_cast<int>(gradientMagnitude[i] + 0.5); // 四舍五入
+		mag = max(0, min(255, mag)); // 先min再max，保证类型一致
+		gradHist[mag]++;
+	}
+
+	// Otsu法自动确定highThreshold
+	int total = nWidth * nHeight;
+	double sum = 0, sumB = 0, wB = 0, wF = 0, varMax = 0;
+	int threshold = 0;
+	for (int t = 0; t < 256; ++t) sum += t * gradHist[t];
+	for (int t = 0; t < 256; ++t) {
+		wB += gradHist[t];
+		if (wB == 0) continue;
+		wF = total - wB;
+		if (wF == 0) break;
+		sumB += t * gradHist[t];
+		double mB = sumB / wB;
+		double mF = (sum - sumB) / wF;
+		double varBetween = wB * wF * (mB - mF) * (mB - mF);
+		if (varBetween > varMax) {
+			varMax = varBetween;
+			threshold = t;
+		}
+	}
+	double highThreshold = threshold;
+	double lowThreshold = highThreshold * 0.5;
 
 	// 非极大值抑制
 	std::vector<BYTE> nonMaxSuppressed(nWidth * nHeight, 0);
 	for (int y = 1; y < nHeight - 1; ++y) {
 		for (int x = 1; x < nWidth - 1; ++x) {
-			int direction = gradientDirection[y * nWidth + x];
-			int magnitude = gradientMagnitude[y * nWidth + x];
-			
-			//归一化方向到0-180度
-			if (direction < 0)direction += 180;
-			int neighbor1 = 0;
-			int neighbor2 = 0;
-			if ((direction >= 0 && direction < 22.5) || (direction >= 157.5 && direction <= 180))
-			{
-				neighbor1 = gradientMagnitude[y * nWidth + (x - 1)];
-				neighbor2 = gradientMagnitude[y * nWidth + (x + 1)];
+			double direction = gradientDirection[y * nWidth + x];
+			double magnitude = gradientMagnitude[y * nWidth + x];
+
+			// 将角度归一化到0-180度
+			if (direction < 0) direction += 180.0;
+
+			// 计算插值权重和邻居位置
+			double weight;
+			int x1, y1, x2, y2;
+
+			// 根据角度确定要比较的像素
+			if ((direction >= 0 && direction < 22.5) || (direction >= 157.5 && direction <= 180)) {
+				// 0度方向（水平）
+				x1 = x + 1; y1 = y;
+				x2 = x - 1; y2 = y;
 			}
-			else if ((direction >= 22.5 && direction < 67.5))
-			{
-				neighbor1 = gradientMagnitude[(y - 1) * nWidth + (x + 1)];
-				neighbor2 = gradientMagnitude[(y + 1) * nWidth + (x - 1)];
+			else if (direction >= 22.5 && direction < 67.5) {
+				// 45度方向
+				x1 = x + 1; y1 = y - 1;
+				x2 = x - 1; y2 = y + 1;
 			}
-			else if ((direction >= 67.5 && direction < 112.5))
-			{
-				neighbor1 = gradientMagnitude[(y - 1) * nWidth + x];
-				neighbor2 = gradientMagnitude[(y + 1) * nWidth + x];
+			else if (direction >= 67.5 && direction < 112.5) {
+				// 90度方向（垂直）
+				x1 = x; y1 = y - 1;
+				x2 = x; y2 = y + 1;
 			}
-			else if ((direction >= 112.5 && direction < 157.5))
-			{
-				neighbor1 = gradientMagnitude[(y - 1) * nWidth + (x - 1)];
-				neighbor2 = gradientMagnitude[(y + 1) * nWidth + (x + 1)];
+			else {
+				// 135度方向
+				x1 = x - 1; y1 = y - 1;
+				x2 = x + 1; y2 = y + 1;
 			}
-			if (magnitude >= neighbor1 && magnitude >= neighbor2)
-			{
-				nonMaxSuppressed[y * nWidth + x] = static_cast<BYTE>(magnitude);
-			}
-			else
-			{
-				nonMaxSuppressed[y * nWidth + x] = 0;
+
+			// 确保邻居在图像范围内
+			if (x1 >= 0 && x1 < nWidth && y1 >= 0 && y1 < nHeight &&
+				x2 >= 0 && x2 < nWidth && y2 >= 0 && y2 < nHeight) {
+
+				double mag1 = gradientMagnitude[y1 * nWidth + x1];
+				double mag2 = gradientMagnitude[y2 * nWidth + x2];
+
+				// 如果当前像素是局部最大值，则保留
+				if (magnitude >= mag1 && magnitude >= mag2) {
+					nonMaxSuppressed[y * nWidth + x] = static_cast<BYTE>(min(255, magnitude));
+				}
 			}
 		}
 	}
 
 	// 双阈值滞后处理
-	std::vector<BYTE> edgeImage(nWidth * nHeight, 0);
+	std::vector<BYTE> edgeImage(nWidth* nHeight, 0);
 	for (int y = 0; y < nHeight; ++y) {
 		for (int x = 0; x < nWidth; ++x) {
 			int magnitude = nonMaxSuppressed[y * nWidth + x];
@@ -1462,24 +1521,171 @@ void CImageProc::ApplyCannyEdgeDetection()
 		}
 	}
 
-	//弱边缘连接
+	// 递归方式连接弱边缘
+	std::vector<bool> visited(nWidth * nHeight, false);
 	for (int y = 1; y < nHeight - 1; ++y) {
 		for (int x = 1; x < nWidth - 1; ++x) {
-			if (edgeImage[y * nWidth + x] == 128) {
-				// 检查8邻域
-				for (int ky = -1; ky <= 1; ++ky) {
-					for (int kx = -1; kx <= 1; ++kx) {
-						if (edgeImage[(y + ky) * nWidth + (x + kx)] == 255) {
-							edgeImage[y * nWidth + x] = 255; // 转换为强边缘
-							break;
-						}
+			if (edgeImage[y * nWidth + x] == 255 && !visited[y * nWidth + x]) {
+				TraceWeakEdge(x, y, nWidth, nHeight, edgeImage, visited);
+			}
+		}
+	}
+	// 剩余未连接的弱边缘全部置0
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			if (edgeImage[y * nWidth + x] == 128)
+				edgeImage[y * nWidth + x] = 0;
+		}
+	}
+
+
+	//更新图像数据
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+			BYTE value = edgeImage[y * nWidth + x];
+			switch (nBitCount) {
+			case 8:
+				*pixel = value;
+				break;
+			case 16: {
+				WORD newPixel;
+				if (m_bIs565Format) {
+					newPixel = (value << 11) | (value << 5) | value;
+				}
+				else {
+					newPixel = (value << 10) | (value << 5) | value;
+				}
+				*reinterpret_cast<WORD*>(pixel) = newPixel;
+				break;
+			}
+			case 24:
+			case 32:
+				pixel[0] = pixel[1] = pixel[2] = value;
+				break;
+			}
+		}
+	}
+}
+
+//LoG算子边缘检测
+
+void CImageProc::ApplyLoGEdgeDetection()
+{
+	if (!IsValid() || nBitCount < 8)
+	{
+		AfxMessageBox(_T("不支持此图像格式"));
+		return;
+	}
+
+	// 1. 转灰度
+	std::vector<BYTE> grayImage(nWidth * nHeight);
+	int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+	float bytePerPixel = float(nBitCount) / 8;
+	for (int y = 0; y < nHeight; ++y) {
+		for (int x = 0; x < nWidth; ++x) {
+			int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+			BYTE* pixel = pBits + offset;
+			BYTE red = 0, green = 0, blue = 0;
+			switch (nBitCount) {
+			case 8: GetColor8bit(pixel, red, green, blue, x); break;
+			case 16: GetColor16bit(pixel, red, green, blue); break;
+			case 24: GetColor24bit(pixel, red, green, blue); break;
+			case 32: GetColor32bit(pixel, red, green, blue); break;
+			}
+			grayImage[y * nWidth + x] = static_cast<BYTE>(0.299 * red + 0.587 * green + 0.114 * blue);
+		}
+	}
+
+	// 2. 高斯平滑（5x5核，sigma=1.0）
+	const int gaussianKernel[7][7] = {
+		{0, 0, 1, 2, 1, 0, 0},
+		{0, 3, 13, 22, 13, 3, 0},
+		{1, 13, 59, 97, 59, 13, 1},
+		{2, 22, 97, 159, 97, 22, 2},
+		{1, 13, 59, 97, 59, 13, 1},
+		{0, 3, 13, 22, 13, 3, 0},
+		{0, 0, 1, 2, 1, 0, 0}
+	};
+	const int gaussianSum = 1003;
+	std::vector<BYTE> smoothImage(nWidth * nHeight, 0);
+	for (int y = 3; y < nHeight - 3; ++y) {
+		for (int x = 3; x < nWidth - 3; ++x) {
+			int sum = 0;
+			for (int ky = -3; ky <= 3; ++ky) {
+				for (int kx = -3; kx <= 3; ++kx) {
+					sum += grayImage[(y + ky) * nWidth + (x + kx)] * gaussianKernel[ky + 3][kx + 3];
+				}
+			}
+			smoothImage[y * nWidth + x] = static_cast<BYTE>(sum / gaussianSum);
+		}
+	}
+	// 边界直接复制
+	for (int y = 0; y < nHeight; ++y)
+		for (int x = 0; x < nWidth; ++x)
+			if (y < 2 || y >= nHeight - 2 || x < 2 || x >= nWidth - 2)
+				smoothImage[y * nWidth + x] = grayImage[y * nWidth + x];
+
+	// 3. LoG算子（5x5核）
+	const int logKernel[5][5] = {
+		{ 0,  0, -1,  0,  0},
+		{ 0, -1, -2, -1,  0},
+		{-1, -2, 16, -2, -1},
+		{ 0, -1, -2, -1,  0},
+		{ 0,  0, -1,  0,  0}
+	};
+	std::vector<int> logImage(nWidth * nHeight, 0);
+	for (int y = 2; y < nHeight - 2; ++y) {
+		for (int x = 2; x < nWidth - 2; ++x) {
+			int sum = 0;
+			for (int ky = -2; ky <= 2; ++ky) {
+				for (int kx = -2; kx <= 2; ++kx) {
+					sum += smoothImage[(y + ky) * nWidth + (x + kx)] * logKernel[ky + 2][kx + 2];
+				}
+			}
+			logImage[y * nWidth + x] = sum;
+		}
+	}
+
+	// 4. 零交叉检测
+	std::vector<BYTE> edgeImage(nWidth * nHeight, 0);
+	for (int y = 1; y < nHeight - 1; ++y) {
+		for (int x = 1; x < nWidth - 1; ++x) {
+			int idx = y * nWidth + x;
+			int v = logImage[idx];
+			bool isEdge = false;
+			// 检查8邻域是否有符号变化
+			for (int ky = -1; ky <= 1 && !isEdge; ++ky) {
+				for (int kx = -1; kx <= 1 && !isEdge; ++kx) {
+					if (ky == 0 && kx == 0) continue;
+					int neighbor = logImage[(y + ky) * nWidth + (x + kx)];
+					if ((v > 0 && neighbor < 0) || (v < 0 && neighbor > 0)) {
+						if (abs(v - neighbor) > 60) // 阈值可调，防止噪声
+							isEdge = true;
 					}
 				}
+			}
+			edgeImage[idx] = isEdge ? 255 : 0;
+		}
+	}
+
+	//5. 去除孤立点
+	for (int y = 1; y < nHeight - 1; ++y) {
+		for (int x = 1; x < nWidth - 1; ++x) {
+			if (edgeImage[y * nWidth + x] == 255) {
+				int count = 0;
+				for (int ky = -1; ky <= 1; ++ky)
+					for (int kx = -1; kx <= 1; ++kx)
+						if (!(ky == 0 && kx == 0) && edgeImage[(y + ky) * nWidth + (x + kx)] == 255)
+							count++;
+				if (count <= 1)
+					edgeImage[y * nWidth + x] = 0;
 			}
 		}
 	}
 
-	//更新图像数据
+	// 6. 写回图像
 	for (int y = 0; y < nHeight; ++y) {
 		for (int x = 0; x < nWidth; ++x) {
 			int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
