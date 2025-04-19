@@ -37,6 +37,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_FUNCTION_IMPULSE, &CMyPhotoshopView::OnFunctionImpulse)
     ON_COMMAND(ID_FUNCTION_GAUSSIAN, &CMyPhotoshopView::OnFunctionGaussian)
     ON_COMMAND(ID_FUNCTION_GAUSSIANWHITE, &CMyPhotoshopView::OnFunctionGaussianwhite)
+    ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)
+    ON_COMMAND(ID_FILTER_MEDIAN,OnFilterMedian)
+    ON_COMMAND(ID_FILTER_MAX,OnFilterMax)
 END_MESSAGE_MAP()
 
 
@@ -404,4 +407,63 @@ void CMyPhotoshopView::OnFunctionGaussianwhite()
     CString msg;
     msg.Format(_T("已添加高斯白噪声\n标准差(σ): %.1f"), sigma);
     AfxMessageBox(msg);
+}
+
+
+
+// 均值滤波消息处理函数
+void CMyPhotoshopView::OnFilterMean()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    pDoc->pImage->MeanFilter();
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    AfxMessageBox(_T("已完成均值滤波"));
+}
+
+// 中值滤波消息处理函数
+void CMyPhotoshopView::OnFilterMedian()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    pDoc->pImage->MedianFilter();
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    AfxMessageBox(_T("已完成中值滤波"));
+}
+
+// 最大值滤波消息处理函数
+void CMyPhotoshopView::OnFilterMax()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    pDoc->pImage->MaxFilter();
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    AfxMessageBox(_T("已完成最大值滤波"));
 }
