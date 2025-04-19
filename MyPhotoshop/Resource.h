@@ -67,6 +67,9 @@
 #define ID_FUNCTION_IMPULSE             32801
 #define ID_FUNCTION_GAUSSIAN            32802
 #define ID_FUNCTION_GAUSSIANWHITE       32803
+#define ID_FILTER_MEAN                  32804
+#define ID_FILTER_MEDIAN                32805
+#define ID_FILTER_MAX                   32806
 
 // Next default values for new objects
 // 
