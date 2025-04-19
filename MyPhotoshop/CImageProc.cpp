@@ -1676,3 +1676,191 @@ void CImageProc::AddGaussianWhiteNoise(double sigma)
         }
     }
 }
+
+
+
+
+// 均值滤波
+void CImageProc::MeanFilter()
+{
+    int w = nWidth;
+    int realPitch = w * 3 % 4;
+    int rowPitch;
+    if (realPitch == 0) { rowPitch = w * 3; }
+    else { rowPitch = w * 3 + (4 - (w * 3 % 4)); }
+    int h = nHeight - 1;
+
+    BYTE* tempImage = new BYTE[(w + realPitch) * h * 3];
+    memcpy(tempImage, pBits, w * h * 3);
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int sumR = 0;
+            int sumG = 0;
+            int sumB = 0;
+            int count = 0;
+
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    int nx = x + dx;
+                    int ny = y + dy;
+
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                        int index = (ny * w + nx) * 3;
+                        sumR += pBits[index + 2];
+                        sumG += pBits[index + 1];
+                        sumB += pBits[index];
+                        count++;
+                    }
+                }
+            }
+
+            int avgR = sumR / count;
+            int avgG = sumG / count;
+            int avgB = sumB / count;
+
+            int index = (y * w + x) * 3;
+            tempImage[index + 2] = avgR;
+            tempImage[index + 1] = avgG;
+            tempImage[index] = avgB;
+        }
+    }
+
+    // 将临时图像数据复制回原始图像数据
+    memcpy(pBits, tempImage, w * h * 3);
+
+    delete[] tempImage;
+}
+
+// 中值滤波
+void CImageProc::MedianFilter()
+{
+    int w = nWidth;
+    int realPitch = w * 3 % 4;
+    int rowPitch;
+    if (realPitch == 0) { rowPitch = w * 3; }
+    else { rowPitch = w * 3 + (4 - (w * 3 % 4)); }
+    int h = nHeight - 1;
+
+    BYTE* tempImage = new BYTE[(w + realPitch) * h * 3];
+    memcpy(tempImage, pBits, w * h * 3);
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int redValues[9];
+            int greenValues[9];
+            int blueValues[9];
+            int index = 0;
+
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    int nx = x + dx;
+                    int ny = y + dy;
+
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                        int pixelIndex = (ny * w + nx) * 3;
+                        redValues[index] = pBits[pixelIndex + 2];
+                        greenValues[index] = pBits[pixelIndex + 1];
+                        blueValues[index] = pBits[pixelIndex];
+                        index++;
+                    }
+                }
+            }
+
+            // 对颜色值进行排序
+            for (int i = 1; i < index; i++) {
+                int key = redValues[i];
+                int j = i - 1;
+                while (j >= 0 && redValues[j] > key) {
+                    redValues[j + 1] = redValues[j];
+                    j = j - 1;
+                }
+                redValues[j + 1] = key;
+            }
+
+            for (int i = 1; i < index; i++) {
+                int key = greenValues[i];
+                int j = i - 1;
+                while (j >= 0 && greenValues[j] > key) {
+                    greenValues[j + 1] = greenValues[j];
+                    j = j - 1;
+                }
+                greenValues[j + 1] = key;
+            }
+
+            for (int i = 1; i < index; i++) {
+                int key = blueValues[i];
+                int j = i - 1;
+                while (j >= 0 && blueValues[j] > key) {
+                    blueValues[j + 1] = blueValues[j];
+                    j = j - 1;
+                }
+                blueValues[j + 1] = key;
+            }
+
+            int medianR = redValues[index / 2];
+            int medianG = greenValues[index / 2];
+            int medianB = blueValues[index / 2];
+
+            int tempIndex = (y * w + x) * 3;
+            tempImage[tempIndex + 2] = medianR;
+            tempImage[tempIndex + 1] = medianG;
+            tempImage[tempIndex] = medianB;
+        }
+    }
+
+    // 将临时图像数据复制回原始图像数据
+    memcpy(pBits, tempImage, w * h * 3);
+
+    delete[] tempImage;
+}
+
+// 最大值滤波
+void CImageProc::MaxFilter()
+{
+    int w = nWidth;
+    int realPitch = w * 3 % 4;
+    int rowPitch;
+    if (realPitch == 0) { rowPitch = w * 3; }
+    else { rowPitch = w * 3 + (4 - (w * 3 % 4)); }
+    int h = nHeight - 1;
+
+    BYTE* tempImage = new BYTE[(w + realPitch) * h * 3];
+    memcpy(tempImage, pBits, w * h * 3);
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int maxR = 0;
+            int maxG = 0;
+            int maxB = 0;
+
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    int nx = x + dx;
+                    int ny = y + dy;
+
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                        int index = (ny * w + nx) * 3;
+                        int currR = pBits[index + 2];
+                        int currG = pBits[index + 1];
+                        int currB = pBits[index];
+
+                        if (currR > maxR) maxR = currR;
+                        if (currG > maxG) maxG = currG;
+                        if (currB > maxB) maxB = currB;
+                    }
+                }
+            }
+
+            int index = (y * w + x) * 3;
+            tempImage[index + 2] = maxR;
+            tempImage[index + 1] = maxG;
+            tempImage[index] = maxB;
+        }
+    }
+
+    // 将临时图像数据复制回原始图像数据
+    memcpy(pBits, tempImage, w * h * 3);
+
+    delete[] tempImage;
+}
