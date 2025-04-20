@@ -2,6 +2,7 @@
 #include "MyPhotoshop.h"
 #include "afxdialogex.h"
 #include "FilterSizeDialog.h"
+#include "CImageProc.h"
 IMPLEMENT_DYNAMIC(CFilterSizeDialog, CDialogEx)
 
 CFilterSizeDialog::CFilterSizeDialog(CWnd* pParent)
