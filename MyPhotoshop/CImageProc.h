@@ -1,7 +1,13 @@
-// CImageProc.h
+
 #pragma once
 #include "pch.h"
 #include <vector>
+
+enum class FilterType {
+    Mean,
+    Median,
+    Max
+};
 
 class CImageProc {
 public:
@@ -27,9 +33,11 @@ public:
     void AddImpulseNoise(double noiseRatio = 0.05, BYTE noiseValue1 = 0, BYTE noiseValue2 = 255); // 添加脉冲噪声
     void AddGaussianNoise(double mean = 0.0, double sigma = 30.0); // 添加高斯噪声
     void AddGaussianWhiteNoise(double sigma = 30.0); // 添加高斯白噪声
-    void MeanFilter(int filterSize);    // 均值滤波
-    void MedianFilter(int filterSize);  // 中值滤波
-    void MaxFilter(int filterSize);     // 最大值滤波
+    BYTE ProcessKernel(int x, int y, int c, int radius, FilterType type);
+    void MeanFilter(int filterSize);
+    void MedianFilter(int filterSize);
+    void MaxFilter(int filterSize);
+    int CalculatePitch(int width);
 public:
     
     BYTE* pDib;
