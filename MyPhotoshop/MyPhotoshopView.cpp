@@ -13,6 +13,7 @@
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
 #include <algorithm>
+#include "FilterSizeDialog.h"  
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -37,6 +38,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_FUNCTION_IMPULSE, &CMyPhotoshopView::OnFunctionImpulse)
     ON_COMMAND(ID_FUNCTION_GAUSSIAN, &CMyPhotoshopView::OnFunctionGaussian)
     ON_COMMAND(ID_FUNCTION_GAUSSIANWHITE, &CMyPhotoshopView::OnFunctionGaussianwhite)
+    ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)
+    ON_COMMAND(ID_FILTER_MEDIAN,OnFilterMedian)
+    ON_COMMAND(ID_FILTER_MAX,OnFilterMax)
 END_MESSAGE_MAP()
 
 
@@ -404,4 +408,36 @@ void CMyPhotoshopView::OnFunctionGaussianwhite()
     CString msg;
     msg.Format(_T("已添加高斯白噪声\n标准差(σ): %.1f"), sigma);
     AfxMessageBox(msg);
+}
+
+
+
+void CMyPhotoshopView::OnFilterMean()
+{
+    CFilterSizeDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    pDoc->pImage->MeanFilter(dlg.GetFilterSize());
+    Invalidate();
+}
+
+void CMyPhotoshopView::OnFilterMedian()
+{
+    CFilterSizeDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    pDoc->pImage->MedianFilter(dlg.GetFilterSize());
+    Invalidate();
+}
+
+void CMyPhotoshopView::OnFilterMax()
+{
+    CFilterSizeDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    pDoc->pImage->MaxFilter(dlg.GetFilterSize());
+    Invalidate();
 }

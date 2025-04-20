@@ -59,6 +59,9 @@ public:
 	afx_msg void OnFunctionImpulse();
 	afx_msg void OnFunctionGaussian();
 	afx_msg void OnFunctionGaussianwhite();
+	afx_msg void OnFilterMean();
+	afx_msg void OnFilterMedian();
+	afx_msg void OnFilterMax();
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本

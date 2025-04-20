@@ -2,6 +2,8 @@
 #include "CImageProc.h"
 #include <afxdlgs.h>
 #include <vector>
+#include <algorithm> // 用于排序
+#include <omp.h>
 
 
 CImageProc::CImageProc()
@@ -1669,4 +1671,123 @@ void CImageProc::AddGaussianWhiteNoise(double sigma)
             }
         }
     }
+}
+
+
+
+
+void CImageProc::MeanFilter(int filterSize)
+{
+    if (nBitCount != 24 && nBitCount != 32) return;
+    const int radius = (filterSize - 1) / 2;
+    const int bytesPerPixel = nBitCount / 8;
+    BYTE* tempBuf = new BYTE[nWidth * nHeight * bytesPerPixel];
+    memcpy(tempBuf, pBits, nWidth * nHeight * bytesPerPixel);
+
+    for (int y = 0; y < nHeight; ++y) {
+        for (int x = 0; x < nWidth; ++x) {
+            int sumR = 0, sumG = 0, sumB = 0, count = 0;
+
+            for (int dy = -radius; dy <= radius; ++dy) {
+                int ny = y + dy;
+                if (ny < 0 || ny >= nHeight) continue;
+
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    int nx = x + dx;
+                    if (nx < 0 || nx >= nWidth) continue;
+
+                    BYTE* p = tempBuf + (ny * nWidth + nx) * bytesPerPixel;
+                    sumB += p[0];
+                    sumG += p[1];
+                    sumR += p[2];
+                    ++count;
+                }
+            }
+
+            BYTE* dest = pBits + (y * nWidth + x) * bytesPerPixel;
+            dest[0] = static_cast<BYTE>(sumB / count);
+            dest[1] = static_cast<BYTE>(sumG / count);
+            dest[2] = static_cast<BYTE>(sumR / count);
+        }
+    }
+    delete[] tempBuf;
+}
+
+
+void CImageProc::MedianFilter(int filterSize)
+{
+    if (nBitCount != 24 && nBitCount != 32) return;
+    const int radius = (filterSize - 1) / 2;
+    const int bytesPerPixel = nBitCount / 8;
+
+#pragma omp parallel for collapse(2)
+    for (int y = 0; y < nHeight; ++y) {
+        for (int x = 0; x < nWidth; ++x) {
+            std::vector<BYTE> windowR, windowG, windowB;
+            windowR.reserve(filterSize * filterSize);
+            windowG.reserve(filterSize * filterSize);
+            windowB.reserve(filterSize * filterSize);
+
+            for (int dy = -radius; dy <= radius; ++dy) {
+                int ny = y + dy;
+                if (ny < 0 || ny >= nHeight) continue;
+
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    int nx = x + dx;
+                    if (nx < 0 || nx >= nWidth) continue;
+
+                    BYTE* p = pBits + (ny * nWidth + nx) * bytesPerPixel;
+                    windowB.push_back(p[0]);
+                    windowG.push_back(p[1]);
+                    windowR.push_back(p[2]);
+                }
+            }
+
+            auto middle = windowR.size() / 2;
+            std::nth_element(windowR.begin(), windowR.begin() + middle, windowR.end());
+            std::nth_element(windowG.begin(), windowG.begin() + middle, windowG.end());
+            std::nth_element(windowB.begin(), windowB.begin() + middle, windowB.end());
+
+            BYTE* dest = pBits + (y * nWidth + x) * bytesPerPixel;
+            dest[0] = windowB[middle];
+            dest[1] = windowG[middle];
+            dest[2] = windowR[middle];
+        }
+    }
+}
+
+void CImageProc::MaxFilter(int filterSize)
+{
+    if (nBitCount != 24 && nBitCount != 32) return;
+    const int radius = (filterSize - 1) / 2;
+    const int bytesPerPixel = nBitCount / 8;
+    BYTE* tempBuf = new BYTE[nWidth * nHeight * bytesPerPixel];
+    memcpy(tempBuf, pBits, nWidth * nHeight * bytesPerPixel);
+
+    for (int y = 0; y < nHeight; ++y) {
+        for (int x = 0; x < nWidth; ++x) {
+            BYTE maxR = 0, maxG = 0, maxB = 0;
+
+            for (int dy = -radius; dy <= radius; ++dy) {
+                int ny = y + dy;
+                if (ny < 0 || ny >= nHeight) continue;
+
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    int nx = x + dx;
+                    if (nx < 0 || nx >= nWidth) continue;
+
+                    BYTE* p = tempBuf + (ny * nWidth + nx) * bytesPerPixel;
+                    maxB = max(maxB, p[0]);
+                    maxG = max(maxG, p[1]);
+                    maxR = max(maxR, p[2]);
+                }
+            }
+
+            BYTE* dest = pBits + (y * nWidth + x) * bytesPerPixel;
+            dest[0] = maxB;
+            dest[1] = maxG;
+            dest[2] = maxR;
+        }
+    }
+    delete[] tempBuf;
 }

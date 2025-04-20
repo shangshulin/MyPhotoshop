@@ -14,6 +14,7 @@
 #define IDD_GAUSSIAN_NOISE_DIALOG       318
 #define IDD_DIALOG2                     320
 #define IDD_GAUSSIAN_WHITE_NOISE_DIALOG 320
+#define IDD_FILTER_SIZE                 321
 #define IDC_STATIC_HISTOGRAM            1000
 #define IDC_STATIC_HISTOGRAM2           1001
 #define IDC_EDIT_ALPHA                  1002
@@ -34,6 +35,7 @@
 #define IDC_SIGMA_EDIT                  1014
 #define IDC_SIGMA_SLIDER                1015
 #define IDC_SLIDER1                     1015
+#define IDC_FILTER_SIZE                 1016
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -67,6 +69,9 @@
 #define ID_FUNCTION_IMPULSE             32801
 #define ID_FUNCTION_GAUSSIAN            32802
 #define ID_FUNCTION_GAUSSIANWHITE       32803
+#define ID_FILTER_MEAN                  32804
+#define ID_FILTER_MEDIAN                32805
+#define ID_FILTER_MAX                   32806
 
 // Next default values for new objects
 // 
