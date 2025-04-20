@@ -2,6 +2,8 @@
 #include "CImageProc.h"
 #include <afxdlgs.h>
 #include <vector>
+#include <algorithm> // 用于排序
+#include <omp.h>
 
 
 CImageProc::CImageProc()
@@ -1680,187 +1682,118 @@ void CImageProc::AddGaussianWhiteNoise(double sigma)
 
 
 
-// 均值滤波
-void CImageProc::MeanFilter()
+void CImageProc::MeanFilter(int filterSize)
 {
-    int w = nWidth;
-    int realPitch = w * 3 % 4;
-    int rowPitch;
-    if (realPitch == 0) { rowPitch = w * 3; }
-    else { rowPitch = w * 3 + (4 - (w * 3 % 4)); }
-    int h = nHeight - 1;
+    if (nBitCount != 24 && nBitCount != 32) return;
+    const int radius = (filterSize - 1) / 2;
+    const int bytesPerPixel = nBitCount / 8;
+    BYTE* tempBuf = new BYTE[nWidth * nHeight * bytesPerPixel];
+    memcpy(tempBuf, pBits, nWidth * nHeight * bytesPerPixel);
 
-    BYTE* tempImage = new BYTE[(w + realPitch) * h * 3];
-    memcpy(tempImage, pBits, w * h * 3);
+    for (int y = 0; y < nHeight; ++y) {
+        for (int x = 0; x < nWidth; ++x) {
+            int sumR = 0, sumG = 0, sumB = 0, count = 0;
 
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int sumR = 0;
-            int sumG = 0;
-            int sumB = 0;
-            int count = 0;
+            for (int dy = -radius; dy <= radius; ++dy) {
+                int ny = y + dy;
+                if (ny < 0 || ny >= nHeight) continue;
 
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
+                for (int dx = -radius; dx <= radius; ++dx) {
                     int nx = x + dx;
-                    int ny = y + dy;
+                    if (nx < 0 || nx >= nWidth) continue;
 
-                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                        int index = (ny * w + nx) * 3;
-                        sumR += pBits[index + 2];
-                        sumG += pBits[index + 1];
-                        sumB += pBits[index];
-                        count++;
-                    }
+                    BYTE* p = tempBuf + (ny * nWidth + nx) * bytesPerPixel;
+                    sumB += p[0];
+                    sumG += p[1];
+                    sumR += p[2];
+                    ++count;
                 }
             }
 
-            int avgR = sumR / count;
-            int avgG = sumG / count;
-            int avgB = sumB / count;
-
-            int index = (y * w + x) * 3;
-            tempImage[index + 2] = avgR;
-            tempImage[index + 1] = avgG;
-            tempImage[index] = avgB;
+            BYTE* dest = pBits + (y * nWidth + x) * bytesPerPixel;
+            dest[0] = static_cast<BYTE>(sumB / count);
+            dest[1] = static_cast<BYTE>(sumG / count);
+            dest[2] = static_cast<BYTE>(sumR / count);
         }
     }
-
-    // 将临时图像数据复制回原始图像数据
-    memcpy(pBits, tempImage, w * h * 3);
-
-    delete[] tempImage;
+    delete[] tempBuf;
 }
 
-// 中值滤波
-void CImageProc::MedianFilter()
+
+void CImageProc::MedianFilter(int filterSize)
 {
-    int w = nWidth;
-    int realPitch = w * 3 % 4;
-    int rowPitch;
-    if (realPitch == 0) { rowPitch = w * 3; }
-    else { rowPitch = w * 3 + (4 - (w * 3 % 4)); }
-    int h = nHeight - 1;
+    if (nBitCount != 24 && nBitCount != 32) return;
+    const int radius = (filterSize - 1) / 2;
+    const int bytesPerPixel = nBitCount / 8;
 
-    BYTE* tempImage = new BYTE[(w + realPitch) * h * 3];
-    memcpy(tempImage, pBits, w * h * 3);
+#pragma omp parallel for collapse(2)
+    for (int y = 0; y < nHeight; ++y) {
+        for (int x = 0; x < nWidth; ++x) {
+            std::vector<BYTE> windowR, windowG, windowB;
+            windowR.reserve(filterSize * filterSize);
+            windowG.reserve(filterSize * filterSize);
+            windowB.reserve(filterSize * filterSize);
 
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int redValues[9];
-            int greenValues[9];
-            int blueValues[9];
-            int index = 0;
+            for (int dy = -radius; dy <= radius; ++dy) {
+                int ny = y + dy;
+                if (ny < 0 || ny >= nHeight) continue;
 
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
+                for (int dx = -radius; dx <= radius; ++dx) {
                     int nx = x + dx;
-                    int ny = y + dy;
+                    if (nx < 0 || nx >= nWidth) continue;
 
-                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                        int pixelIndex = (ny * w + nx) * 3;
-                        redValues[index] = pBits[pixelIndex + 2];
-                        greenValues[index] = pBits[pixelIndex + 1];
-                        blueValues[index] = pBits[pixelIndex];
-                        index++;
-                    }
+                    BYTE* p = pBits + (ny * nWidth + nx) * bytesPerPixel;
+                    windowB.push_back(p[0]);
+                    windowG.push_back(p[1]);
+                    windowR.push_back(p[2]);
                 }
             }
 
-            // 对颜色值进行排序
-            for (int i = 1; i < index; i++) {
-                int key = redValues[i];
-                int j = i - 1;
-                while (j >= 0 && redValues[j] > key) {
-                    redValues[j + 1] = redValues[j];
-                    j = j - 1;
-                }
-                redValues[j + 1] = key;
-            }
+            auto middle = windowR.size() / 2;
+            std::nth_element(windowR.begin(), windowR.begin() + middle, windowR.end());
+            std::nth_element(windowG.begin(), windowG.begin() + middle, windowG.end());
+            std::nth_element(windowB.begin(), windowB.begin() + middle, windowB.end());
 
-            for (int i = 1; i < index; i++) {
-                int key = greenValues[i];
-                int j = i - 1;
-                while (j >= 0 && greenValues[j] > key) {
-                    greenValues[j + 1] = greenValues[j];
-                    j = j - 1;
-                }
-                greenValues[j + 1] = key;
-            }
-
-            for (int i = 1; i < index; i++) {
-                int key = blueValues[i];
-                int j = i - 1;
-                while (j >= 0 && blueValues[j] > key) {
-                    blueValues[j + 1] = blueValues[j];
-                    j = j - 1;
-                }
-                blueValues[j + 1] = key;
-            }
-
-            int medianR = redValues[index / 2];
-            int medianG = greenValues[index / 2];
-            int medianB = blueValues[index / 2];
-
-            int tempIndex = (y * w + x) * 3;
-            tempImage[tempIndex + 2] = medianR;
-            tempImage[tempIndex + 1] = medianG;
-            tempImage[tempIndex] = medianB;
+            BYTE* dest = pBits + (y * nWidth + x) * bytesPerPixel;
+            dest[0] = windowB[middle];
+            dest[1] = windowG[middle];
+            dest[2] = windowR[middle];
         }
     }
-
-    // 将临时图像数据复制回原始图像数据
-    memcpy(pBits, tempImage, w * h * 3);
-
-    delete[] tempImage;
 }
 
-// 最大值滤波
-void CImageProc::MaxFilter()
+void CImageProc::MaxFilter(int filterSize)
 {
-    int w = nWidth;
-    int realPitch = w * 3 % 4;
-    int rowPitch;
-    if (realPitch == 0) { rowPitch = w * 3; }
-    else { rowPitch = w * 3 + (4 - (w * 3 % 4)); }
-    int h = nHeight - 1;
+    if (nBitCount != 24 && nBitCount != 32) return;
+    const int radius = (filterSize - 1) / 2;
+    const int bytesPerPixel = nBitCount / 8;
+    BYTE* tempBuf = new BYTE[nWidth * nHeight * bytesPerPixel];
+    memcpy(tempBuf, pBits, nWidth * nHeight * bytesPerPixel);
 
-    BYTE* tempImage = new BYTE[(w + realPitch) * h * 3];
-    memcpy(tempImage, pBits, w * h * 3);
+    for (int y = 0; y < nHeight; ++y) {
+        for (int x = 0; x < nWidth; ++x) {
+            BYTE maxR = 0, maxG = 0, maxB = 0;
 
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int maxR = 0;
-            int maxG = 0;
-            int maxB = 0;
+            for (int dy = -radius; dy <= radius; ++dy) {
+                int ny = y + dy;
+                if (ny < 0 || ny >= nHeight) continue;
 
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
+                for (int dx = -radius; dx <= radius; ++dx) {
                     int nx = x + dx;
-                    int ny = y + dy;
+                    if (nx < 0 || nx >= nWidth) continue;
 
-                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                        int index = (ny * w + nx) * 3;
-                        int currR = pBits[index + 2];
-                        int currG = pBits[index + 1];
-                        int currB = pBits[index];
-
-                        if (currR > maxR) maxR = currR;
-                        if (currG > maxG) maxG = currG;
-                        if (currB > maxB) maxB = currB;
-                    }
+                    BYTE* p = tempBuf + (ny * nWidth + nx) * bytesPerPixel;
+                    maxB = max(maxB, p[0]);
+                    maxG = max(maxG, p[1]);
+                    maxR = max(maxR, p[2]);
                 }
             }
 
-            int index = (y * w + x) * 3;
-            tempImage[index + 2] = maxR;
-            tempImage[index + 1] = maxG;
-            tempImage[index] = maxB;
+            BYTE* dest = pBits + (y * nWidth + x) * bytesPerPixel;
+            dest[0] = maxB;
+            dest[1] = maxG;
+            dest[2] = maxR;
         }
     }
-
-    // 将临时图像数据复制回原始图像数据
-    memcpy(pBits, tempImage, w * h * 3);
-
-    delete[] tempImage;
+    delete[] tempBuf;
 }
