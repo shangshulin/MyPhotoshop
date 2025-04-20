@@ -27,9 +27,9 @@ public:
     void AddImpulseNoise(double noiseRatio = 0.05, BYTE noiseValue1 = 0, BYTE noiseValue2 = 255); // 添加脉冲噪声
     void AddGaussianNoise(double mean = 0.0, double sigma = 30.0); // 添加高斯噪声
     void AddGaussianWhiteNoise(double sigma = 30.0); // 添加高斯白噪声
-    void MeanFilter();
-    void MedianFilter();
-    void MaxFilter();
+    void MeanFilter(int filterSize);    // 均值滤波
+    void MedianFilter(int filterSize);  // 中值滤波
+    void MaxFilter(int filterSize);     // 最大值滤波
 public:
     
     BYTE* pDib;
