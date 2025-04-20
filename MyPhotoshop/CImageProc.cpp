@@ -836,8 +836,7 @@ void CImageProc::ApplyBlackAndWhiteStyle()
     }
 }
 
-// 实现直方图规格化函数
-
+//直方图规格化
 bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
 {
     if (!IsValid() || !targetImageProc.IsValid())
@@ -863,7 +862,7 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
         std::vector<int> sourceHist(256, 0);
         std::vector<int> targetHist(256, 0);
 
-        // 计算源图像直方图
+        // 计算源图像直方图（提取RGB值）
         for (int y = 0; y < height; y++)
         {
             BYTE* pSource = pBits + (height - 1 - y) * rowSize;
@@ -894,24 +893,12 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                     break;
                 }
 
-                BYTE val;
-                switch (channel)
-                {
-                case 0:
-                    val = red;
-                    break;
-                case 1:
-                    val = green;
-                    break;
-                case 2:
-                    val = blue;
-                    break;
-                }
+                BYTE val = (channel == 0) ? red : (channel == 1 ? green : blue);
                 sourceHist[val]++;
             }
         }
 
-        // 计算目标图像直方图
+        // 计算目标图像直方图（提取RGB值）
         for (int y = 0; y < targetHeight; y++)
         {
             BYTE* pTarget = targetImageProc.pBits + (targetHeight - 1 - y) * targetRowSize;
@@ -942,19 +929,8 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                     break;
                 }
 
-                BYTE val;
-                switch (channel % numTargetChannels)
-                {
-                case 0:
-                    val = red;
-                    break;
-                case 1:
-                    val = green;
-                    break;
-                case 2:
-                    val = blue;
-                    break;
-                }
+                BYTE val = (channel % numTargetChannels == 0) ? red :
+                    (channel % numTargetChannels == 1 ? green : blue);
                 targetHist[val]++;
             }
         }
@@ -972,11 +948,13 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
             targetCDF[i] = targetCDF[i - 1] + targetHist[i];
         }
 
-        // 归一化
+        // 归一化CDF
+        double sourceTotal = width * height;
+        double targetTotal = targetWidth * targetHeight;
         for (int i = 0; i < 256; i++)
         {
-            sourceCDF[i] /= (width * height);
-            targetCDF[i] /= (targetWidth * targetHeight);
+            sourceCDF[i] /= sourceTotal;
+            targetCDF[i] /= targetTotal;
         }
 
         // 创建映射表
@@ -986,7 +964,7 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
             double cdf = sourceCDF[i];
             int left = 0, right = 255;
             int result = 0;
-            while (left <= right)
+            while (left <= right) //j 是目标 CDF 中第一个小于等于源 CDF [i] 的灰度级
             {
                 int mid = left + (right - left) / 2;
                 if (targetCDF[mid] <= cdf)
@@ -1002,7 +980,7 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
             mapping[i] = static_cast<BYTE>(result);
         }
 
-        // 应用映射
+        // 应用映射（区分调色板图像和真彩色图像）
         for (int y = 0; y < height; y++)
         {
             BYTE* pSource = pBits + (height - 1 - y) * rowSize;
@@ -1033,61 +1011,76 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                     break;
                 }
 
-                BYTE newRed = red;
-                BYTE newGreen = green;
-                BYTE newBlue = blue;
+                BYTE newRed = red, newGreen = green, newBlue = blue;
                 switch (channel)
                 {
-                case 0:
-                    newRed = mapping[red];
-                    break;
-                case 1:
-                    newGreen = mapping[green];
-                    break;
-                case 2:
-                    newBlue = mapping[blue];
-                    break;
+                case 0: newRed = mapping[red]; break;
+                case 1: newGreen = mapping[green]; break;
+                case 2: newBlue = mapping[blue]; break;
                 }
 
-                switch (nBitCount)
+                // 处理调色板索引图像（1位/4位/8位）
+                if (nBitCount <= 8)
                 {
-                case 1:
-                    break;
-                case 4:
-                    break;
-                case 8:
-                    pSource[x] = newRed;
-                    break;
-                case 16:
-                {
-                    WORD newPixel;
-                    if (m_bIs565Format)
+                    // 1位和4位图像通过修改调色板实现映射
+                    if (nBitCount == 1 || nBitCount == 4)
                     {
-                        BYTE r = (newRed >> 3) & 0x1F;
-                        BYTE g = (newGreen >> 2) & 0x3F;
-                        BYTE b = (newBlue >> 3) & 0x1F;
-                        newPixel = (r << 11) | (g << 5) | b;
+                        int paletteSize = (nBitCount == 1) ? 2 : 16;
+                        RGBQUAD* pPal = pQUAD; // 调色板指针
+
+                        // 遍历调色板所有索引
+                        for (int idx = 0; idx < paletteSize; idx++)
+                        {
+                            BYTE& r = pPal[idx].rgbRed;
+                            BYTE& g = pPal[idx].rgbGreen;
+                            BYTE& b = pPal[idx].rgbBlue;
+
+                            // 对每个颜色通道应用映射
+                            r = mapping[r];
+                            g = mapping[g];
+                            b = mapping[b];
+                        }
                     }
-                    else
+                    else // 8位图像直接修改索引（假设索引对应灰度值）
                     {
-                        BYTE r = (newRed >> 3) & 0x1F;
-                        BYTE g = (newGreen >> 3) & 0x1F;
-                        BYTE b = (newBlue >> 3) & 0x1F;
-                        newPixel = (r << 10) | (g << 5) | b;
+                        pSource[x] = static_cast<BYTE>(mapping[red]); // 假设8位索引对应灰度值
                     }
-                    *((WORD*)&pSource[x * 2]) = newPixel;
-                    break;
                 }
-                case 24:
-                    pSource[x * 3] = newBlue;
-                    pSource[x * 3 + 1] = newGreen;
-                    pSource[x * 3 + 2] = newRed;
-                    break;
-                case 32:
-                    pSource[x * 4] = newBlue;
-                    pSource[x * 4 + 1] = newGreen;
-                    pSource[x * 4 + 2] = newRed;
-                    break;
+                else // 真彩色图像直接修改像素值
+                {
+                    switch (nBitCount)
+                    {
+                    case 16:
+                    {
+                        WORD newPixel;
+                        if (m_bIs565Format)
+                        {
+                            BYTE r = (newRed >> 3) & 0x1F;
+                            BYTE g = (newGreen >> 2) & 0x3F;
+                            BYTE b = (newBlue >> 3) & 0x1F;
+                            newPixel = (r << 11) | (g << 5) | b;
+                        }
+                        else
+                        {
+                            BYTE r = (newRed >> 3) & 0x1F;
+                            BYTE g = (newGreen >> 3) & 0x1F;
+                            BYTE b = (newBlue >> 3) & 0x1F;
+                            newPixel = (r << 10) | (g << 5) | b;
+                        }
+                        *((WORD*)&pSource[x * 2]) = newPixel;
+                        break;
+                    }
+                    case 24:
+                        pSource[x * 3] = newBlue;
+                        pSource[x * 3 + 1] = newGreen;
+                        pSource[x * 3 + 2] = newRed;
+                        break;
+                    case 32:
+                        pSource[x * 4] = newBlue;
+                        pSource[x * 4 + 1] = newGreen;
+                        pSource[x * 4 + 2] = newRed;
+                        break;
+                    }
                 }
             }
         }
@@ -1096,6 +1089,7 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
     return true;
 }
 
+// 添加椒盐噪声
 void CImageProc::AddSaltAndPepperNoise(double noiseRatio, double saltRatio)
 {
     if (!IsValid())
@@ -1392,9 +1386,9 @@ void CImageProc::AddGaussianNoise(double mean, double sigma)
     }
 
     // 设置随机数生成器
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::normal_distribution<> dist(mean, sigma);
+    std::random_device rd; //随机数生成设备
+    std::mt19937 gen(rd()); //伪随机数生成器，基于梅森旋转算法
+    std::normal_distribution<> dist(mean, sigma); //用于生成符合正态分布的随机数
 
     // 计算行大小和每个像素的字节数
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
