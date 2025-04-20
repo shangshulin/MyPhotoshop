@@ -13,6 +13,7 @@
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
 #include <algorithm>
+#include "FilterSizeDialog.h"  
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -411,59 +412,32 @@ void CMyPhotoshopView::OnFunctionGaussianwhite()
 
 
 
-// 均值滤波消息处理函数
 void CMyPhotoshopView::OnFilterMean()
 {
+    CFilterSizeDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
-    {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
-
-    pDoc->pImage->MeanFilter();
-
-    // 视图重绘
+    pDoc->pImage->MeanFilter(dlg.GetFilterSize());
     Invalidate();
-    UpdateWindow();
-
-    AfxMessageBox(_T("已完成均值滤波"));
 }
 
-// 中值滤波消息处理函数
 void CMyPhotoshopView::OnFilterMedian()
 {
+    CFilterSizeDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
-    {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
-
-    pDoc->pImage->MedianFilter();
-
-    // 视图重绘
+    pDoc->pImage->MedianFilter(dlg.GetFilterSize());
     Invalidate();
-    UpdateWindow();
-
-    AfxMessageBox(_T("已完成中值滤波"));
 }
 
-// 最大值滤波消息处理函数
 void CMyPhotoshopView::OnFilterMax()
 {
+    CFilterSizeDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
-    {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
-
-    pDoc->pImage->MaxFilter();
-
-    // 视图重绘
+    pDoc->pImage->MaxFilter(dlg.GetFilterSize());
     Invalidate();
-    UpdateWindow();
-
-    AfxMessageBox(_T("已完成最大值滤波"));
 }
