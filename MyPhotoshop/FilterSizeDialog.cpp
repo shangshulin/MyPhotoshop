@@ -3,6 +3,8 @@
 #include "afxdialogex.h"
 #include "FilterSizeDialog.h"
 
+
+
 IMPLEMENT_DYNAMIC(CFilterSizeDialog, CDialogEx)
 
 CFilterSizeDialog::CFilterSizeDialog(CWnd* pParent)

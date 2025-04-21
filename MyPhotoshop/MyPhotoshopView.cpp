@@ -42,7 +42,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_EDGE_ROBERT, &CMyPhotoshopView::OnEdgeDetectionRobert)// 边缘检测-Robert算子
     ON_COMMAND(ID_EDGE_LAPLACE, &CMyPhotoshopView::OnEdgeDetectionLaplace)// 边缘检测-Laplace算子
     ON_COMMAND(ID_EDGE_CANNY, &CMyPhotoshopView::OnEdgeDetectionCanny)// 边缘检测-Canny算子
-    ON_COMMAND(ID_EDGE_LOG, &CMyPhotoshopView::OnEdgeDetectionloG)// 边缘检测-LOG算子
+    ON_COMMAND(ID_EDGE_LOG, &CMyPhotoshopView::OnEdgeDetectionLog)// 边缘检测-LoG算子
     //图像增强
     ON_COMMAND(ID_ENHANCEMENT, &CMyPhotoshopView::OnEnhancement)// 图像增强
 	// 添加噪声
@@ -498,6 +498,19 @@ void CMyPhotoshopView::OnEdgeDetectionCanny()
     if (pDoc->pImage)
     {
         pDoc->pImage->ApplyCannyEdgeDetection(); // 应用Canny边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+//LoG边缘检测
+void CMyPhotoshopView::OnEdgeDetectionLog()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyLoGEdgeDetection(); // 应用LoG边缘检测
         // 视图重绘
         Invalidate(); // 使视图无效，触发重绘
         UpdateWindow(); // 立即更新窗口

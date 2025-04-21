@@ -51,8 +51,7 @@ public:
     void ApplySobelEdgeDetection();// Sobel算子边缘检测
     void ApplyPrewittEdgeDetection();// Prewitt算子边缘检测
     void ApplyRobertEdgeDetection();// Robert算子边缘检测
-    void ApplyCannyEdgeDetection();// Canny算子边缘检测
-    void ApplyLaplaceEdgeDetection();// 拉普拉斯算子边缘检测
+    void ApplyLaplaceEdgeDetection();// Laplace算子边缘检测
     void ApplyCannyEdgeDetection(); // Canny边缘检测
     void ApplyLoGEdgeDetection(); // LoG边缘检测
 

@@ -76,7 +76,18 @@ CImageProc& CImageProc::operator=(const CImageProc& other) {
             // 锁定内存并复制数据
             LPBYTE lpDest = (LPBYTE)::GlobalLock(m_hDib);
             LPBYTE lpSrc = (LPBYTE)::GlobalLock(other.m_hDib);
-            memcpy(lpDest, lpSrc, dwSize);
+            if (lpDest != nullptr && lpSrc != nullptr) {
+                memcpy(lpDest, lpSrc, dwSize);
+            }
+            else {
+                // Handle the error case, e.g., log or throw an exception
+                if (lpDest == nullptr) {
+                    AfxMessageBox(L"Destination pointer is null.");
+                }
+                if (lpSrc == nullptr) {
+                    AfxMessageBox(L"Source pointer is null.");
+                }
+            }
             ::GlobalUnlock(m_hDib);
             ::GlobalUnlock(other.m_hDib);
 
@@ -88,7 +99,10 @@ CImageProc& CImageProc::operator=(const CImageProc& other) {
             // 计算调色板和像素数据位置
             if (nBitCount <= 8) {
                 pQUAD = (LPRGBQUAD)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
-                pBits = pDib + pBFH->bfOffBits;
+                if (pBFH != NULL)
+                {
+                    pBits = pDib + pBFH->bfOffBits;
+                }
             }
             else {
                 pQUAD = NULL;
