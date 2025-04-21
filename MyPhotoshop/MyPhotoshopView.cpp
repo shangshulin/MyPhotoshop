@@ -13,6 +13,7 @@
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
 #include <algorithm>
+#include "FilterSizeDialog.h"  
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -23,24 +24,36 @@
 IMPLEMENT_DYNCREATE(CMyPhotoshopView, CView)// 动态创建
 
 BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
-	// 标准打印命令
-	ON_COMMAND(ID_FILE_PRINT, &CView::OnFilePrint)
-	ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
-	ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
-	// 像素点信息
-	ON_WM_LBUTTONDOWN() // 左键点击
-	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 显示像素点信息
-	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
-	//灰度处理
-	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
-	ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
-	ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
-	//边缘检测
-	ON_COMMAND(ID_EDGE_SOBEL, &CMyPhotoshopView::OnEdgeDetectionSobel)// 边缘检测-Sobel算子
-	ON_COMMAND(ID_EDGE_PREWITT, &CMyPhotoshopView::OnEdgeDetectionPrewitt)// 边缘检测-Prewitt算子
-	ON_COMMAND(ID_EDGE_ROBERT, &CMyPhotoshopView::OnEdgeDetectionRobert)// 边缘检测-Robert算子
-	ON_COMMAND(ID_EDGE_CANNY, &CMyPhotoshopView::OnEdgeDetectionCanny)// 边缘检测-Canny算子
-	ON_COMMAND(ID_EDGE_LOG, &CMyPhotoshopView::OnEdgeDetectionLog)// 边缘检测-LoG算子
+    // 标准打印命令
+    ON_COMMAND(ID_FILE_PRINT, &CView::OnFilePrint)
+    ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
+    ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
+    // 像素点信息
+    ON_WM_LBUTTONDOWN() // 左键点击
+    ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 显示像素点信息
+    ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
+    //灰度处理
+    ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
+    ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
+    ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
+    //边缘检测
+    ON_COMMAND(ID_EDGE_SOBEL, &CMyPhotoshopView::OnEdgeDetectionSobel)// 边缘检测-Sobel算子
+    ON_COMMAND(ID_EDGE_PREWITT, &CMyPhotoshopView::OnEdgeDetectionPrewitt)// 边缘检测-Prewitt算子
+    ON_COMMAND(ID_EDGE_ROBERT, &CMyPhotoshopView::OnEdgeDetectionRobert)// 边缘检测-Robert算子
+    ON_COMMAND(ID_EDGE_LAPLACE, &CMyPhotoshopView::OnEdgeDetectionLaplace)// 边缘检测-Laplace算子
+    ON_COMMAND(ID_EDGE_CANNY, &CMyPhotoshopView::OnEdgeDetectionCanny)// 边缘检测-Canny算子
+    ON_COMMAND(ID_EDGE_LOG, &CMyPhotoshopView::OnEdgeDetectionLog)// 边缘检测-LoG算子
+    //图像增强
+    ON_COMMAND(ID_ENHANCEMENT, &CMyPhotoshopView::OnEnhancement)// 图像增强
+	// 添加噪声
+    ON_COMMAND(ID_FUNCTION_SALTANDPEPPER, &CMyPhotoshopView::OnFunctionSaltandpepper)
+    ON_COMMAND(ID_FUNCTION_IMPULSE, &CMyPhotoshopView::OnFunctionImpulse)
+    ON_COMMAND(ID_FUNCTION_GAUSSIAN, &CMyPhotoshopView::OnFunctionGaussian)
+    ON_COMMAND(ID_FUNCTION_GAUSSIANWHITE, &CMyPhotoshopView::OnFunctionGaussianwhite)
+    //空域滤波
+    ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)
+    ON_COMMAND(ID_FILTER_MEDIAN,OnFilterMedian)
+    ON_COMMAND(ID_FILTER_MAX,OnFilterMax)
 END_MESSAGE_MAP()
 
 
@@ -164,7 +177,7 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 			CClientDC dc(this);
 			CMyPhotoshopDoc* pDoc = GetDocument();// 获取文档中的图像数据
 			ASSERT_VALID(pDoc);
-			pDoc->pImage->GetColor(&dc, point.x, point.y);
+			pDoc->pImage->DisplayColor(&dc, point.x, point.y);
 		}
 	}
 	CView::OnLButtonDown(nFlags, point);
@@ -173,61 +186,61 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 // 直方图规格化函数
 void CMyPhotoshopView::OnFunctionHistogramMatching()
 {
-	CMyPhotoshopDoc* pDoc = GetDocument();
-	if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
-	{
-		AfxMessageBox(_T("请先打开有效的源图像文件"));
-		return;
-	}
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的源图像文件"));
+        return;
+    }
 
-	CImageProc* pSourceImage = pDoc->pImage;
+    CImageProc* pSourceImage = pDoc->pImage;
 
-	CFileDialog fileDlg(TRUE, _T("bmp"), NULL,
-		OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST,
-		_T("位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), this);
+    CFileDialog fileDlg(TRUE, _T("bmp"), NULL,
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST,
+        _T("位图文件(*.bmp)|*.bmp|所有文件(*.*)|*.*||"), this);
 
-	if (fileDlg.DoModal() != IDOK)
-	{
-		return;
-	}
+    if (fileDlg.DoModal() != IDOK)
+    {
+        return;
+    }
 
-	CImageProc targetImageProc;
-	CString targetPath = fileDlg.GetPathName();
+    CImageProc targetImageProc;
+    CString targetPath = fileDlg.GetPathName();
 
-	try
-	{
-		targetImageProc.LoadBmp(targetPath);
+    try
+    {
+        targetImageProc.LoadBmp(targetPath);
 
-		if (!targetImageProc.IsValid())
-		{
-			AfxMessageBox(_T("无法加载目标图像文件"));
-			return;
-		}
-	}
-	catch (CMemoryException* e)
-	{
-		e->Delete();
-		AfxMessageBox(_T("内存不足，无法加载目标图像"));
-		return;
-	}
-	catch (CFileException* e)
-	{
-		e->Delete();
-		AfxMessageBox(_T("文件加载失败，请检查文件是否有效"));
-		return;
-	}
-	catch (...)
-	{
-		AfxMessageBox(_T("加载目标图像时发生未知错误"));
-		return;
-	}
+        if (!targetImageProc.IsValid())
+        {
+            AfxMessageBox(_T("无法加载目标图像文件"));
+            return;
+        }
+    }
+    catch (CMemoryException* e)
+    {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法加载目标图像"));
+        return;
+    }
+    catch (CFileException* e)
+    {
+        e->Delete();
+        AfxMessageBox(_T("文件加载失败，请检查文件是否有效"));
+        return;
+    }
+    catch (...)
+    {
+        AfxMessageBox(_T("加载目标图像时发生未知错误"));
+        return;
+    }
 
-	if (pSourceImage->HistogramMatching(targetImageProc))
-	{
-		Invalidate(TRUE);
-		pDoc->SetModifiedFlag(TRUE);
-		AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
-	}
+    if (pSourceImage->HistogramMatching(targetImageProc))
+    {
+        Invalidate(TRUE);
+        pDoc->SetModifiedFlag(TRUE);
+        AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
+    }
 }
 
 
@@ -248,92 +261,287 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
 // 复古风格
 void CMyPhotoshopView::OnColorStyleVintage()
 {
-	// TODO: 在此添加命令处理程序代码
-	CMyPhotoshopDoc* pDoc = GetDocument();
+    // TODO: 在此添加命令处理程序代码
+    CMyPhotoshopDoc* pDoc = GetDocument();
 	if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {// 检查文档和图像有效性
-		AfxMessageBox(_T("请先打开有效的图像文件"));
-		return;
-	}
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
 
-	// 应用复古风格
-	pDoc->pImage->ApplyVintageStyle();
+    // 应用复古风格
+    pDoc->pImage->ApplyVintageStyle();
 
-	// 视图重绘
-	Invalidate(); // 使视图无效，触发重绘
-	UpdateWindow(); // 立即更新窗口
+    // 视图重绘
+    Invalidate(); // 使视图无效，触发重绘
+    UpdateWindow(); // 立即更新窗口
 }
 
 
 // 黑白风格
 void CMyPhotoshopView::OnStyleBlackwhite()
 {
-	CMyPhotoshopDoc* pDoc = GetDocument();
-	if (pDoc->pImage)
-	{
-		pDoc->pImage->ApplyBlackAndWhiteStyle(); // 应用黑白风格
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyBlackAndWhiteStyle(); // 应用黑白风格
 
-		// 视图重绘
-		Invalidate(); // 使视图无效，触发重绘
-		UpdateWindow(); // 立即更新窗口
-	}
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
 }
+
+
+void CMyPhotoshopView::OnFunctionSaltandpepper()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    // 创建并显示比例设置对话框
+    CNoiseRatioDialog dlg;
+    if (dlg.DoModal() != IDOK)
+    {
+        return; // 用户取消操作
+    }
+
+    // 获取用户选择的比例
+    double saltRatio = dlg.GetSaltRatio();
+
+    // 添加噪声(默认5%的噪声比例)
+    pDoc->pImage->AddSaltAndPepperNoise(0.05, saltRatio);
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    CString msg;
+    msg.Format(_T("已添加椒盐噪声(盐噪声比例: %.0f%%)"), saltRatio * 100);
+    AfxMessageBox(msg);
+}
+
+
+void CMyPhotoshopView::OnFunctionImpulse()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    // 创建并显示参数设置对话框
+    CImpulseNoiseDialog dlg;
+    if (dlg.DoModal() != IDOK)
+    {
+        return; // 用户取消操作
+    }
+
+    // 获取用户选择的参数
+    double noiseRatio = dlg.GetNoiseRatio();
+    BYTE noiseValue1 = dlg.GetNoiseValue1();
+    BYTE noiseValue2 = dlg.GetNoiseValue2();
+
+    // 添加脉冲噪声
+    pDoc->pImage->AddImpulseNoise(noiseRatio, noiseValue1, noiseValue2);
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    CString msg;
+    msg.Format(_T("已添加脉冲噪声\n噪声比例: %.0f%%\n噪声值1: %d\n噪声值2: %d"),
+        noiseRatio * 100, noiseValue1, noiseValue2);
+    AfxMessageBox(msg);
+}
+
+
+void CMyPhotoshopView::OnFunctionGaussian()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    // 创建并显示参数设置对话框
+    CGaussianNoiseDialog dlg;
+    if (dlg.DoModal() != IDOK)
+    {
+        return; // 用户取消操作
+    }
+
+    // 获取用户选择的参数
+    double mean = dlg.GetMean();
+    double sigma = dlg.GetSigma();
+
+    // 添加高斯噪声
+    pDoc->pImage->AddGaussianNoise(mean, sigma);
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    CString msg;
+    msg.Format(_T("已添加高斯噪声\n均值(μ): %.1f\n标准差(σ): %.1f"), mean, sigma);
+    AfxMessageBox(msg);
+}
+
+
+void CMyPhotoshopView::OnFunctionGaussianwhite()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    // 创建并显示参数设置对话框
+    CGaussianWhiteNoiseDialog dlg;
+    if (dlg.DoModal() != IDOK)
+    {
+        return; // 用户取消操作
+    }
+
+    // 获取用户选择的标准差
+    double sigma = dlg.GetSigma();
+
+    // 添加高斯白噪声
+    pDoc->pImage->AddGaussianWhiteNoise(sigma);
+
+    // 视图重绘
+    Invalidate();
+    UpdateWindow();
+
+    CString msg;
+    msg.Format(_T("已添加高斯白噪声\n标准差(σ): %.1f"), sigma);
+    AfxMessageBox(msg);
+}
+
+
+
+void CMyPhotoshopView::OnFilterMean()
+{
+    CFilterSizeDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    pDoc->pImage->MeanFilter(dlg.GetFilterSize());
+    Invalidate();
+}
+
+void CMyPhotoshopView::OnFilterMedian()
+{
+    CFilterSizeDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    pDoc->pImage->MedianFilter(dlg.GetFilterSize());
+    Invalidate();
+}
+
+void CMyPhotoshopView::OnFilterMax()
+{
+    CFilterSizeDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    pDoc->pImage->MaxFilter(dlg.GetFilterSize());
+    Invalidate();
+}
+
 
 void CMyPhotoshopView::OnEdgeDetectionSobel()
 {
-	CMyPhotoshopDoc* pDoc = GetDocument();
-	if (pDoc->pImage)
-	{
-		pDoc->pImage->ApplySobelEdgeDetection(); // 应用Sobel边缘检测
-		// 视图重绘
-		Invalidate(); // 使视图无效，触发重绘
-		UpdateWindow(); // 立即更新窗口
-	}
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplySobelEdgeDetection(); // 应用Sobel边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
 }
 
 void CMyPhotoshopView::OnEdgeDetectionPrewitt()
 {
-	CMyPhotoshopDoc* pDoc = GetDocument();
-	if (pDoc->pImage)
-	{
-		pDoc->pImage->ApplyPrewittEdgeDetection(); // 应用Prewitt边缘检测
-		// 视图重绘
-		Invalidate(); // 使视图无效，触发重绘
-		UpdateWindow(); // 立即更新窗口
-	}
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyPrewittEdgeDetection(); // 应用Prewitt边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
 }
 // Robert边缘检测
 void CMyPhotoshopView::OnEdgeDetectionRobert()
 {
-	CMyPhotoshopDoc* pDoc = GetDocument();
-	if (pDoc->pImage)
-	{
-		pDoc->pImage->ApplyRobertEdgeDetection(); // 应用Robert边缘检测
-		// 视图重绘
-		Invalidate(); // 使视图无效，触发重绘
-		UpdateWindow(); // 立即更新窗口
-	}
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyRobertEdgeDetection(); // 应用Robert边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
 }
 // Canny边缘检测
 void CMyPhotoshopView::OnEdgeDetectionCanny()
 {
-	CMyPhotoshopDoc* pDoc = GetDocument();
-	if (pDoc->pImage)
-	{
-		pDoc->pImage->ApplyCannyEdgeDetection(); // 应用Canny边缘检测
-		// 视图重绘
-		Invalidate(); // 使视图无效，触发重绘
-		UpdateWindow(); // 立即更新窗口
-	}
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyCannyEdgeDetection(); // 应用Canny边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
 }
+
 //LoG边缘检测
 void CMyPhotoshopView::OnEdgeDetectionLog()
 {
-	CMyPhotoshopDoc* pDoc = GetDocument();
-	if (pDoc->pImage)
-	{
-		pDoc->pImage->ApplyLoGEdgeDetection(); // 应用LoG边缘检测
-		// 视图重绘
-		Invalidate(); // 使视图无效，触发重绘
-		UpdateWindow(); // 立即更新窗口
-	}
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyLoGEdgeDetection(); // 应用LoG边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+// Laplace边缘检测
+void CMyPhotoshopView::OnEdgeDetectionLaplace()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyLaplaceEdgeDetection(); // 应用Laplace边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+// 图像增强
+void CMyPhotoshopView::OnEnhancement()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    // 检查文档和图像有效性
+    if (pDoc->pImage)
+    {
+        // 应用图像增强
+        pDoc->ApplyImageEnhancement();
+
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
 }
