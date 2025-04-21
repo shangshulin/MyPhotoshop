@@ -187,6 +187,4 @@ void CMyPhotoshopDoc::ApplyImageEnhancement()
 
 	// 8. 幂律变换（γ=0.5）
 	pImage->PowerTransform(0.5);
-
-
 }
