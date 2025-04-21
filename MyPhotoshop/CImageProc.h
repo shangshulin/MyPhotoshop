@@ -38,6 +38,9 @@ public:
     void MedianFilter(int filterSize);
     void MaxFilter(int filterSize);
     int CalculatePitch(int width);
+
+	void ApplyCannyEdgeDetection(); // Canny边缘检测
+	void ApplyLoGEdgeDetection(); // LoG边缘检测
 public:
     
     BYTE* pDib;

@@ -441,3 +441,4 @@ void CMyPhotoshopView::OnFilterMax()
     pDoc->pImage->MaxFilter(dlg.GetFilterSize());
     Invalidate();
 }
+
