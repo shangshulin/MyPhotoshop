@@ -1780,6 +1780,23 @@ void CImageProc::MaxFilter(int filterSize) {
     delete[] tempBuffer;
 }
 
+// 定义递归函数
+void TraceWeakEdge(int x, int y, int nWidth, int nHeight, std::vector<BYTE>& edgeImage, std::vector<bool>& visited) {
+    visited[y * nWidth + x] = true;
+    const int dx[8] = { -1, 0, 1, -1, 1, -1, 0, 1 };
+    const int dy[8] = { -1, -1, -1, 0, 0, 1, 1, 1 };
+    for (int k = 0; k < 8; ++k) {
+        int nx = x + dx[k], ny = y + dy[k];
+        if (nx >= 0 && nx < nWidth && ny >= 0 && ny < nHeight) {
+            int idx = ny * nWidth + nx;
+            if (!visited[idx] && edgeImage[idx] == 128) {
+                edgeImage[idx] = 255;
+                TraceWeakEdge(nx, ny, nWidth, nHeight, edgeImage, visited);
+            }
+        }
+    }
+}
+
 //Canny边缘检测
 void CImageProc::ApplyCannyEdgeDetection()
 {

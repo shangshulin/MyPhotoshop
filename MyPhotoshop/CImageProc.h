@@ -39,6 +39,7 @@ public:
     void MaxFilter(int filterSize);
     int CalculatePitch(int width);
 
+	void TraceWeakEdge(int x, int y, int nWidth, int nHeight, std::vector<BYTE>& edgeImage, std::vector<bool>& visited);// 递归函数
 	void ApplyCannyEdgeDetection(); // Canny边缘检测
 	void ApplyLoGEdgeDetection(); // LoG边缘检测
 public:
