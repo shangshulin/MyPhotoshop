@@ -39,9 +39,7 @@ public:
     void ApplyPrewittEdgeDetection();// Prewitt算子边缘检测
 	void ApplyRobertEdgeDetection();// Robert算子边缘检测
 	void ApplyCannyEdgeDetection();// Canny算子边缘检测
-	void ApplyLaplaceEdgeDetection();
-
-    // 拉普拉斯算子边缘检测
+	void ApplyLaplaceEdgeDetection();// 拉普拉斯算子边缘检测
 
     // 图像操作
     void Add(CImageProc& img, double weight1, double weight2); // 图像相加
@@ -65,14 +63,6 @@ public:
 public:
     // 深拷贝赋值运算符
     CImageProc& operator=(const CImageProc& other);
-    void CopyDIBData(const CImageProc& other);
-private:
-    void FreeImageData() {
-        if (m_hDib != NULL) {
-            ::GlobalFree(m_hDib);
-            m_hDib = NULL;
-            pBits = NULL;
-            // ... 其他指针置空 ...
-        }
-    }
+
+
 };
