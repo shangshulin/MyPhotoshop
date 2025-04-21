@@ -164,7 +164,7 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 			CClientDC dc(this);
 			CMyPhotoshopDoc* pDoc = GetDocument();// 获取文档中的图像数据
 			ASSERT_VALID(pDoc);
-			pDoc->pImage->GetColor(&dc, point.x, point.y);
+			pDoc->pImage->DisplayColor(&dc, point.x, point.y);
 		}
 	}
 	CView::OnLButtonDown(nFlags, point);

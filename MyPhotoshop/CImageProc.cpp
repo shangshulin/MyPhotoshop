@@ -181,8 +181,8 @@ void CImageProc::ShowBMP(CDC* pDC)
     }
 }
 
-// 获取像素颜色
-void CImageProc::GetColor(CClientDC* pDC, int x, int y)
+//获取像素颜色
+void CImageProc::GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue)
 {
     if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
     {
@@ -194,7 +194,46 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     float bytePerPixel = float(nBitCount) / 8;
     // 计算像素在位图中的偏移量
     int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-	// pixel指向当前像素
+    // pixel指向当前像素
+    BYTE* pixel = pBits + offset;
+    // 获取像素颜色
+    switch (nBitCount)
+    {
+
+    case 4:
+        CImageProc::GetColor4bit(pixel, red, green, blue, x);
+        break;
+    case 8:
+        CImageProc::GetColor8bit(pixel, red, green, blue, x);
+        break;
+    case 16:
+        CImageProc::GetColor16bit(pixel, red, green, blue);
+        break;
+    case 24:
+        CImageProc::GetColor24bit(pixel, red, green, blue);
+        break;
+    case 32:
+        CImageProc::GetColor32bit(pixel, red, green, blue);
+        break;
+    default:
+        return;
+    }
+}
+
+// 获取并显示像素颜色
+void CImageProc::DisplayColor(CClientDC* pDC, int x, int y)
+{
+    if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
+    {
+        return;
+    }
+    // 计算每行字节数
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    // 计算每个像素的字节数
+    float bytePerPixel = float(nBitCount) / 8;
+    // 计算像素在位图中的偏移量
+    int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+    // pixel指向当前像素
     BYTE* pixel = pBits + offset;
     // 获取像素颜色
     BYTE red = 0, green = 0, blue = 0;
@@ -228,7 +267,7 @@ void CImageProc::GetColor(CClientDC* pDC, int x, int y)
     BYTE getPixelGreen = GetGValue(pixelColor);
     BYTE getPixelBlue = GetBValue(pixelColor);
 
-	pDC->SetBkMode(OPAQUE);//设置背景色为不透明
+    pDC->SetBkMode(OPAQUE);//设置背景色为不透明
 
     pDC->SetTextColor(RGB(0, 0, 0));//设置文本颜色为黑色
 

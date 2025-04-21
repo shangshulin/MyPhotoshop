@@ -17,13 +17,15 @@ public:
     void OpenFile();
     void LoadBmp(CString stFileName);
     void ShowBMP(CDC* pDC);
-    void GetColor(CClientDC* pDC, int x, int y);
+    void DisplayColor(CClientDC* pDC, int x, int y);
+    void GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue);
+
+    //灰度处理
 	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
     std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
 	std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);    // 直方图均衡化
 
-    bool isPaletteDarkToLight;
-    HANDLE m_hDib;
+
 
     void ApplyBlackAndWhiteStyle();// 黑白风格
 	void ApplyVintageStyle();  // 复古风格
@@ -53,6 +55,8 @@ public:
     int nHeight;
     int nBitCount;
     bool m_bIs565Format;
+    bool isPaletteDarkToLight;
+    HANDLE m_hDib;
 
     void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC);
     void GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
