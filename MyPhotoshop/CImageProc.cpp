@@ -1127,9 +1127,10 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                 if (nBitCount <= 8)
                 {
                     // 1位和4位图像通过修改调色板实现映射
-                    if (nBitCount == 1 || nBitCount == 4)
+                    //if (nBitCount == 1 || nBitCount == 4)
+                    if (TRUE)
                     {
-                        int paletteSize = (nBitCount == 1) ? 2 : 16;
+                        int paletteSize = (nBitCount == 1) ? 2 : ((nBitCount == 4) ? 16 : 256);
                         RGBQUAD* pPal = pQUAD; // 调色板指针
 
                         // 遍历调色板所有索引
@@ -1145,10 +1146,10 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                             b = mapping[b];
                         }
                     }
-                    else // 8位图像直接修改索引（假设索引对应灰度值）
-                    {
-                        pSource[x] = static_cast<BYTE>(mapping[red]); // 假设8位索引对应灰度值
-                    }
+                    //else // 8位图像直接修改索引（假设索引对应灰度值）
+                    //{
+                    //    pSource[x] = static_cast<BYTE>(mapping[red]); // 假设8位索引对应灰度值
+                    //}
                 }
                 else // 真彩色图像直接修改像素值
                 {
@@ -1823,7 +1824,8 @@ BYTE CImageProc::ProcessKernel(int x, int y, int c, int radius, FilterType type)
             // 元素数量为偶数，返回中间两个元素的平均值
             int mid1 = kernelValues[size / 2 - 1];
             int mid2 = kernelValues[size / 2];
-            return static_cast<BYTE>((mid1 + mid2) / 2);
+            const float mid = static_cast<float>(mid1 + mid2) / 2.0f;
+            return static_cast<BYTE>(mid+0.5f);
         }
     }
 
@@ -2159,7 +2161,7 @@ void CImageProc::ApplyLoGEdgeDetection()
         }
     }
 
-    // 2. 高斯平滑（5x5核，sigma=1.0）
+    // 2. 高斯平滑（7*7核，sigma=1.4）
     const int gaussianKernel[7][7] = {
         {0, 0, 1, 2, 1, 0, 0},
         {0, 3, 13, 22, 13, 3, 0},
