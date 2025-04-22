@@ -2331,7 +2331,7 @@ void CImageProc::ApplySobelEdgeDetection()
 
             // 计算梯度幅值
             int magnitude = static_cast<int>(sqrt(gx * gx + gy * gy));
-            magnitude = min(255, max(0, magnitude));
+            magnitude = min(255, max(0, magnitude));// 防止溢出
 
             // 更新像素
             int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
