@@ -1822,7 +1822,8 @@ BYTE CImageProc::ProcessKernel(int x, int y, int c, int radius, FilterType type)
             // 元素数量为偶数，返回中间两个元素的平均值
             int mid1 = kernelValues[size / 2 - 1];
             int mid2 = kernelValues[size / 2];
-            return static_cast<BYTE>((mid1 + mid2) / 2);
+            const float mid = static_cast<float>(mid1 + mid2) / 2.0f;
+            return static_cast<BYTE>(mid+0.5f);
         }
     }
 
