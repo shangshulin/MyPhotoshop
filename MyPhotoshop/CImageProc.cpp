@@ -1805,13 +1805,26 @@ BYTE CImageProc::ProcessKernel(int x, int y, int c, int radius, FilterType type)
     }
 
     switch (type) {
-    case FilterType::Mean:
-        return static_cast<BYTE>(std::accumulate(kernelValues.begin(), kernelValues.end(), 0)
-            / kernelValues.size());
+    case FilterType::Mean: {
+        const int sum = std::accumulate(kernelValues.begin(), kernelValues.end(), 0);
+        const float average = static_cast<float>(sum) / kernelValues.size();
+        return static_cast<BYTE>(average + 0.5f); // 四舍五入后转换为BYTE
+    }
 
-    case FilterType::Median:
+    case FilterType::Median: {
         std::sort(kernelValues.begin(), kernelValues.end());
-        return kernelValues[kernelValues.size() / 2];
+        size_t size = kernelValues.size();
+        if (size % 2 == 1) {
+            // 元素数量为奇数，直接返回中间元素
+            return kernelValues[size / 2];
+        }
+        else {
+            // 元素数量为偶数，返回中间两个元素的平均值
+            int mid1 = kernelValues[size / 2 - 1];
+            int mid2 = kernelValues[size / 2];
+            return static_cast<BYTE>((mid1 + mid2) / 2);
+        }
+    }
 
     case FilterType::Max:
         return *std::max_element(kernelValues.begin(), kernelValues.end());
