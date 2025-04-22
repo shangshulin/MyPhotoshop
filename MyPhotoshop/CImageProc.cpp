@@ -1969,7 +1969,7 @@ void CImageProc::ApplyCannyEdgeDetection()
 
     // 利用Sobel算子计算梯度和方向
     const int sobelX[3][3] = { {-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1} };
-    const int sobelY[3][3] = { {-1, -2, -1}, {0, 0, 0}, {1, 2, 1} };
+    const int sobelY[3][3] = { {1, 2, 1}, {0, 0, 0}, {-1, -2, -1} };
     std::vector<double> gradientMagnitude(nWidth * nHeight, 0);
     std::vector<double> gradientDirection(nWidth * nHeight, 0);
     for (int y = 1; y < nHeight - 1; ++y) {
@@ -2553,14 +2553,14 @@ void CImageProc::ApplyLaplaceEdgeDetection()
         }
     }
 
-    // 反相拉普拉斯算子 (8邻域)
+    // 拉普拉斯算子
     const int invertedLaplacianKernel[3][3] = {
         { -1,  -1,  -1},
         { -1, 8,  -1},
         { -1,  -1,  -1}
     };
 
-    // 应用反相拉普拉斯算子
+    // 应用拉普拉斯算子
     for (int y = 1; y < nHeight - 1; ++y) {
         for (int x = 1; x < nWidth - 1; ++x) {
             int sum = 0;
