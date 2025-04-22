@@ -46,14 +46,14 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     //图像增强
     ON_COMMAND(ID_ENHANCEMENT, &CMyPhotoshopView::OnEnhancement)// 图像增强
 	// 添加噪声
-    ON_COMMAND(ID_FUNCTION_SALTANDPEPPER, &CMyPhotoshopView::OnFunctionSaltandpepper)
-    ON_COMMAND(ID_FUNCTION_IMPULSE, &CMyPhotoshopView::OnFunctionImpulse)
-    ON_COMMAND(ID_FUNCTION_GAUSSIAN, &CMyPhotoshopView::OnFunctionGaussian)
-    ON_COMMAND(ID_FUNCTION_GAUSSIANWHITE, &CMyPhotoshopView::OnFunctionGaussianwhite)
+	ON_COMMAND(ID_FUNCTION_SALTANDPEPPER, &CMyPhotoshopView::OnFunctionSaltandpepper)// 添加椒盐噪声
+	ON_COMMAND(ID_FUNCTION_IMPULSE, &CMyPhotoshopView::OnFunctionImpulse)// 添加脉冲噪声
+    ON_COMMAND(ID_FUNCTION_GAUSSIAN, &CMyPhotoshopView::OnFunctionGaussian)// 添加高斯噪声
+    ON_COMMAND(ID_FUNCTION_GAUSSIANWHITE, &CMyPhotoshopView::OnFunctionGaussianwhite)// 添加高斯白噪声
     //空域滤波
-    ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)
-    ON_COMMAND(ID_FILTER_MEDIAN,OnFilterMedian)
-    ON_COMMAND(ID_FILTER_MAX,OnFilterMax)
+    ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)// 均值滤波
+	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)//   中值滤波
+	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
 END_MESSAGE_MAP()
 
 
