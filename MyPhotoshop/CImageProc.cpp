@@ -1629,6 +1629,7 @@ void CImageProc::AddGaussianNoise(double mean, double sigma)
     }
 }
 
+
 // 添加高斯白噪声
 void CImageProc::AddGaussianWhiteNoise(double sigma)
 {
