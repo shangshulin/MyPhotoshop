@@ -2160,7 +2160,7 @@ void CImageProc::ApplyLoGEdgeDetection()
         }
     }
 
-    // 2. 高斯平滑（5x5核，sigma=1.0）
+    // 2. 高斯平滑（7*7核，sigma=1.4）
     const int gaussianKernel[7][7] = {
         {0, 0, 1, 2, 1, 0, 0},
         {0, 3, 13, 22, 13, 3, 0},
