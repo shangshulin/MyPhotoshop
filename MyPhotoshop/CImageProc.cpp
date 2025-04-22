@@ -1127,9 +1127,10 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                 if (nBitCount <= 8)
                 {
                     // 1位和4位图像通过修改调色板实现映射
-                    if (nBitCount == 1 || nBitCount == 4)
+                    //if (nBitCount == 1 || nBitCount == 4)
+                    if (TRUE)
                     {
-                        int paletteSize = (nBitCount == 1) ? 2 : 16;
+                        int paletteSize = (nBitCount == 1) ? 2 : ((nBitCount == 4) ? 16 : 256);
                         RGBQUAD* pPal = pQUAD; // 调色板指针
 
                         // 遍历调色板所有索引
@@ -1145,10 +1146,10 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                             b = mapping[b];
                         }
                     }
-                    else // 8位图像直接修改索引（假设索引对应灰度值）
-                    {
-                        pSource[x] = static_cast<BYTE>(mapping[red]); // 假设8位索引对应灰度值
-                    }
+                    //else // 8位图像直接修改索引（假设索引对应灰度值）
+                    //{
+                    //    pSource[x] = static_cast<BYTE>(mapping[red]); // 假设8位索引对应灰度值
+                    //}
                 }
                 else // 真彩色图像直接修改像素值
                 {
