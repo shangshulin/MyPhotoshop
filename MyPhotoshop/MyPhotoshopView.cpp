@@ -24,23 +24,36 @@
 IMPLEMENT_DYNCREATE(CMyPhotoshopView, CView)// 动态创建
 
 BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
-	// 标准打印命令
-	ON_COMMAND(ID_FILE_PRINT, &CView::OnFilePrint)
-	ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
-	ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
-	ON_WM_LBUTTONDOWN() // 左键点击
-	ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 显示像素点信息
-	ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
-	ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
-	ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
+    // 标准打印命令
+    ON_COMMAND(ID_FILE_PRINT, &CView::OnFilePrint)
+    ON_COMMAND(ID_FILE_PRINT_DIRECT, &CView::OnFilePrint)
+    ON_COMMAND(ID_FILE_PRINT_PREVIEW, &CView::OnFilePrintPreview)
+    // 像素点信息
+    ON_WM_LBUTTONDOWN() // 左键点击
+    ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 显示像素点信息
+    ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
+    //灰度处理
+    ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
+    ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
     ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
-    ON_COMMAND(ID_FUNCTION_SALTANDPEPPER, &CMyPhotoshopView::OnFunctionSaltandpepper)
-    ON_COMMAND(ID_FUNCTION_IMPULSE, &CMyPhotoshopView::OnFunctionImpulse)
-    ON_COMMAND(ID_FUNCTION_GAUSSIAN, &CMyPhotoshopView::OnFunctionGaussian)
-    ON_COMMAND(ID_FUNCTION_GAUSSIANWHITE, &CMyPhotoshopView::OnFunctionGaussianwhite)
-    ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)
-    ON_COMMAND(ID_FILTER_MEDIAN,OnFilterMedian)
-    ON_COMMAND(ID_FILTER_MAX,OnFilterMax)
+    //边缘检测
+    ON_COMMAND(ID_EDGE_SOBEL, &CMyPhotoshopView::OnEdgeDetectionSobel)// 边缘检测-Sobel算子
+    ON_COMMAND(ID_EDGE_PREWITT, &CMyPhotoshopView::OnEdgeDetectionPrewitt)// 边缘检测-Prewitt算子
+    ON_COMMAND(ID_EDGE_ROBERT, &CMyPhotoshopView::OnEdgeDetectionRobert)// 边缘检测-Robert算子
+    ON_COMMAND(ID_EDGE_LAPLACE, &CMyPhotoshopView::OnEdgeDetectionLaplace)// 边缘检测-Laplace算子
+    ON_COMMAND(ID_EDGE_CANNY, &CMyPhotoshopView::OnEdgeDetectionCanny)// 边缘检测-Canny算子
+    ON_COMMAND(ID_EDGE_LOG, &CMyPhotoshopView::OnEdgeDetectionLog)// 边缘检测-LoG算子
+    //图像增强
+    ON_COMMAND(ID_ENHANCEMENT, &CMyPhotoshopView::OnEnhancement)// 图像增强
+	// 添加噪声
+	ON_COMMAND(ID_FUNCTION_SALTANDPEPPER, &CMyPhotoshopView::OnFunctionSaltandpepper)// 添加椒盐噪声
+	ON_COMMAND(ID_FUNCTION_IMPULSE, &CMyPhotoshopView::OnFunctionImpulse)// 添加脉冲噪声
+    ON_COMMAND(ID_FUNCTION_GAUSSIAN, &CMyPhotoshopView::OnFunctionGaussian)// 添加高斯噪声
+    ON_COMMAND(ID_FUNCTION_GAUSSIANWHITE, &CMyPhotoshopView::OnFunctionGaussianwhite)// 添加高斯白噪声
+    //空域滤波
+    ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)// 均值滤波
+	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)//   中值滤波
+	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
 END_MESSAGE_MAP()
 
 
@@ -164,7 +177,7 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 			CClientDC dc(this);
 			CMyPhotoshopDoc* pDoc = GetDocument();// 获取文档中的图像数据
 			ASSERT_VALID(pDoc);
-			pDoc->pImage->GetColor(&dc, point.x, point.y);
+			pDoc->pImage->DisplayColor(&dc, point.x, point.y);
 		}
 	}
 	CView::OnLButtonDown(nFlags, point);
@@ -440,4 +453,95 @@ void CMyPhotoshopView::OnFilterMax()
     CMyPhotoshopDoc* pDoc = GetDocument();
     pDoc->pImage->MaxFilter(dlg.GetFilterSize());
     Invalidate();
+}
+
+
+void CMyPhotoshopView::OnEdgeDetectionSobel()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplySobelEdgeDetection(); // 应用Sobel边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+void CMyPhotoshopView::OnEdgeDetectionPrewitt()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyPrewittEdgeDetection(); // 应用Prewitt边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+// Robert边缘检测
+void CMyPhotoshopView::OnEdgeDetectionRobert()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyRobertEdgeDetection(); // 应用Robert边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+// Canny边缘检测
+void CMyPhotoshopView::OnEdgeDetectionCanny()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyCannyEdgeDetection(); // 应用Canny边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+//LoG边缘检测
+void CMyPhotoshopView::OnEdgeDetectionLog()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyLoGEdgeDetection(); // 应用LoG边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+// Laplace边缘检测
+void CMyPhotoshopView::OnEdgeDetectionLaplace()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (pDoc->pImage)
+    {
+        pDoc->pImage->ApplyLaplaceEdgeDetection(); // 应用Laplace边缘检测
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
+}
+
+// 图像增强
+void CMyPhotoshopView::OnEnhancement()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    // 检查文档和图像有效性
+    if (pDoc->pImage)
+    {
+        // 应用图像增强
+        pDoc->ApplyImageEnhancement();
+
+        // 视图重绘
+        Invalidate(); // 使视图无效，触发重绘
+        UpdateWindow(); // 立即更新窗口
+    }
 }

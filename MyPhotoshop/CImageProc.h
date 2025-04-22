@@ -13,31 +13,53 @@ class CImageProc {
 public:
     CImageProc();
     ~CImageProc();
+    bool IsValid() const { return m_hDib != NULL && pDib != NULL; }
+    void CleanUp();
 
+    //图片加载与显示
     void OpenFile();
     void LoadBmp(CString stFileName);
     void ShowBMP(CDC* pDC);
-    void GetColor(CClientDC* pDC, int x, int y);
+    void DisplayColor(CClientDC* pDC, int x, int y);
+    void GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue);
+
+    //灰度处理
 	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
     std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
 	std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);    // 直方图均衡化
+    bool HistogramMatching(CImageProc& targetImageProc); // 直方图规格化
 
-    bool isPaletteDarkToLight;
-    HANDLE m_hDib;
-
+    //风格变换
     void ApplyBlackAndWhiteStyle();// 黑白风格
 	void ApplyVintageStyle();  // 复古风格
 
-    bool HistogramMatching(CImageProc& targetImageProc);
+    //添加噪声
     void AddSaltAndPepperNoise(double noiseRatio, double saltRatio = 0.5); // 添加椒盐噪声，默认噪声比例为5%
     void AddImpulseNoise(double noiseRatio = 0.05, BYTE noiseValue1 = 0, BYTE noiseValue2 = 255); // 添加脉冲噪声
     void AddGaussianNoise(double mean = 0.0, double sigma = 30.0); // 添加高斯噪声
     void AddGaussianWhiteNoise(double sigma = 30.0); // 添加高斯白噪声
+
+	//空域滤波
     BYTE ProcessKernel(int x, int y, int c, int radius, FilterType type);
     void MeanFilter(int filterSize);
     void MedianFilter(int filterSize);
     void MaxFilter(int filterSize);
     int CalculatePitch(int width);
+    void ApplyMeanFilter(); // 均值滤波
+
+    //边缘检测
+    void ApplySobelEdgeDetection();// Sobel算子边缘检测
+    void ApplyPrewittEdgeDetection();// Prewitt算子边缘检测
+    void ApplyRobertEdgeDetection();// Robert算子边缘检测
+    void ApplyLaplaceEdgeDetection();// Laplace算子边缘检测
+    void ApplyCannyEdgeDetection(); // Canny边缘检测
+    void ApplyLoGEdgeDetection(); // LoG边缘检测
+
+    // 图像操作
+    void Add(CImageProc& img, double weight1, double weight2); // 图像相加
+    void Multiply(CImageProc& img);    // 图像相乘
+    void PowerTransform(double gamma); // 幂律变换
+
 public:
     
     BYTE* pDib;
@@ -49,6 +71,8 @@ public:
     int nHeight;
     int nBitCount;
     bool m_bIs565Format;
+    bool isPaletteDarkToLight;
+    HANDLE m_hDib;
 
     void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC);
     void GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
@@ -57,8 +81,7 @@ public:
     void GetColor24bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
     void GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
 
-    bool IsValid() const { return m_hDib != NULL && pDib != NULL; }
-
-
-    void CleanUp();
+public:
+    // 深拷贝赋值运算符
+    CImageProc& operator=(const CImageProc& other);
 };

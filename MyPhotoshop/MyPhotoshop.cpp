@@ -29,7 +29,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopApp, CWinApp)
 	ON_COMMAND(ID_FILE_PRINT_SETUP, &CWinApp::OnFilePrintSetup) // 设置打印
 	ON_COMMAND(ID_HISTOGRAM_MIX, &CMyPhotoshopApp::OnHistogramMix) // 直方图混合模式
 	ON_COMMAND(ID_HISTOGRAM_RGB, &CMyPhotoshopApp::OnHistogramRGB) // 直方图RGB模式
-	ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopApp::OnHistogramEqualization)
+	ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopApp::OnHistogramEqualization)// 直方图均衡化
 	ON_COMMAND(ID_INTENSITY_TRANS, &CMyPhotoshopApp::OnIntensityTrans) // 灰度线性变换
 
 END_MESSAGE_MAP()
