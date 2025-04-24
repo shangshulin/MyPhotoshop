@@ -61,6 +61,10 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
     // 缩放操作
     ON_WM_MOUSEWHEEL()
+    ON_WM_HSCROLL()
+    ON_WM_VSCROLL()
+    ON_WM_SIZE()
+
     ON_COMMAND(ID_INTENSITY_TRANS, &CMyPhotoshopView::OnIntensityTrans)
 END_MESSAGE_MAP()
 
@@ -70,7 +74,11 @@ END_MESSAGE_MAP()
 // CMyPhotoshopView 构造/析构
 
 CMyPhotoshopView::CMyPhotoshopView() noexcept
-    : m_bShowPixelInfo(false), m_dZoomRatio(1.0) // 默认缩放比例为1.0
+    : m_bShowPixelInfo(false)
+    , m_dZoomRatio(1.0)
+    , m_ptScrollPos(0, 0)
+    , m_sizeTotal(0, 0)
+    , m_nScrollStep(40)  // 默认滚动步长为40像素
 {
 }
 
@@ -89,56 +97,208 @@ BOOL CMyPhotoshopView::PreCreateWindow(CREATESTRUCT& cs)
 
 // CMyPhotoshopView 绘图
 
-void CMyPhotoshopView::SetZoomRatio(double ratio)
+void CMyPhotoshopView::SetZoomRatio(double ratio, CPoint ptCenter)
 {
-    m_dZoomRatio = ratio;
-    Invalidate(); // 触发重绘
-}
+    ratio = max(0.1, min(10.0, ratio)); // 限制缩放范围
 
-double CMyPhotoshopView::GetZoomRatio() const
-{
-    return m_dZoomRatio;
+    if (ratio == m_dZoomRatio)
+        return;
+
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage)
+        return;
+
+    CRect rectClient;
+    GetClientRect(&rectClient);
+
+    // 如果没有指定中心点，使用当前视图中心
+    if (ptCenter.x == -1 || ptCenter.y == -1)
+    {
+        ptCenter.x = rectClient.Width() / 2;
+        ptCenter.y = rectClient.Height() / 2;
+    }
+
+    // 计算相对于图像的位置
+    double dOldZoom = m_dZoomRatio;
+    CPoint ptImage;
+    ptImage.x = static_cast<int>((m_ptScrollPos.x + ptCenter.x) / dOldZoom);
+    ptImage.y = static_cast<int>((m_ptScrollPos.y + ptCenter.y) / dOldZoom);
+
+    // 更新缩放比例
+    m_dZoomRatio = ratio;
+
+    // 计算新的滚动位置
+    m_ptScrollPos.x = static_cast<int>(ptImage.x * m_dZoomRatio - ptCenter.x);
+    m_ptScrollPos.y = static_cast<int>(ptImage.y * m_dZoomRatio - ptCenter.y);
+
+    // 更新滚动条并重绘
+    UpdateScrollBars();
+    Invalidate(TRUE);
 }
 
 void CMyPhotoshopView::OnDraw(CDC* pDC)
 {
-	CMyPhotoshopDoc* pDoc = GetDocument();
-	ASSERT_VALID(pDoc);
-	if (!pDoc)
-		return;
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage)
+        return;
 
-	// TODO: 在此处为本机数据添加绘制代码
-	if (pDoc->pImage->m_hDib != NULL)
-	{
-        int destWidth = int(pDoc->pImage->nWidth * m_dZoomRatio);
-        int destHeight = int(pDoc->pImage->nHeight * m_dZoomRatio);
-        // 计算居中显示的左上角坐标
-        CRect clientRect;
-        GetClientRect(&clientRect);
-        int x = (clientRect.Width() - destWidth) / 2;
-        int y = (clientRect.Height() - destHeight) / 2;
-        pDoc->pImage->ShowBMP(pDC, x, y, destWidth, destHeight);
-	}
+    // 创建内存DC进行双缓冲
+    CDC memDC;
+    memDC.CreateCompatibleDC(pDC);
+
+    int destWidth = int(pDoc->pImage->nWidth * m_dZoomRatio);
+    int destHeight = int(pDoc->pImage->nHeight * m_dZoomRatio);
+
+    CBitmap bitmap;
+    bitmap.CreateCompatibleBitmap(pDC, destWidth, destHeight);
+    CBitmap* pOldBitmap = memDC.SelectObject(&bitmap);
+
+    // 绘制到内存DC
+    pDoc->pImage->ShowBMP(&memDC, 0, 0, destWidth, destHeight);
+
+    // 从内存DC拷贝到屏幕DC，考虑滚动位置
+    CRect rectClient;
+    GetClientRect(&rectClient);
+    pDC->BitBlt(
+        0, 0, rectClient.Width(), rectClient.Height(),
+        &memDC,
+        m_ptScrollPos.x, m_ptScrollPos.y,
+        SRCCOPY);
+
+    memDC.SelectObject(pOldBitmap);
+}
+
+void CMyPhotoshopView::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
+{
+    SCROLLINFO si;
+    GetScrollInfo(SB_HORZ, &si, SIF_ALL);
+
+    int nPosOld = si.nPos;
+    switch (nSBCode)
+    {
+    case SB_LEFT: si.nPos = si.nMin; break;
+    case SB_RIGHT: si.nPos = si.nMax; break;
+    case SB_LINELEFT: si.nPos -= m_nScrollStep; break;
+    case SB_LINERIGHT: si.nPos += m_nScrollStep; break;
+    case SB_PAGELEFT: si.nPos -= si.nPage; break;
+    case SB_PAGERIGHT: si.nPos += si.nPage; break;
+    case SB_THUMBTRACK: si.nPos = nPos; break;
+    }
+
+    si.nPos = max(si.nMin, min(si.nPos, si.nMax - (int)si.nPage + 1));
+    if (si.nPos != nPosOld)
+    {
+        SetScrollPos(SB_HORZ, si.nPos);
+        ScrollWindow(nPosOld - si.nPos, 0);
+        m_ptScrollPos.x = si.nPos;
+    }
+
+    CView::OnHScroll(nSBCode, nPos, pScrollBar);
+}
+
+void CMyPhotoshopView::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
+{
+    SCROLLINFO si;
+    GetScrollInfo(SB_VERT, &si, SIF_ALL);
+
+    int nPosOld = si.nPos;
+    switch (nSBCode)
+    {
+    case SB_TOP: si.nPos = si.nMin; break;
+    case SB_BOTTOM: si.nPos = si.nMax; break;
+    case SB_LINEUP: si.nPos -= m_nScrollStep; break;
+    case SB_LINEDOWN: si.nPos += m_nScrollStep; break;
+    case SB_PAGEUP: si.nPos -= si.nPage; break;
+    case SB_PAGEDOWN: si.nPos += si.nPage; break;
+    case SB_THUMBTRACK: si.nPos = nPos; break;
+    }
+
+    si.nPos = max(si.nMin, min(si.nPos, si.nMax - (int)si.nPage + 1));
+    if (si.nPos != nPosOld)
+    {
+        SetScrollPos(SB_VERT, si.nPos);
+        ScrollWindow(0, nPosOld - si.nPos);
+        m_ptScrollPos.y = si.nPos;
+    }
+
+    CView::OnVScroll(nSBCode, nPos, pScrollBar);
+}
+
+void CMyPhotoshopView::OnSize(UINT nType, int cx, int cy)
+{
+    CView::OnSize(nType, cx, cy);
+    UpdateScrollBars();
+}
+
+void CMyPhotoshopView::UpdateScrollBars()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage)
+        return;
+
+    CRect rectClient;
+    GetClientRect(&rectClient);
+
+    // 计算缩放后的图像尺寸
+    m_sizeTotal.cx = static_cast<int>(pDoc->pImage->nWidth * m_dZoomRatio);
+    m_sizeTotal.cy = static_cast<int>(pDoc->pImage->nHeight * m_dZoomRatio);
+
+    SCROLLINFO si;
+    si.cbSize = sizeof(SCROLLINFO);
+    si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+    si.nMin = 0;
+
+    // 水平滚动条
+    si.nMax = m_sizeTotal.cx - 1;
+    si.nPage = rectClient.Width();
+    si.nPos = m_ptScrollPos.x;
+    SetScrollInfo(SB_HORZ, &si, TRUE);
+
+    // 垂直滚动条
+    si.nMax = m_sizeTotal.cy - 1;
+    si.nPage = rectClient.Height();
+    si.nPos = m_ptScrollPos.y;
+    SetScrollInfo(SB_VERT, &si, TRUE);
+
+    // 确保滚动位置有效
+    m_ptScrollPos.x = min(m_ptScrollPos.x, max(0, m_sizeTotal.cx - rectClient.Width()));
+    m_ptScrollPos.y = min(m_ptScrollPos.y, max(0, m_sizeTotal.cy - rectClient.Height()));
 }
 
 BOOL CMyPhotoshopView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 {
-    // 检查Ctrl键是否按下
+    // 转换为客户区坐标
+    ScreenToClient(&pt);
+
     if (GetKeyState(VK_CONTROL) & 0x8000)
     {
-        if (zDelta > 0)
-            m_dZoomRatio *= 1.1; // 放大
-        else
-            m_dZoomRatio /= 1.1; // 缩小
-
-        // 限制缩放比例范围
-        if (m_dZoomRatio < 0.1) m_dZoomRatio = 0.1;
-        if (m_dZoomRatio > 10.0) m_dZoomRatio = 10.0;
-
-        Invalidate(); // 触发重绘
-        return TRUE;  // 已处理
+        // Ctrl+滚轮：缩放功能
+        CPoint ptCenter = pt;
+        double zoomFactor = (zDelta > 0) ? 1.1 : 1.0 / 1.1;
+        double newZoom = m_dZoomRatio * zoomFactor;
+        newZoom = max(0.1, min(10.0, newZoom));
+        SetZoomRatio(newZoom, ptCenter);
+        return TRUE;
     }
-    // 未按Ctrl时，调用基类默认行为
+    else if (GetKeyState(VK_SHIFT) & 0x8000)
+    {
+        // Shift+滚轮：水平滚动
+        if (zDelta > 0)
+            OnHScroll(SB_LINELEFT, 0, NULL);
+        else
+            OnHScroll(SB_LINERIGHT, 0, NULL);
+        return TRUE;
+    }
+    else
+    {
+        // 普通滚轮：垂直滚动
+        if (zDelta > 0)
+            OnVScroll(SB_LINEUP, 0, NULL);
+        else
+            OnVScroll(SB_LINEDOWN, 0, NULL);
+        return TRUE;
+    }
+
     return CView::OnMouseWheel(nFlags, zDelta, pt);
 }
 
@@ -209,39 +369,32 @@ void CMyPhotoshopView::OnUpdateViewPixelInfo(CCmdUI* pCmdUI)
 // 左键点击事件处理程序
 void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 {
-	// TODO: 在此添加消息处理程序代码和/或调用默认值
-
-	// 如果启用了显示像素点信息
-	if (m_bShowPixelInfo)
-	{
-		Invalidate(true);
-		UpdateWindow();
-		// 获取文档中的图像数据
+    // 如果启用了显示像素点信息
+    if (m_bShowPixelInfo)
+    {
+        Invalidate(true);
+        UpdateWindow();
         if (nFlags & MK_SHIFT)
         {
             CClientDC dc(this);
             CMyPhotoshopDoc* pDoc = GetDocument();
             ASSERT_VALID(pDoc);
 
-            int destWidth = int(pDoc->pImage->nWidth * m_dZoomRatio);
-            int destHeight = int(pDoc->pImage->nHeight * m_dZoomRatio);
-            CRect clientRect;
-            GetClientRect(&clientRect);
-            int x = (clientRect.Width() - destWidth) / 2;
-            int y = (clientRect.Height() - destHeight) / 2;
+            // 加上自定义滚动偏移
+            int imgX = int((point.x + m_ptScrollPos.x) / m_dZoomRatio);
+            int imgY = int((point.y + m_ptScrollPos.y) / m_dZoomRatio);
 
-            if (point.x >= x && point.x < x + destWidth &&
-                point.y >= y && point.y < y + destHeight)
+            // 判断是否在图像范围内
+            if (imgX >= 0 && imgX < pDoc->pImage->nWidth && imgY >= 0 && imgY < pDoc->pImage->nHeight)
             {
-                int imgX = int((point.x - x) / m_dZoomRatio);
-                int imgY = int((point.y - y) / m_dZoomRatio);
-                // 传递窗口坐标point.x, point.y用于文本显示
                 pDoc->pImage->DisplayColor(&dc, imgX, imgY, point.x, point.y);
             }
         }
-	}
-	CView::OnLButtonDown(nFlags, point);
+    }
+    CView::OnLButtonDown(nFlags, point);
 }
+
+
 
 void CMyPhotoshopView::OnHistogramEqualization()
 {

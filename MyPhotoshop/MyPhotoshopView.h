@@ -18,11 +18,14 @@ class CMyPhotoshopView : public CView
 protected:
 	bool m_bShowPixelInfo; // 控制是否显示像素点信息
 	double m_dZoomRatio; // 缩放比例，1.0为原始大小
+	int m_nScrollStep;  // 滚动步长
+	CPoint m_ptScrollPos;  // 当前滚动位置
+	CSize m_sizeTotal;     // 总内容大小
 
 public:
-	void SetZoomRatio(double ratio);
-	double GetZoomRatio() const;
 	BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
+	void SetZoomRatio(double ratio, CPoint ptCenter = CPoint(-1, -1)); // 设置缩放比例
+	double GetZoomRatio() const { return m_dZoomRatio; }
 
 protected: // 仅从序列化创建
 	CMyPhotoshopView() noexcept;
@@ -44,6 +47,9 @@ protected:
 	virtual BOOL OnPreparePrinting(CPrintInfo* pInfo);
 	virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
 	virtual void OnEndPrinting(CDC* pDC, CPrintInfo* pInfo);
+
+	// 缩放和滚动相关函数
+	void UpdateScrollBars();   // 更新滚动条设置
 
 // 实现
 public:
@@ -86,6 +92,10 @@ public:
 	afx_msg void OnEdgeDetectionLog();//LoG边缘检测菜单项的处理函数
 	//图像增强
 	afx_msg void OnEnhancement();// 图像增强菜单项的处理函数
+	//滚动条
+	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
+	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
+	afx_msg void OnSize(UINT nType, int cx, int cy);
 public:
 	template <typename TExecute, typename TUndo>
 	void AddCommand(TExecute&& executeFunc, TUndo&& undoFunc)
