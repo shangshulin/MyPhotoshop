@@ -14,6 +14,7 @@
 #include "MyPhotoshopView.h"
 #include <algorithm>
 #include "FilterSizeDialog.h"  
+#include "CINTENSITYDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -60,6 +61,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
     // 缩放操作
     ON_WM_MOUSEWHEEL()
+    ON_COMMAND(ID_INTENSITY_TRANS, &CMyPhotoshopView::OnIntensityTrans)
 END_MESSAGE_MAP()
 
 
@@ -348,8 +350,56 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
     }
 }
 
+//灰度变换
+void CMyPhotoshopView::OnIntensityTrans()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的图像"));
+        return;
+    }
 
+    try {
+        // 创建原始图像的深拷贝（用于撤回）
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
 
+        // 创建灰度变换对话框
+        CINTENSITYDlg dlgIntensity;
+        dlgIntensity.SetImageData(pDoc->pImage);
+
+        // 显示对话框并处理结果
+        if (dlgIntensity.DoModal() == IDOK)
+        {
+            // 用户确认操作，添加到命令栈
+            AddCommand(
+                [pDoc]() {
+                    // 执行操作（对话框已修改图像）
+                    pDoc->UpdateAllViews(nullptr);
+                },
+                [pDoc, pOldImage]() {
+                    // 撤回操作：恢复原始图像
+                    *pDoc->pImage = *pOldImage;
+                    delete pOldImage;
+                    pDoc->UpdateAllViews(nullptr);
+                }
+            );
+        }
+        else
+        {
+            // 用户取消操作，释放备份图像
+            delete pOldImage;
+        }
+    }
+    catch (CMemoryException* e) {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法完成操作"));
+    }
+    catch (...) {
+        AfxMessageBox(_T("灰度变换操作失败"));
+    }
+}
 
 // 复古风格效果
 //复古风格算法实现了以下效果：
@@ -855,3 +905,4 @@ void CMyPhotoshopView::OnEditUndo()
         delete pCommand;  // 删除命令对象
     }
 }
+

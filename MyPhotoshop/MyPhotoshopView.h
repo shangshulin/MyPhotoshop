@@ -66,6 +66,8 @@ public:
 	afx_msg void OnFunctionHistogramMatching(); // 直方图规格化菜单项的处理函数
 	afx_msg void OnColorStyleVintage();
 	afx_msg void OnStyleBlackwhite();
+	//灰度变换
+	afx_msg void OnIntensityTrans();
 	//添加噪声
 	afx_msg void OnFunctionSaltandpepper();
 	afx_msg void OnFunctionImpulse();
@@ -97,6 +99,7 @@ public:
 
 
 	afx_msg void OnEditUndo();
+	
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本
