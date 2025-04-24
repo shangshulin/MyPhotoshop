@@ -237,12 +237,20 @@ void CImageProc::LoadBmp(CString stFileName)
 }
 
 // 显示图片
-void CImageProc::ShowBMP(CDC* pDC)
+void CImageProc::ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight)
 {
-    if (m_hDib != NULL)
+    if (m_hDib != NULL && pBIH != NULL && pBits != NULL)
     {
-        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);//设置拉伸模式为COLORONCOLOR
-        ::StretchDIBits(pDC->m_hDC, 0, 0, pBIH->biWidth, pBIH->biHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY);//显示图片
+        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);
+        ::StretchDIBits(
+            pDC->m_hDC,
+            x, y, destWidth, destHeight, // 目标区域（显示区域）
+            0, 0, pBIH->biWidth, pBIH->biHeight, // 源区域（原图大小）
+            pBits,
+            (BITMAPINFO*)pBIH,
+            DIB_RGB_COLORS,
+            SRCCOPY
+        );
     }
 }
 
@@ -286,18 +294,18 @@ void CImageProc::GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue)
 }
 
 // 获取并显示像素颜色
-void CImageProc::DisplayColor(CClientDC* pDC, int x, int y)
+void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int winY)
 {
-    if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
+    if (m_hDib == NULL || imgX < 0 || imgX >= nWidth || imgY < 0 || imgY >= nHeight)
     {
         return;
     }
     // 计算每行字节数
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
     // 计算每个像素的字节数
-    float bytePerPixel = float(nBitCount) / 8;
+    int bytePerPixel = nBitCount / 8;
     // 计算像素在位图中的偏移量
-    int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+    int offset = (nHeight - 1 - imgY) * rowSize + imgX * bytePerPixel;
     // pixel指向当前像素
     BYTE* pixel = pBits + offset;
     // 获取像素颜色
@@ -306,13 +314,13 @@ void CImageProc::DisplayColor(CClientDC* pDC, int x, int y)
     switch (nBitCount)
     {
     case 1:
-        CImageProc::GetColor1bit(pixel, red, green, blue, x, y, pDC);
+        CImageProc::GetColor1bit(pixel, red, green, blue, imgX, imgY, pDC);
         break;
     case 4:
-        CImageProc::GetColor4bit(pixel, red, green, blue, x);
+        CImageProc::GetColor4bit(pixel, red, green, blue, imgX);
         break;
     case 8:
-        CImageProc::GetColor8bit(pixel, red, green, blue, x);
+        CImageProc::GetColor8bit(pixel, red, green, blue, imgX);
         break;
     case 16:
         CImageProc::GetColor16bit(pixel, red, green, blue);
@@ -327,13 +335,12 @@ void CImageProc::DisplayColor(CClientDC* pDC, int x, int y)
         return;
     }
 
-    COLORREF pixelColor = pDC->GetPixel(x, y);
+    COLORREF pixelColor = pDC->GetPixel(winX, winY);
     BYTE getPixelRed = GetRValue(pixelColor);
     BYTE getPixelGreen = GetGValue(pixelColor);
     BYTE getPixelBlue = GetBValue(pixelColor);
 
     pDC->SetBkMode(OPAQUE);//设置背景色为不透明
-
     pDC->SetTextColor(RGB(0, 0, 0));//设置文本颜色为黑色
 
     CString str;
@@ -343,15 +350,15 @@ void CImageProc::DisplayColor(CClientDC* pDC, int x, int y)
     getPixelStr.Format(L"GetPixel RGB: (%d, %d, %d)", getPixelRed, getPixelGreen, getPixelBlue);
 
     CString location;
-    location.Format(L"location:(%d, %d)", x, y);
+    location.Format(L"location:(%d, %d)", imgX, imgY);
 
-    pDC->TextOutW(x, y, str);//显示像素颜色
+    pDC->TextOutW(winX, winY, str);//显示像素颜色
 
     CSize textSize = pDC->GetTextExtent(str);
 
-    pDC->TextOutW(x, y + textSize.cy, getPixelStr);//显示GetPixel颜色
+    pDC->TextOutW(winX, winY + textSize.cy, getPixelStr);//显示GetPixel颜色
 
-    pDC->TextOutW(x, y + textSize.cy * 2, location);//显示像素位置
+    pDC->TextOutW(winX, winY + textSize.cy * 2, location);//显示像素位置
 }
 
 void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC)
@@ -661,7 +668,7 @@ void CImageProc::ApplyVintageStyle()
 
 // 函数定义：直方图均衡化处理，返回均衡化后的RGB三通道直方图数据
 // 输入参数：dc为设备上下文对象，用于像素操作
-std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
+std::vector<std::vector<int>> CImageProc::Balance_Transformations()
 {
     //创建一个 ​​3 × 256 的二维数组(一个嵌套的二维动态数组)​​：(外层有 ​​3 个元素​​（对应 RGB 三个颜色通道）,外层 vector 中每个元素的初始化模板。)
     // 每个外层元素是一个长度为 ​​256​​ 的 vector<int>（对应 0~255 的灰度级）
@@ -745,7 +752,24 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
 
             // 特殊处理纯黑像素,直接跳过缩放计算，​​保持像素为黑色
             if (Y == 0) {
-                dc.SetPixelV(x, y, RGB(0, 0, 0));  // 设置纯黑色
+                // 直接写入黑色
+                switch (nBitCount) {
+                case 8:
+                    pixel[0] = 0;
+                    break;
+                case 16:
+                    if (m_bIs565Format)
+                        *((WORD*)pixel) = 0;
+                    else
+                        *((WORD*)pixel) = 0;
+                    break;
+                case 24:
+                    pixel[0] = 0; pixel[1] = 0; pixel[2] = 0;
+                    break;
+                case 32:
+                    pixel[0] = 0; pixel[1] = 0; pixel[2] = 0;
+                    break;
+                }
                 balancedRgbHistograms[0][0]++;      // 记录R通道直方图
                 balancedRgbHistograms[1][0]++;      // 记录G通道直方图
                 balancedRgbHistograms[2][0]++;      // 记录B通道直方图
@@ -768,8 +792,32 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations(CClientDC& dc)
             balancedRgbHistograms[1][new_g]++;
             balancedRgbHistograms[2][new_b]++;
 
-            // 设置设备上下文的像素颜色
-            dc.SetPixelV(x, y, RGB(new_r, new_g, new_b));
+            // 写入均衡化后的像素值
+            switch (nBitCount) {
+            case 8:
+                // 8位图像通常是调色板索引，灰度图可直接赋值
+                pixel[0] = static_cast<BYTE>(F[Y]);
+                break;
+            case 16:
+                if (m_bIs565Format) {
+                    *((WORD*)pixel) = ((new_r >> 3) << 11) | ((new_g >> 2) << 5) | (new_b >> 3);
+                }
+                else {
+                    *((WORD*)pixel) = ((new_r >> 3) << 10) | ((new_g >> 3) << 5) | (new_b >> 3);
+                }
+                break;
+            case 24:
+                pixel[0] = static_cast<BYTE>(new_b);
+                pixel[1] = static_cast<BYTE>(new_g);
+                pixel[2] = static_cast<BYTE>(new_r);
+                break;
+            case 32:
+                pixel[0] = static_cast<BYTE>(new_b);
+                pixel[1] = static_cast<BYTE>(new_g);
+                pixel[2] = static_cast<BYTE>(new_r);
+                // pixel[3] 保持alpha不变
+                break;
+            }
         }
     }
 

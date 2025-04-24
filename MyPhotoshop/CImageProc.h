@@ -25,14 +25,14 @@ public:
     //图片加载与显示
     void OpenFile();
     void LoadBmp(CString stFileName);
-    void ShowBMP(CDC* pDC);
-    void DisplayColor(CClientDC* pDC, int x, int y);
+    void ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight);
+    void DisplayColor(CClientDC* pDC,int imgX, int imgY, int x, int y);
     void GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue);
 
     //灰度处理
 	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
     std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
-	std::vector<std::vector<int>> Balance_Transformations(CClientDC& dc);    // 直方图均衡化
+	std::vector<std::vector<int>> Balance_Transformations();    // 直方图均衡化
     bool HistogramMatching(CImageProc& targetImageProc); // 直方图规格化
 
     //风格变换

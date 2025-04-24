@@ -34,6 +34,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 显示像素点信息
     ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
     //灰度处理
+    ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopView::OnHistogramEqualization)// 直方图均衡化
     ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
     ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
     ON_COMMAND(ID_STYLE_BLACKWHITE, &CMyPhotoshopView::OnStyleBlackwhite)// 黑白风格
@@ -55,7 +56,10 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)// 均值滤波
 	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)//   中值滤波
 	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
+	// 撤销操作
     ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
+    // 缩放操作
+    ON_WM_MOUSEWHEEL()
 END_MESSAGE_MAP()
 
 
@@ -64,11 +68,10 @@ END_MESSAGE_MAP()
 // CMyPhotoshopView 构造/析构
 
 CMyPhotoshopView::CMyPhotoshopView() noexcept
-	: m_bShowPixelInfo(false) // 默认不显示像素点信息
+    : m_bShowPixelInfo(false), m_dZoomRatio(1.0) // 默认缩放比例为1.0
 {
-	// TODO: 在此处添加构造代码
-
 }
+
 
 CMyPhotoshopView::~CMyPhotoshopView()
 {
@@ -84,6 +87,17 @@ BOOL CMyPhotoshopView::PreCreateWindow(CREATESTRUCT& cs)
 
 // CMyPhotoshopView 绘图
 
+void CMyPhotoshopView::SetZoomRatio(double ratio)
+{
+    m_dZoomRatio = ratio;
+    Invalidate(); // 触发重绘
+}
+
+double CMyPhotoshopView::GetZoomRatio() const
+{
+    return m_dZoomRatio;
+}
+
 void CMyPhotoshopView::OnDraw(CDC* pDC)
 {
 	CMyPhotoshopDoc* pDoc = GetDocument();
@@ -94,10 +108,37 @@ void CMyPhotoshopView::OnDraw(CDC* pDC)
 	// TODO: 在此处为本机数据添加绘制代码
 	if (pDoc->pImage->m_hDib != NULL)
 	{
-		pDoc->pImage->ShowBMP(pDC);
+        int destWidth = int(pDoc->pImage->nWidth * m_dZoomRatio);
+        int destHeight = int(pDoc->pImage->nHeight * m_dZoomRatio);
+        // 计算居中显示的左上角坐标
+        CRect clientRect;
+        GetClientRect(&clientRect);
+        int x = (clientRect.Width() - destWidth) / 2;
+        int y = (clientRect.Height() - destHeight) / 2;
+        pDoc->pImage->ShowBMP(pDC, x, y, destWidth, destHeight);
 	}
 }
 
+BOOL CMyPhotoshopView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
+{
+    // 检查Ctrl键是否按下
+    if (GetKeyState(VK_CONTROL) & 0x8000)
+    {
+        if (zDelta > 0)
+            m_dZoomRatio *= 1.1; // 放大
+        else
+            m_dZoomRatio /= 1.1; // 缩小
+
+        // 限制缩放比例范围
+        if (m_dZoomRatio < 0.1) m_dZoomRatio = 0.1;
+        if (m_dZoomRatio > 10.0) m_dZoomRatio = 10.0;
+
+        Invalidate(); // 触发重绘
+        return TRUE;  // 已处理
+    }
+    // 未按Ctrl时，调用基类默认行为
+    return CView::OnMouseWheel(nFlags, zDelta, pt);
+}
 
 // CMyPhotoshopView 打印
 
@@ -174,17 +215,47 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 		Invalidate(true);
 		UpdateWindow();
 		// 获取文档中的图像数据
-		if (nFlags & MK_SHIFT)
-		{
-			CClientDC dc(this);
-			CMyPhotoshopDoc* pDoc = GetDocument();// 获取文档中的图像数据
-			ASSERT_VALID(pDoc);
-			pDoc->pImage->DisplayColor(&dc, point.x, point.y);
-		}
+        if (nFlags & MK_SHIFT)
+        {
+            CClientDC dc(this);
+            CMyPhotoshopDoc* pDoc = GetDocument();
+            ASSERT_VALID(pDoc);
+
+            int destWidth = int(pDoc->pImage->nWidth * m_dZoomRatio);
+            int destHeight = int(pDoc->pImage->nHeight * m_dZoomRatio);
+            CRect clientRect;
+            GetClientRect(&clientRect);
+            int x = (clientRect.Width() - destWidth) / 2;
+            int y = (clientRect.Height() - destHeight) / 2;
+
+            if (point.x >= x && point.x < x + destWidth &&
+                point.y >= y && point.y < y + destHeight)
+            {
+                int imgX = int((point.x - x) / m_dZoomRatio);
+                int imgY = int((point.y - y) / m_dZoomRatio);
+                // 传递窗口坐标point.x, point.y用于文本显示
+                pDoc->pImage->DisplayColor(&dc, imgX, imgY, point.x, point.y);
+            }
+        }
 	}
 	CView::OnLButtonDown(nFlags, point);
 }
 
+void CMyPhotoshopView::OnHistogramEqualization()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
+    {
+        AfxMessageBox(_T("请先打开有效的图像"));
+        return;
+    }
+
+    // 调用均衡化并显示直方图
+    pDoc->pImage->Balance_Transformations();
+
+	Invalidate(); // 触发重绘
+    UpdateWindow();
+}
 
 // 直方图规格化函数（带撤回功能）
 void CMyPhotoshopView::OnFunctionHistogramMatching()
@@ -329,7 +400,7 @@ void CMyPhotoshopView::OnStyleBlackwhite()
     }
 }
 
-
+// 椒盐噪声
 void CMyPhotoshopView::OnFunctionSaltandpepper()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();

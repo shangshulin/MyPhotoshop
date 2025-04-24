@@ -29,7 +29,6 @@ public:
 	afx_msg void OnAppAbout();
 	afx_msg void OnHistogramMix();//直方图混合显示模式菜单项的处理函数
 	afx_msg void OnHistogramRGB();//直方图RGB显示模式菜单项的处理函数
-	afx_msg void OnHistogramEqualization();//直方图均衡化菜单项的处理函数
 	afx_msg void OnIntensityTrans(); //灰度线性变换菜单项的处理函数
 	DECLARE_MESSAGE_MAP()
 };

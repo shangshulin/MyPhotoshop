@@ -17,6 +17,12 @@ class CMyPhotoshopView : public CView
 {
 protected:
 	bool m_bShowPixelInfo; // 控制是否显示像素点信息
+	double m_dZoomRatio; // 缩放比例，1.0为原始大小
+
+public:
+	void SetZoomRatio(double ratio);
+	double GetZoomRatio() const;
+	BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 
 protected: // 仅从序列化创建
 	CMyPhotoshopView() noexcept;
@@ -56,6 +62,7 @@ public:
 	afx_msg void OnUpdateViewPixelInfo(CCmdUI* pCmdUI); // 更新菜单按钮状态的消息处理函数
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point); // 鼠标左键按下事件处理函数
 	//灰度处理
+	afx_msg void OnHistogramEqualization();//直方图均衡化菜单项的处理函数
 	afx_msg void OnFunctionHistogramMatching(); // 直方图规格化菜单项的处理函数
 	afx_msg void OnColorStyleVintage();
 	afx_msg void OnStyleBlackwhite();
