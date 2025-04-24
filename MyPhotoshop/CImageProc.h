@@ -2,6 +2,7 @@
 #pragma once
 #include "pch.h"
 #include <vector>
+#include <complex>
 
 enum class FilterType {
     Mean,
@@ -66,6 +67,23 @@ public:
     void Multiply(CImageProc& img);    // 图像相乘
     void PowerTransform(double gamma); // 幂律变换
 
+    // 快速傅里叶变换
+    bool IsFFTPerformed() const { return m_bFFTPerformed; }
+    bool FFT2D(bool bForward = true, bool bSaveState = true); // true=FFT, false=IFFT
+    void DisplayFFTResult(CDC* pDC, int xOffset = 0, int yOffset = 0,
+        int destWidth = -1, int destHeight = -1);
+    void CImageProc::FFT1D(std::complex<double>* data, int n, int direction); //一维FFT
+	void CImageProc::BitReverse(std::complex<double>* data, int n); // 位反转重排
+    void SaveCurrentState();  // 保存当前状态
+    void RestoreState();      // 恢复保存的状态
+private:
+    std::vector<std::complex<double>> m_fftData; // 存储频域数据
+    bool m_bFFTPerformed = false;
+    std::vector<BYTE> m_originalPixels;  // 保存原始像素数据
+    bool m_bStateSaved;                  // 状态保存标志
+
+    void FFTShift(); // 频谱移中
+    void CalculateFFT(bool bForward);
 public:
     
     BYTE* pDib;

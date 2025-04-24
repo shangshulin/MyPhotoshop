@@ -66,6 +66,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_WM_VSCROLL()
     ON_WM_SIZE()
 
+    ON_COMMAND(ID_FREQ_FFT, &CMyPhotoshopView::OnFreqFFT)
+    ON_COMMAND(ID_FREQ_IFFT, &CMyPhotoshopView::OnFreqIFFT)
+    ON_COMMAND(ID_FREQ_UNDO, &CMyPhotoshopView::OnFreqUndo)
 END_MESSAGE_MAP()
 
 
@@ -146,15 +149,51 @@ void CMyPhotoshopView::OnDraw(CDC* pDC)
     CDC memDC;
     memDC.CreateCompatibleDC(pDC);
 
+    // 计算绘制区域
     int destWidth = int(pDoc->pImage->nWidth * m_dZoomRatio);
     int destHeight = int(pDoc->pImage->nHeight * m_dZoomRatio);
 
+    // 如果进行了FFT，需要两倍的宽度
+    int totalWidth = destWidth;
+    if (pDoc->pImage->IsFFTPerformed()) {
+        totalWidth = destWidth * 2 + 10; // 原图和频谱图之间留10像素间距
+    }
+
     CBitmap bitmap;
-    bitmap.CreateCompatibleBitmap(pDC, destWidth, destHeight);
+    bitmap.CreateCompatibleBitmap(pDC, totalWidth, destHeight);
     CBitmap* pOldBitmap = memDC.SelectObject(&bitmap);
 
-    // 绘制到内存DC
+    // 填充背景
+    memDC.FillSolidRect(0, 0, totalWidth, destHeight, RGB(255, 255, 255));
+
+    // 1. 绘制原始图像（带缩放）
     pDoc->pImage->ShowBMP(&memDC, 0, 0, destWidth, destHeight);
+
+    // 2. 如果进行了FFT，在旁边显示频谱结果
+    if (pDoc->pImage->IsFFTPerformed()) {
+        // 创建临时DC用于频谱绘制
+        CDC specDC;
+        specDC.CreateCompatibleDC(&memDC);
+
+        CBitmap specBmp;
+        specBmp.CreateCompatibleBitmap(&memDC, destWidth, destHeight);
+        CBitmap* pOldSpecBmp = specDC.SelectObject(&specBmp);
+
+        // 填充频谱图背景
+        specDC.FillSolidRect(0, 0, destWidth, destHeight, RGB(255, 255, 255));
+
+        // 绘制频谱图
+        pDoc->pImage->DisplayFFTResult(&specDC, 0, 0, destWidth, destHeight);
+
+        // 将频谱图拷贝到内存DC
+        memDC.BitBlt(
+            destWidth + 10, 0, destWidth, destHeight,
+            &specDC,
+            0, 0,
+            SRCCOPY);
+
+        specDC.SelectObject(pOldSpecBmp);
+    }
 
     // 从内存DC拷贝到屏幕DC，考虑滚动位置
     CRect rectClient;
@@ -1059,3 +1098,84 @@ void CMyPhotoshopView::OnEditUndo()
     }
 }
 
+
+
+// MyPhotoshopView.cpp
+//void CMyPhotoshopView::OnFreqFFT() {
+//    CMyPhotoshopDoc* pDoc = GetDocument();
+//    if (!pDoc || !pDoc->pImage) return;
+//
+//    try {
+//        // 保存原始图像
+//        CImageProc* pOldImage = new CImageProc();
+//        *pOldImage = *pDoc->pImage;
+//
+//        AddCommand(
+//            [pDoc]() {
+//                if (pDoc->pImage->FFT2D(true)) {
+//                    pDoc->UpdateAllViews(nullptr);
+//                }
+//            },
+//            [pDoc, pOldImage]() {
+//                *pDoc->pImage = *pOldImage;
+//                delete pOldImage;
+//                pDoc->UpdateAllViews(nullptr);
+//            }
+//        );
+//    }
+//    catch (...) {
+//        AfxMessageBox(_T("FFT操作失败"));
+//    }
+//}
+
+void CMyPhotoshopView::OnFreqFFT() {
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage) return;
+
+    // 保存原始图像（用于撤回）
+    CImageProc* pOldImage = new CImageProc();
+    *pOldImage = *pDoc->pImage;
+
+    AddCommand(
+        [pDoc]() {
+            if (pDoc->pImage->FFT2D(true, false)) {  // 不重复保存状态
+                pDoc->UpdateAllViews(nullptr);
+            }
+        },
+        [pDoc, pOldImage]() {
+            *pDoc->pImage = *pOldImage;
+            delete pOldImage;
+            pDoc->UpdateAllViews(nullptr);
+        }
+    );
+}
+
+void CMyPhotoshopView::OnFreqIFFT() {
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage) return;
+
+    // 保存原始图像（用于撤回）
+    CImageProc* pOldImage = new CImageProc();
+    *pOldImage = *pDoc->pImage;
+
+    AddCommand(
+        [pDoc]() {
+            if (pDoc->pImage->FFT2D(false, false)) {  // 不重复保存状态
+                pDoc->UpdateAllViews(nullptr);
+            }
+        },
+        [pDoc, pOldImage]() {
+            *pDoc->pImage = *pOldImage;
+            delete pOldImage;
+            pDoc->UpdateAllViews(nullptr);
+        }
+    );
+}
+
+void CMyPhotoshopView::OnFreqUndo() {
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage) return;
+
+    pDoc->pImage->RestoreState();
+    pDoc->UpdateAllViews(nullptr);
+}

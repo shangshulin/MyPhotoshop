@@ -5,7 +5,11 @@
 #include <algorithm> // 用于排序
 #include <omp.h>
 #include <numeric>
-
+#include <complex>
+#include <valarray>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 CImageProc::CImageProc()
 {
@@ -2877,4 +2881,234 @@ void CImageProc::ApplyMeanFilter()
             }
         }
     }
+}
+
+bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
+    if (!IsValid()) return false;
+    if (bSaveState) {
+        SaveCurrentState();  // 执行变换前保存状态
+    }
+    try {
+        // 1. 将图像数据转换为复数形式
+        int w = nWidth;
+        int h = nHeight;
+        int N = w * h;
+        m_fftData.resize(N);
+
+        // 转换为灰度并归一化
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                BYTE r, g, b;
+
+                GetColor(x, y, r, g, b);
+
+                double gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                m_fftData[y * w + x] = std::complex<double>(gray / 255.0, 0);
+            }
+        }
+
+        // 2. 执行二维FFT
+        CalculateFFT(bForward);
+
+        // 3. 频谱移中
+        if (bForward) FFTShift();
+
+        m_bFFTPerformed = true;
+        return true;
+    }
+    catch (...) {
+        return false;
+    }
+}
+
+void CImageProc::DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
+    int destWidth, int destHeight)
+{
+    if (!m_bFFTPerformed || m_fftData.empty()) return;
+
+    int srcW = nWidth;
+    int srcH = nHeight;
+
+    // 使用传入的目标尺寸，若未指定则使用原尺寸
+    if (destWidth <= 0) destWidth = srcW;
+    if (destHeight <= 0) destHeight = srcH;
+
+    // 计算幅度谱并归一化显示
+    double maxMag = 0;
+    std::vector<double> magnitudes(srcW * srcH);
+
+    for (int i = 0; i < srcW * srcH; i++) {
+        magnitudes[i] = std::log(1 + std::abs(m_fftData[i]));
+        if (magnitudes[i] > maxMag) maxMag = magnitudes[i];
+    }
+
+    // 计算缩放比例
+    double scaleX = (double)srcW / destWidth;
+    double scaleY = (double)srcH / destHeight;
+
+    // 绘制频谱图（带缩放）
+    for (int y = 0; y < destHeight; y++) {
+        int srcY = (int)(y * scaleY);
+        if (srcY >= srcH) srcY = srcH - 1;
+
+        for (int x = 0; x < destWidth; x++) {
+            int srcX = (int)(x * scaleX);
+            if (srcX >= srcW) srcX = srcW - 1;
+
+            double normMag = magnitudes[srcY * srcW + srcX] / maxMag;
+            int intensity = static_cast<int>(normMag * 255);
+            pDC->SetPixel(x + xOffset, y + yOffset,
+                RGB(intensity, intensity, intensity));
+        }
+    }
+}
+
+// 辅助函数：蝶形运算
+void CImageProc::CalculateFFT(bool bForward) {
+    const int width = nWidth;
+    const int height = nHeight;
+    const int direction = bForward ? 1 : -1; // 正变换1，逆变换-1
+
+    // 1. 对每一行进行一维FFT
+    for (int y = 0; y < height; y++) {
+        // 获取当前行的指针
+        std::complex<double>* row = &m_fftData[y * width];
+
+        // 执行一维FFT
+        FFT1D(row, width, direction);
+    }
+
+    // 2. 对每一列进行一维FFT
+    std::vector<std::complex<double>> column(height);
+    for (int x = 0; x < width; x++) {
+        // 提取列数据
+        for (int y = 0; y < height; y++) {
+            column[y] = m_fftData[y * width + x];
+        }
+
+        // 执行一维FFT
+        FFT1D(column.data(), height, direction);
+
+        // 存回数据
+        for (int y = 0; y < height; y++) {
+            m_fftData[y * width + x] = column[y];
+        }
+    }
+
+    // 3. 如果是逆变换，需要归一化
+    if (!bForward) {
+        const double norm = 1.0 / sqrt(width * height);
+        for (auto& val : m_fftData) {
+            val *= norm;
+        }
+    }
+}
+
+// 一维FFT实现（基2时间抽取算法）
+void CImageProc::FFT1D(std::complex<double>* data, int n, int direction) {
+    // 1. 检查是否为2的幂次，如果不是则补零
+    if ((n & (n - 1)) != 0) {
+        int newSize = 1;
+        while (newSize < n) {
+            newSize <<= 1;
+        }
+
+        // 创建新的数据缓冲区并补零
+        std::vector<std::complex<double>> newData(newSize);
+        for (int i = 0; i < n; i++) {
+            newData[i] = data[i];
+        }
+        for (int i = n; i < newSize; i++) {
+            newData[i] = std::complex<double>(0, 0);
+        }
+
+        // 递归调用FFT1D处理补零后的数据
+        FFT1D(newData.data(), newSize, direction);
+
+        // 将结果复制回原数组（只复制原始长度部分）
+        for (int i = 0; i < n; i++) {
+            data[i] = newData[i];
+        }
+        return;
+    }
+
+    // 2. 位反转重排
+    BitReverse(data, n);
+
+    // 3. 蝶形运算
+    for (int s = 1; s <= (int)(log((double)n) / log(2.0)); s++) {
+        int m = 1 << s; // 当前级的分组大小
+        int m2 = m >> 1; // 半分组大小
+
+        // 计算旋转因子
+        std::complex<double> wm(cos(2.0 * M_PI / m), direction * sin(2.0 * M_PI / m));
+
+        for (int k = 0; k < n; k += m) {
+            std::complex<double> w(1.0, 0.0);
+
+            for (int j = 0; j < m2; j++) {
+                // 蝶形运算
+                std::complex<double> t = w * data[k + j + m2];
+                std::complex<double> u = data[k + j];
+
+                data[k + j] = u + t;
+                data[k + j + m2] = u - t;
+
+                // 更新旋转因子
+                w *= wm;
+            }
+        }
+    }
+}
+
+// 位反转重排
+void CImageProc::BitReverse(std::complex<double>* data, int n) {
+    int j = 0;
+    for (int i = 0; i < n - 1; i++) {
+        if (i < j) {
+            std::swap(data[i], data[j]);
+        }
+
+        // 计算下一个反转数
+        int k = n >> 1;
+        while (k <= j) {
+            j -= k;
+            k >>= 1;
+        }
+        j += k;
+    }
+}
+
+void CImageProc::FFTShift() {
+    int w = nWidth;
+    int h = nHeight;
+    int hw = w / 2;
+    int hh = h / 2;
+
+    for (int y = 0; y < hh; y++) {
+        for (int x = 0; x < hw; x++) {
+            // 交换四个象限
+            std::swap(m_fftData[y * w + x], m_fftData[(y + hh) * w + (x + hw)]);
+            std::swap(m_fftData[y * w + (x + hw)], m_fftData[(y + hh) * w + x]);
+        }
+    }
+}
+
+void CImageProc::SaveCurrentState() {
+    if (!IsValid()) return;
+
+    int dataSize = nWidth * nHeight * (nBitCount / 8);
+    m_originalPixels.resize(dataSize);
+    memcpy(m_originalPixels.data(), pBits, dataSize);
+    m_bStateSaved = true;
+}
+
+void CImageProc::RestoreState() {
+    if (!m_bStateSaved || !IsValid()) return;
+
+    int dataSize = nWidth * nHeight * (nBitCount / 8);
+    if (m_originalPixels.size() == dataSize) {
+        memcpy(pBits, m_originalPixels.data(), dataSize);
+    }
+    m_bStateSaved = false;
 }
