@@ -10,6 +10,8 @@
 #include "ImpulseNoiseDialog.h"
 #include "GaussianNoiseDialog.h"
 #include "GaussianWhiteNoiseDialog.h"
+#include "Command.h"
+#include <stack>
 
 class CMyPhotoshopView : public CView
 {
@@ -19,6 +21,7 @@ protected:
 protected: // 仅从序列化创建
 	CMyPhotoshopView() noexcept;
 	DECLARE_DYNCREATE(CMyPhotoshopView)
+	std::stack<CCommand*> m_commandStack; // 命令栈，用于存储命令对象
 
 // 特性
 public:
@@ -74,6 +77,19 @@ public:
 	afx_msg void OnEdgeDetectionLog();//LoG边缘检测菜单项的处理函数
 	//图像增强
 	afx_msg void OnEnhancement();// 图像增强菜单项的处理函数
+public:
+	template <typename TExecute, typename TUndo>
+	void AddCommand(TExecute&& executeFunc, TUndo&& undoFunc)
+	{
+		CCommand* pCommand = new CGenericCommand(
+			std::forward<TExecute>(executeFunc),
+			std::forward<TUndo>(undoFunc));
+		pCommand->Execute(); // 立即执行操作
+		m_commandStack.push(pCommand);
+	}
+
+
+	afx_msg void OnEditUndo();
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本

@@ -49,65 +49,65 @@ void CImageProc::CleanUp()
 }
 
 CImageProc& CImageProc::operator=(const CImageProc& other) {
-    if (this != &other) {
-        // 释放当前对象的DIB数据
-        if (m_hDib != NULL) {
-            ::GlobalFree(m_hDib);
-            m_hDib = NULL;
+    if (this == &other) return *this;
+
+    // 释放当前资源
+    if (m_hDib) {
+        GlobalFree(m_hDib);
+        m_hDib = NULL;
+    }
+
+    // 复制基本参数
+    nWidth = other.nWidth;
+    nHeight = other.nHeight;
+    nBitCount = other.nBitCount;
+
+    if (other.m_hDib) {
+        // 计算源图像数据大小
+        DWORD dwSize = ::GlobalSize(other.m_hDib);
+
+        // 分配新内存
+        m_hDib = ::GlobalAlloc(GHND, dwSize);
+        if (!m_hDib) AfxThrowMemoryException();
+
+        // 锁定内存
+        LPBYTE pSrc = (LPBYTE)::GlobalLock(other.m_hDib);
+        LPBYTE pDst = (LPBYTE)::GlobalLock(m_hDib);
+
+        if (!pSrc || !pDst) {
+            if (pSrc) ::GlobalUnlock(other.m_hDib);
+            if (pDst) ::GlobalUnlock(m_hDib);
+            AfxThrowMemoryException();
         }
 
-        // 复制基本成员变量
-        nWidth = other.nWidth;
-        nHeight = other.nHeight;
-        nBitCount = other.nBitCount;
-        // ... 复制其他基本成员变量 ...
+        // 完整拷贝数据
+        memcpy(pDst, pSrc, dwSize);
 
-        // 深拷贝DIB数据
-        if (other.m_hDib != NULL) {
-            // 计算DIB总大小
-            DWORD dwSize = ::GlobalSize(other.m_hDib);
+        // 解锁内存
+        ::GlobalUnlock(other.m_hDib);
+        ::GlobalUnlock(m_hDib);
 
-            // 分配新内存
-            m_hDib = ::GlobalAlloc(GHND, dwSize);
-            if (m_hDib == NULL) {
-                AfxThrowMemoryException();
-            }
+        // 重新设置指针
+        pDib = (LPBYTE)::GlobalLock(m_hDib);
+        pBFH = (LPBITMAPFILEHEADER)pDib;
+        pBIH = (LPBITMAPINFOHEADER)(pDib + sizeof(BITMAPFILEHEADER));
 
-            // 锁定内存并复制数据
-            LPBYTE lpDest = (LPBYTE)::GlobalLock(m_hDib);
-            LPBYTE lpSrc = (LPBYTE)::GlobalLock(other.m_hDib);
-            if (lpDest != nullptr && lpSrc != nullptr) {
-                memcpy(lpDest, lpSrc, dwSize);
-            }
-            else {
-                // Handle the error case, e.g., log or throw an exception
-                if (lpDest == nullptr) {
-                    AfxMessageBox(L"Destination pointer is null.");
-                }
-                if (lpSrc == nullptr) {
-                    AfxMessageBox(L"Source pointer is null.");
-                }
-            }
-            ::GlobalUnlock(m_hDib);
-            ::GlobalUnlock(other.m_hDib);
+        // 重新计算像素数据位置
+        int nColorTableSize = 0;
+        if (nBitCount <= 8) {
+            nColorTableSize = (1 << nBitCount) * sizeof(RGBQUAD);
+            pQUAD = (LPRGBQUAD)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        }
+        else {
+            pQUAD = NULL;
+        }
 
-            // 重新设置指针
-            pDib = (LPBYTE)::GlobalLock(m_hDib);
-            pBFH = (LPBITMAPFILEHEADER)pDib;
-            pBIH = (LPBITMAPINFOHEADER)(pDib + sizeof(BITMAPFILEHEADER));
-
-            // 计算调色板和像素数据位置
-            if (nBitCount <= 8) {
-                pQUAD = (LPRGBQUAD)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
-                if (pBFH != NULL)
-                {
-                    pBits = pDib + pBFH->bfOffBits;
-                }
-            }
-            else {
-                pQUAD = NULL;
-                pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-            }
+        // 计算像素数据起始位置
+        if (pBFH) {
+            pBits = pDib + pBFH->bfOffBits;
+        }
+        else {
+            pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + nColorTableSize;
         }
     }
     return *this;

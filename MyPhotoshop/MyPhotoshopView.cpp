@@ -14,6 +14,7 @@
 #include "MyPhotoshopView.h"
 #include <algorithm>
 #include "FilterSizeDialog.h"  
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -54,6 +55,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)// 均值滤波
 	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)//   中值滤波
 	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
+    ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
 END_MESSAGE_MAP()
 
 
@@ -183,6 +185,7 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 	CView::OnLButtonDown(nFlags, point);
 }
 
+
 // 直方图规格化函数
 void CMyPhotoshopView::OnFunctionHistogramMatching()
 {
@@ -242,6 +245,7 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
         AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
     }
 }
+
 
 
 
@@ -423,16 +427,51 @@ void CMyPhotoshopView::OnFunctionGaussianwhite()
     AfxMessageBox(msg);
 }
 
-
-
 void CMyPhotoshopView::OnFilterMean()
 {
     CFilterSizeDialog dlg;
     if (dlg.DoModal() != IDOK) return;
 
     CMyPhotoshopDoc* pDoc = GetDocument();
-    pDoc->pImage->MeanFilter(dlg.GetFilterSize());
-    Invalidate();
+    ASSERT_VALID(pDoc);
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        // 创建深拷贝
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        // 验证拷贝是否正确
+        ASSERT(pOldImage->nWidth == pDoc->pImage->nWidth);
+        ASSERT(pOldImage->nHeight == pDoc->pImage->nHeight);
+        ASSERT(pOldImage->nBitCount == pDoc->pImage->nBitCount);
+
+        int filterSize = dlg.GetFilterSize();
+
+        AddCommand(
+            [pDoc, filterSize]() {
+                pDoc->pImage->MeanFilter(filterSize);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                // 确保恢复前后尺寸一致
+                ASSERT(pOldImage->nWidth == pDoc->pImage->nWidth);
+                ASSERT(pOldImage->nHeight == pDoc->pImage->nHeight);
+
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (CMemoryException* e) {
+        e->ReportError();
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法完成操作"));
+    }
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
+    }
 }
 
 void CMyPhotoshopView::OnFilterMedian()
@@ -543,5 +582,16 @@ void CMyPhotoshopView::OnEnhancement()
         // 视图重绘
         Invalidate(); // 使视图无效，触发重绘
         UpdateWindow(); // 立即更新窗口
+    }
+}
+
+void CMyPhotoshopView::OnEditUndo()
+{
+    if (!m_commandStack.empty())
+    {
+        CCommand* pCommand = m_commandStack.top();
+        m_commandStack.pop();
+        pCommand->Undo(); // 撤回操作
+        delete pCommand;  // 删除命令对象
     }
 }

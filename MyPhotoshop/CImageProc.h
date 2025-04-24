@@ -16,6 +16,12 @@ public:
     bool IsValid() const { return m_hDib != NULL && pDib != NULL; }
     void CleanUp();
 
+	//计算对齐后的宽度
+    int GetAlignedWidthBytes() const {
+        // 计算每行对齐后的字节数 (每行必须4字节对齐)
+        return ((nWidth * nBitCount / 8) + 3) & ~3;
+    }
+
     //图片加载与显示
     void OpenFile();
     void LoadBmp(CString stFileName);
