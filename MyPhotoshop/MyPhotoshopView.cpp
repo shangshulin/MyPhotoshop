@@ -186,7 +186,7 @@ void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 }
 
 
-// 直方图规格化函数
+// 直方图规格化函数（带撤回功能）
 void CMyPhotoshopView::OnFunctionHistogramMatching()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
@@ -195,8 +195,6 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
         AfxMessageBox(_T("请先打开有效的源图像文件"));
         return;
     }
-
-    CImageProc* pSourceImage = pDoc->pImage;
 
     CFileDialog fileDlg(TRUE, _T("bmp"), NULL,
         OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_FILEMUSTEXIST,
@@ -207,42 +205,53 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
         return;
     }
 
-    CImageProc targetImageProc;
-    CString targetPath = fileDlg.GetPathName();
-
     try
     {
-        targetImageProc.LoadBmp(targetPath);
+        // 创建目标图像和原始图像的拷贝
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
 
-        if (!targetImageProc.IsValid())
+        CImageProc* pTargetImage = new CImageProc();
+        pTargetImage->LoadBmp(fileDlg.GetPathName());
+
+        if (!pTargetImage->IsValid())
         {
+            delete pOldImage;
+            delete pTargetImage;
             AfxMessageBox(_T("无法加载目标图像文件"));
             return;
         }
+
+        AddCommand(
+            [pDoc, pTargetImage]() {
+                if (pDoc->pImage->HistogramMatching(*pTargetImage))
+                {
+                    pDoc->SetModifiedFlag(TRUE);
+                    pDoc->UpdateAllViews(nullptr);
+                    AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
+                }
+                delete pTargetImage; // 执行完成后释放目标图像
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
     }
     catch (CMemoryException* e)
     {
         e->Delete();
-        AfxMessageBox(_T("内存不足，无法加载目标图像"));
-        return;
+        AfxMessageBox(_T("内存不足，无法完成操作"));
     }
     catch (CFileException* e)
     {
         e->Delete();
-        AfxMessageBox(_T("文件加载失败，请检查文件是否有效"));
-        return;
+        AfxMessageBox(_T("文件操作失败"));
     }
     catch (...)
     {
-        AfxMessageBox(_T("加载目标图像时发生未知错误"));
-        return;
-    }
-
-    if (pSourceImage->HistogramMatching(targetImageProc))
-    {
-        Invalidate(TRUE);
-        pDoc->SetModifiedFlag(TRUE);
-        AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
+        AfxMessageBox(_T("直方图规格化操作失败"));
     }
 }
 
