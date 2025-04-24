@@ -250,11 +250,33 @@ void CMyPhotoshopView::OnHistogramEqualization()
         return;
     }
 
-    // 调用均衡化并显示直方图
-    pDoc->pImage->Balance_Transformations();
+    try {
+        // 创建原始图像的深拷贝（用于撤回）
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
 
-	Invalidate(); // 触发重绘
-    UpdateWindow();
+        // 添加命令到命令栈
+        AddCommand(
+            [pDoc]() {
+                // 执行均衡化
+                pDoc->pImage->Balance_Transformations();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                // 撤回操作：恢复原始图像
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (CMemoryException* e) {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法完成操作"));
+    }
+    catch (...) {
+        AfxMessageBox(_T("直方图均衡化操作失败"));
+    }
 }
 
 // 直方图规格化函数（带撤回功能）
