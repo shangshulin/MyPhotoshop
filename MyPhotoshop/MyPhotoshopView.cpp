@@ -265,19 +265,31 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
 // 复古风格
 void CMyPhotoshopView::OnColorStyleVintage()
 {
-    // TODO: 在此添加命令处理程序代码
     CMyPhotoshopDoc* pDoc = GetDocument();
-	if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {// 检查文档和图像有效性
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
         AfxMessageBox(_T("请先打开有效的图像文件"));
         return;
     }
 
-    // 应用复古风格
-    pDoc->pImage->ApplyVintageStyle();
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
 
-    // 视图重绘
-    Invalidate(); // 使视图无效，触发重绘
-    UpdateWindow(); // 立即更新窗口
+        AddCommand(
+            [pDoc]() {
+                pDoc->pImage->ApplyVintageStyle();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
+    }
 }
 
 
@@ -285,13 +297,26 @@ void CMyPhotoshopView::OnColorStyleVintage()
 void CMyPhotoshopView::OnStyleBlackwhite()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
-    {
-        pDoc->pImage->ApplyBlackAndWhiteStyle(); // 应用黑白风格
+    if (!pDoc || !pDoc->pImage) return;
 
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc]() {
+                pDoc->pImage->ApplyBlackAndWhiteStyle();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
     }
 }
 
@@ -299,132 +324,127 @@ void CMyPhotoshopView::OnStyleBlackwhite()
 void CMyPhotoshopView::OnFunctionSaltandpepper()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
-    {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) return;
 
-    // 创建并显示比例设置对话框
     CNoiseRatioDialog dlg;
-    if (dlg.DoModal() != IDOK)
-    {
-        return; // 用户取消操作
+    if (dlg.DoModal() != IDOK) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+        double saltRatio = dlg.GetSaltRatio();
+
+        AddCommand(
+            [pDoc, saltRatio]() {
+                pDoc->pImage->AddSaltAndPepperNoise(0.05, saltRatio);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
     }
-
-    // 获取用户选择的比例
-    double saltRatio = dlg.GetSaltRatio();
-
-    // 添加噪声(默认5%的噪声比例)
-    pDoc->pImage->AddSaltAndPepperNoise(0.05, saltRatio);
-
-    // 视图重绘
-    Invalidate();
-    UpdateWindow();
-
-    CString msg;
-    msg.Format(_T("已添加椒盐噪声(盐噪声比例: %.0f%%)"), saltRatio * 100);
-    AfxMessageBox(msg);
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
+    }
 }
 
 
 void CMyPhotoshopView::OnFunctionImpulse()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
-    {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) return;
 
-    // 创建并显示参数设置对话框
     CImpulseNoiseDialog dlg;
-    if (dlg.DoModal() != IDOK)
-    {
-        return; // 用户取消操作
+    if (dlg.DoModal() != IDOK) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+        double noiseRatio = dlg.GetNoiseRatio();
+        BYTE noiseValue1 = dlg.GetNoiseValue1();
+        BYTE noiseValue2 = dlg.GetNoiseValue2();
+
+        AddCommand(
+            [pDoc, noiseRatio, noiseValue1, noiseValue2]() {
+                pDoc->pImage->AddImpulseNoise(noiseRatio, noiseValue1, noiseValue2);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
     }
-
-    // 获取用户选择的参数
-    double noiseRatio = dlg.GetNoiseRatio();
-    BYTE noiseValue1 = dlg.GetNoiseValue1();
-    BYTE noiseValue2 = dlg.GetNoiseValue2();
-
-    // 添加脉冲噪声
-    pDoc->pImage->AddImpulseNoise(noiseRatio, noiseValue1, noiseValue2);
-
-    // 视图重绘
-    Invalidate();
-    UpdateWindow();
-
-    CString msg;
-    msg.Format(_T("已添加脉冲噪声\n噪声比例: %.0f%%\n噪声值1: %d\n噪声值2: %d"),
-        noiseRatio * 100, noiseValue1, noiseValue2);
-    AfxMessageBox(msg);
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
+    }
 }
 
 
 void CMyPhotoshopView::OnFunctionGaussian()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
-    {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) return;
 
-    // 创建并显示参数设置对话框
     CGaussianNoiseDialog dlg;
-    if (dlg.DoModal() != IDOK)
-    {
-        return; // 用户取消操作
+    if (dlg.DoModal() != IDOK) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+        double mean = dlg.GetMean();
+        double sigma = dlg.GetSigma();
+
+        AddCommand(
+            [pDoc, mean, sigma]() {
+                pDoc->pImage->AddGaussianNoise(mean, sigma);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
     }
-
-    // 获取用户选择的参数
-    double mean = dlg.GetMean();
-    double sigma = dlg.GetSigma();
-
-    // 添加高斯噪声
-    pDoc->pImage->AddGaussianNoise(mean, sigma);
-
-    // 视图重绘
-    Invalidate();
-    UpdateWindow();
-
-    CString msg;
-    msg.Format(_T("已添加高斯噪声\n均值(μ): %.1f\n标准差(σ): %.1f"), mean, sigma);
-    AfxMessageBox(msg);
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
+    }
 }
 
 
 void CMyPhotoshopView::OnFunctionGaussianwhite()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
-    {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) return;
 
-    // 创建并显示参数设置对话框
     CGaussianWhiteNoiseDialog dlg;
-    if (dlg.DoModal() != IDOK)
-    {
-        return; // 用户取消操作
+    if (dlg.DoModal() != IDOK) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+        double sigma = dlg.GetSigma();
+
+        AddCommand(
+            [pDoc, sigma]() {
+                pDoc->pImage->AddGaussianWhiteNoise(sigma);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
     }
-
-    // 获取用户选择的标准差
-    double sigma = dlg.GetSigma();
-
-    // 添加高斯白噪声
-    pDoc->pImage->AddGaussianWhiteNoise(sigma);
-
-    // 视图重绘
-    Invalidate();
-    UpdateWindow();
-
-    CString msg;
-    msg.Format(_T("已添加高斯白噪声\n标准差(σ): %.1f"), sigma);
-    AfxMessageBox(msg);
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
+    }
 }
 
 void CMyPhotoshopView::OnFilterMean()
@@ -480,8 +500,28 @@ void CMyPhotoshopView::OnFilterMedian()
     if (dlg.DoModal() != IDOK) return;
 
     CMyPhotoshopDoc* pDoc = GetDocument();
-    pDoc->pImage->MedianFilter(dlg.GetFilterSize());
-    Invalidate();
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+        int filterSize = dlg.GetFilterSize();
+
+        AddCommand(
+            [pDoc, filterSize]() {
+                pDoc->pImage->MedianFilter(filterSize);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
+    }
 }
 
 void CMyPhotoshopView::OnFilterMax()
@@ -490,8 +530,28 @@ void CMyPhotoshopView::OnFilterMax()
     if (dlg.DoModal() != IDOK) return;
 
     CMyPhotoshopDoc* pDoc = GetDocument();
-    pDoc->pImage->MaxFilter(dlg.GetFilterSize());
-    Invalidate();
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+        int filterSize = dlg.GetFilterSize();
+
+        AddCommand(
+            [pDoc, filterSize]() {
+                pDoc->pImage->MaxFilter(filterSize);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
+    }
 }
 
 
