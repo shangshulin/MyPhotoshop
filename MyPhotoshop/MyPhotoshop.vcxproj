@@ -99,13 +99,16 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>D:\vs\fftw-3.3.5-dll64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>D:\fftw-3.3.5-dll64</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\vs\fftw-3.3.5-dll64;C:\FFTW;%(AdditionalIncludeDirectories);D:\fftw-3.3.5-dll64</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\fftw-3.3.5-dll64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3l-3.lib;D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3f-3.lib;D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\fftw-3.3.5-dll64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libfftw3-3.lib;libfftw3f-3.lib;libfftw3l-3.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\vs\fftw-3.3.5-dll64;C:\FFTW;%(AdditionalLibraryDirectories);D:\fftw-3.3.5-dll64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libfftw3-3.lib;libfftw3f-3.lib;libfftw3l-3.lib;%(AdditionalDependencies);%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -175,15 +178,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>D:\vs\fftw-3.3.5-dll64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>D:\vs\fftw-3.3.5-dll64;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\fftw-3.3.5-dll64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3l-3.lib;D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3f-3.lib;D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\vs\fftw-3.3.5-dll64;</AdditionalLibraryDirectories>
+      <AdditionalDependencies>;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>

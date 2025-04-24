@@ -96,9 +96,13 @@ public:
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
-	//低通滤波
-	afx_msg void OnLowFilter();// 低通滤波菜单项的处理函数
-	afx_msg void OnBnClickedLowFilterButton(); // 低通滤波按钮的处理函数
+	//同态滤波
+	afx_msg void OnHomomorphicFiltering();
+	//图像编码
+	afx_msg void OnHuffmanEncode();
+	afx_msg void OnHuffmanDecode();
+	afx_msg void OnRLEncode();
+	afx_msg void OnRLDecode();
 public:
 	template <typename TExecute, typename TUndo>
 	void AddCommand(TExecute&& executeFunc, TUndo&& undoFunc)

@@ -67,10 +67,45 @@ public:
     void Multiply(CImageProc& img);    // 图像相乘
     void PowerTransform(double gamma); // 幂律变换
 
-    //频率域滤波
-	void IdealLowPassFilter(double D0); // 理想低通滤波器
-	void ButterworthLowPassFilter(double D0, int n); // 巴特沃斯低通滤波器
+	// 频域滤波
+    void FreqPassFilter(double D0, int step, int filterType);  //高通/低通滤波
+    void HomomorphicFiltering();    //同态滤波
 
+    // 图像编码与解码
+    bool HuffmanEncodeImage(const CString& savePath);
+    bool HuffmanDecodeImage(const CString& openPath);
+    bool RLEncodeImage(const CString& savePath);
+    bool RLDecodeImage(const CString& openPath);
+
+    // 快速傅里叶变换
+    bool IsFFTPerformed() const { return m_bFFTPerformed; }
+    bool FFT2D(bool bForward = true, bool bSaveState = true); // true=FFT, false=IFFT
+    bool IFFT2D(bool bSaveState = true);
+
+	// FFT与IFFT显示
+    void ShowSpectrumDialog(CWnd* pParent);
+    void DisplayFullSpectrum(CDC* pDC, int xOffset = 0, int yOffset = 0,
+        int destWidth = -1, int destHeight = -1);
+    void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset, int destWidth, int destHeight);
+
+    // 新增方法：获取/设置复数频谱数据
+    const std::vector<std::complex<double>>& GetFFTData() const { return m_fftData; }
+    void SetFFTData(const std::vector<std::complex<double>>& data, int w, int h);
+    void CImageProc::FFT1D(std::complex<double>* data, int n, int direction); //一维FFT
+	void CImageProc::BitReverse(std::complex<double>* data, int n); // 位反转重排
+	int CImageProc::FindTargetBit(int i, int n); // 查找目标位
+    void SaveCurrentState();  // 保存当前状态
+    bool HasFFTData() const { return m_bFFTPerformed; }
+	bool RestoreState(); // 恢复保存的状态
+
+private:
+    std::vector<std::complex<double>> m_fftData; // 存储频域数据
+    std::vector<std::complex<double>> m_fftDataCopy; // 存储FFT结果的副本
+    bool m_bFFTPerformed = false;
+    std::vector<BYTE> m_originalPixels;  // 保存原始像素数据
+    bool m_bStateSaved;                  // 状态保存标志
+    std::vector<std::complex<double>> m_originalFFTData; // 保存原始FFT数据
+    void FFTShift(std::complex<double>* data, int w, int h); // 频谱移中
 
 public:
     
@@ -84,9 +119,11 @@ public:
     int nBitCount;
     bool m_bIs565Format;
     bool isPaletteDarkToLight;
+    bool m_bIFFTPerformed;
     HANDLE m_hDib;
-
-    void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC);
+    
+    //获取像素颜色
+    void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
@@ -96,4 +133,55 @@ public:
 public:
     // 深拷贝赋值运算符
     CImageProc& operator=(const CImageProc& other);
+
+    // 新增成员变量
+    std::vector<BYTE> m_originalImageData;  // 保存原始图像数据
+    std::vector<std::complex<double>> m_fftDisplayData; // 保存FFT显示数据
+    std::vector<BYTE> m_ifftResult;        // 保存IFFT结果
+
+    // 新增方法
+    bool HasOriginalImageData() const;
+    bool HasIFFTResult() const;
+    void DisplayOriginalImage(CDC* pDC, int xOffset, int yOffset, int destWidth, int destHeight);
+public:
+    // 计算大于等于n的最小2的幂次
+    int nextPowerOfTwo(int n) const {
+        if (n <= 0) return 1;
+        n--;
+        n |= n >> 1;
+        n |= n >> 2;
+        n |= n >> 4;
+        n |= n >> 8;
+        n |= n >> 16;
+        return n + 1;
+    }
+
+    // 检查是否为2的幂次
+    bool isPowerOfTwo(int n) const {
+        return (n & (n - 1)) == 0;
+    }
+
+public:
+    int m_fftWidth = 0;
+    int m_fftHeight = 0;
+    std::vector<std::complex<double>> m_fullSpectrum;  // 存储完整频谱数据
+    std::pair<int, int> m_paddedSize;
+    std::vector<std::vector<std::complex<double>>> m_fullSpectrumRGB; // 存储RGB三个通道的频谱
+};
+
+// 霍夫曼树节点结构体
+struct HuffmanNode {
+    BYTE value;
+    int freq;
+    HuffmanNode* left;
+    HuffmanNode* right;
+    HuffmanNode(BYTE v, int f) : value(v), freq(f), left(nullptr), right(nullptr) {}
+    HuffmanNode(HuffmanNode* l, HuffmanNode* r) : value(0), freq(l->freq + r->freq), left(l), right(r) {}
+};
+
+// 比较器
+struct CompareNode {
+    bool operator()(HuffmanNode* a, HuffmanNode* b) {
+        return a->freq > b->freq;
+    }
 };

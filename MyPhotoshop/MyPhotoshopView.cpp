@@ -67,9 +67,14 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_WM_HSCROLL()
     ON_WM_VSCROLL()
     ON_WM_SIZE()
-    //低通滤波
-	ON_COMMAND(ID_LOW_FILTER, &CMyPhotoshopView::OnLowFilter)
-    ON_BN_CLICKED(IDC_LOW_FILTER_BUTTON, &CMyPhotoshopView::OnBnClickedLowFilterButton)
+    //FFT与IFFT
+    ON_COMMAND(ID_FREQ_FFT, &CMyPhotoshopView::OnFreqFFT)
+    ON_COMMAND(ID_FREQ_IFFT, &CMyPhotoshopView::OnFreqIFFT)
+    // 图像编码
+    ON_COMMAND(ID_HUFFMAN_ENCODE, &CMyPhotoshopView::OnHuffmanEncode)
+    ON_COMMAND(ID_HUFFMAN_DECODE, &CMyPhotoshopView::OnHuffmanDecode)
+    ON_COMMAND(ID_RL_Encode, &CMyPhotoshopView::OnRLEncode)
+    ON_COMMAND(ID_RL_Decode, &CMyPhotoshopView::OnRLDecode)
 END_MESSAGE_MAP()
 
 
@@ -1134,4 +1139,105 @@ void CMyPhotoshopView::OnBnClickedLowFilterButton()
     catch (...) {
         AfxMessageBox(_T("低通滤波操作失败"));
     }
+}
+
+void CMyPhotoshopView::OnRLEncode()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像"));
+        return;
+    }
+    // 弹出“另存为”对话框
+    CFileDialog fileDlg(FALSE, _T("rle"), NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+        _T("RLE编码文件(*.rle)|*.rle|所有文件(*.*)|*.*||"), this);
+    if (fileDlg.DoModal() == IDOK)
+    {
+        CString savePath = fileDlg.GetPathName();
+        if (!pDoc->pImage->RLEncodeImage(savePath))
+        {
+            AfxMessageBox(_T("RLE编码保存失败！"));
+        }
+        else
+        {
+            AfxMessageBox(_T("RLE编码保存成功！"));
+        }
+    }
+}
+
+void CMyPhotoshopView::OnRLDecode()
+{
+    CFileDialog fileDlg(TRUE, _T("huff"), NULL, OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
+        _T("Huffman编码文件(*.huff)|*.huff|所有文件(*.*)|*.*||"), this);
+    if (fileDlg.DoModal() == IDOK)
+    {
+        CString filePath = fileDlg.GetPathName();
+        CMyPhotoshopDoc* pDoc = GetDocument();
+        if (!pDoc || !pDoc->pImage)
+        {
+            AfxMessageBox(_T("文档或图像对象无效"));
+            return;
+        }
+        if (!pDoc->pImage->HuffmanDecodeImage(filePath))
+        {
+            AfxMessageBox(_T("解码失败或文件格式错误！"));
+        }
+        else
+        {
+            AfxMessageBox(_T("解码成功！"));
+            pDoc->UpdateAllViews(nullptr); // 刷新显示
+        }
+    }
+}
+
+void CMyPhotoshopView::OnRLEncode()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像"));
+        return;
+    }
+    // 弹出“另存为”对话框
+    CFileDialog fileDlg(FALSE, _T("rle"), NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+        _T("RLE编码文件(*.rle)|*.rle|所有文件(*.*)|*.*||"), this);
+    if (fileDlg.DoModal() == IDOK)
+    {
+        CString savePath = fileDlg.GetPathName();
+        if (!pDoc->pImage->RLEncodeImage(savePath))
+        {
+            AfxMessageBox(_T("RLE编码保存失败！"));
+        }
+        else
+        {
+            AfxMessageBox(_T("RLE编码保存成功！"));
+        }
+    }
+}
+
+void CMyPhotoshopView::OnRLDecode()
+{
+    CFileDialog fileDlg(TRUE, _T("rle"), NULL, OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
+    _T("RLE编码文件(*.rle)|*.rle|所有文件(*.*)|*.*||"), this);
+if (fileDlg.DoModal() == IDOK)
+{
+    CString filePath = fileDlg.GetPathName();
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage) // pImage 可能是新创建的，所以先检查pDoc
+    {
+        // 如果 pDoc->pImage 为空，尝试创建一个新的 CImageProc 实例
+        // 或者，如果逻辑上解码总是覆盖当前图像，则确保 pDoc->pImage 已初始化
+         pDoc->pImage = new CImageProc(); // 确保 pImage 被初始化
+    }
+    
+    if (!pDoc->pImage->RLDecodeImage(filePath))
+    {
+        AfxMessageBox(_T("RLE解码失败或文件格式错误！"));
+    }
+    else
+    {
+        AfxMessageBox(_T("RLE解码成功！"));
+        pDoc->SetModifiedFlag(); // 标记文档已修改
+        pDoc->UpdateAllViews(nullptr); // 刷新显示
+    }
+}
 }

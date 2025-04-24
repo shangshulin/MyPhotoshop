@@ -87,21 +87,35 @@
 #define ID_EDGE_LOG                     32813
 #define ID_32816                        32816
 #define ID_32817                        32817
-#define ID_32818                        32818
-#define ID_32819                        32819
-#define ID_LOW_FILTER                   32820
-#define ID_32821                        32821
-#define ID_B_LOW_FILTER                 32822
-#define ID_32823                        32823
-#define ID_LowFilterButton              32824
+#define ID_FREQ_FFT                     32818
+#define ID_FREQ_IFFT                    32819
+#define ID_FREQ_UNDO                    32820
+#define ID_32824                        32824
+#define ID_FREQ_FFT_LOG                 32825
+#define ID_HIGHPASS_FILTER              32826
+#define ID_32827                        32827
+#define ID_LOWPASS_FILTER               32828
+#define ID_HOMOMORPHIC_FILTERING        32829
+#define ID_HUFMAN                       32831
+#define ID_HUF                          32832
+#define ID_HUFFMAN_ENCODE               32833
+#define ID_HUFFMAN_DECODE               32834
+#define ID_32835                        32835
+#define ID_RLE                          32836
+#define ID_32837                        32837
+#define ID_32838                        32838
+#define ID_RLE_Encoder                  32839
+#define ID_RLE_Decoder                  32840
+#define ID_RL_Encode                    32841
+#define ID_RL_Decode                    32842
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        324
-#define _APS_NEXT_COMMAND_VALUE         32825
-#define _APS_NEXT_CONTROL_VALUE         1031
-#define _APS_NEXT_SYMED_VALUE           310
+#define _APS_NEXT_RESOURCE_VALUE        330
+#define _APS_NEXT_COMMAND_VALUE         32843
+#define _APS_NEXT_CONTROL_VALUE         1039
+#define _APS_NEXT_SYMED_VALUE           320
 #endif
 #endif
