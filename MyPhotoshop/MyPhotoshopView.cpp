@@ -35,6 +35,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnViewPixelInfo) // 显示像素点信息
     ON_UPDATE_COMMAND_UI(ID_VIEW_PIXELINFO, &CMyPhotoshopView::OnUpdateViewPixelInfo) // 更新像素点信息菜单项状态
     //灰度处理
+    ON_COMMAND(ID_INTENSITY_TRANS, &CMyPhotoshopView::OnIntensityTrans)// 灰度变换
     ON_COMMAND(ID_HISTOGRAM_EQUALIZATION, &CMyPhotoshopView::OnHistogramEqualization)// 直方图均衡化
     ON_COMMAND(ID_FUNCTION_HISTOGRAM_MATCHING, &CMyPhotoshopView::OnFunctionHistogramMatching) // 直方图规格化
     ON_COMMAND(ID_COLOR_STYLE_VINTAGE, &CMyPhotoshopView::OnColorStyleVintage)// 复古风格
@@ -65,7 +66,6 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_WM_VSCROLL()
     ON_WM_SIZE()
 
-    ON_COMMAND(ID_INTENSITY_TRANS, &CMyPhotoshopView::OnIntensityTrans)
 END_MESSAGE_MAP()
 
 
