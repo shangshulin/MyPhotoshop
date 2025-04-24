@@ -5,19 +5,27 @@
 #include <algorithm> // 用于排序
 #include <omp.h>
 #include <numeric>
+#include <cmath>
+#include <complex>
+#include<fftw3.h>
+#ifndef M_PI  
+#define M_PI 3.14159265358979323846  
+#endif  
+
 
 
 CImageProc::CImageProc()
 {
     m_hDib = NULL;
-    pDib = NULL;
-    pBFH = NULL;
-    pBIH = NULL;
-    pQUAD = NULL;
-    pBits = NULL;
-    nWidth = nHeight = nBitCount = 0;
-    m_bIs565Format = true;
-    isPaletteDarkToLight = false;
+    pDib = new BYTE;
+    pBFH = new BITMAPFILEHEADER;
+    pBIH = new BITMAPINFOHEADER;
+    pQUAD = new RGBQUAD;
+    pBits = new BYTE;
+    nWidth = 0;
+    nHeight = 0;
+    nBitCount = 0;
+    m_bIs565Format = true; // 默认假设为565格式
 }
 CImageProc::~CImageProc()
 {
@@ -29,91 +37,7 @@ CImageProc::~CImageProc()
     }
 }
 
-void CImageProc::CleanUp()
-{
-    if (m_hDib) {
-        if (pDib) {
-            GlobalUnlock(m_hDib);
-        }
-        GlobalFree(m_hDib);
-    }
-    m_hDib = NULL;
-    pDib = NULL;
-    pBFH = NULL;
-    pBIH = NULL;
-    pQUAD = NULL;
-    pBits = NULL;
-    nWidth = nHeight = nBitCount = 0;
-    m_bIs565Format = true;
-    isPaletteDarkToLight = false;
-}
-
-CImageProc& CImageProc::operator=(const CImageProc& other) {
-    if (this == &other) return *this;
-
-    // 释放当前资源
-    if (m_hDib) {
-        GlobalFree(m_hDib);
-        m_hDib = NULL;
-    }
-
-    // 复制基本参数
-    nWidth = other.nWidth;
-    nHeight = other.nHeight;
-    nBitCount = other.nBitCount;
-
-    if (other.m_hDib) {
-        // 计算源图像数据大小
-        DWORD dwSize = ::GlobalSize(other.m_hDib);
-
-        // 分配新内存
-        m_hDib = ::GlobalAlloc(GHND, dwSize);
-        if (!m_hDib) AfxThrowMemoryException();
-
-        // 锁定内存
-        LPBYTE pSrc = (LPBYTE)::GlobalLock(other.m_hDib);
-        LPBYTE pDst = (LPBYTE)::GlobalLock(m_hDib);
-
-        if (!pSrc || !pDst) {
-            if (pSrc) ::GlobalUnlock(other.m_hDib);
-            if (pDst) ::GlobalUnlock(m_hDib);
-            AfxThrowMemoryException();
-        }
-
-        // 完整拷贝数据
-        memcpy(pDst, pSrc, dwSize);
-
-        // 解锁内存
-        ::GlobalUnlock(other.m_hDib);
-        ::GlobalUnlock(m_hDib);
-
-        // 重新设置指针
-        pDib = (LPBYTE)::GlobalLock(m_hDib);
-        pBFH = (LPBITMAPFILEHEADER)pDib;
-        pBIH = (LPBITMAPINFOHEADER)(pDib + sizeof(BITMAPFILEHEADER));
-
-        // 重新计算像素数据位置
-        int nColorTableSize = 0;
-        if (nBitCount <= 8) {
-            nColorTableSize = (1 << nBitCount) * sizeof(RGBQUAD);
-            pQUAD = (LPRGBQUAD)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
-        }
-        else {
-            pQUAD = NULL;
-        }
-
-        // 计算像素数据起始位置
-        if (pBFH) {
-            pBits = pDib + pBFH->bfOffBits;
-        }
-        else {
-            pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + nColorTableSize;
-        }
-    }
-    return *this;
-}
-
-//打开文件
+// 打开文件
 void CImageProc::OpenFile()
 {
     CFileDialog fileDlg(TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, L"Bmp File(*.bmp)|*.bmp|JPG File(*.jpg)|*.jpg|All Files(*.*)|*.*||", NULL);
@@ -254,8 +178,8 @@ void CImageProc::ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight)
     }
 }
 
-//获取像素颜色
-void CImageProc::GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue)
+// 获取像素颜色
+void CImageProc::GetColor(CClientDC* pDC, int x, int y)
 {
     if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
     {
@@ -300,27 +224,9 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     {
         return;
     }
-    // 计算每行字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    // 计算每个像素的字节数
-    int bytePerPixel = nBitCount / 8;
-    // 计算像素在位图中的偏移量
-    int offset = (nHeight - 1 - imgY) * rowSize + imgX * bytePerPixel;
-    // pixel指向当前像素
-    BYTE* pixel = pBits + offset;
-    // 获取像素颜色
-    BYTE red = 0, green = 0, blue = 0;
-    // 根据位深获取像素颜色
-    switch (nBitCount)
+    case 8: // 8位位图
     {
-    case 1:
-        CImageProc::GetColor1bit(pixel, red, green, blue, imgX, imgY, pDC);
-        break;
-    case 4:
-        CImageProc::GetColor4bit(pixel, red, green, blue, imgX);
-        break;
-    case 8:
-        CImageProc::GetColor8bit(pixel, red, green, blue, imgX);
+        CImageProc::GetColor8bit(pixel, red, green, blue, x);
         break;
     case 16:
         CImageProc::GetColor16bit(pixel, red, green, blue);
@@ -335,7 +241,8 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
         return;
     }
 
-    COLORREF pixelColor = pDC->GetPixel(winX, winY);
+    // 使用 GetPixel 获取像素颜色
+    COLORREF pixelColor = pDC->GetPixel(x, y);
     BYTE getPixelRed = GetRValue(pixelColor);
     BYTE getPixelGreen = GetGValue(pixelColor);
     BYTE getPixelBlue = GetBValue(pixelColor);
@@ -350,7 +257,7 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     getPixelStr.Format(L"GetPixel RGB: (%d, %d, %d)", getPixelRed, getPixelGreen, getPixelBlue);
 
     CString location;
-    location.Format(L"location:(%d, %d)", imgX, imgY);
+    location.Format(L"location：(%d, %d)", x, y);
 
     pDC->TextOutW(winX, winY, str);//显示像素颜色
 
@@ -2877,4 +2784,132 @@ void CImageProc::ApplyMeanFilter()
             }
         }
     }
+}
+
+//理想低通滤波器
+void CImageProc::IdealLowPassFilter(double D0)
+{
+    if (!IsValid() || nBitCount != 8) {
+        AfxMessageBox(_T("8 Bit Only!"));
+        return;
+    }
+    int w = nWidth, h = nHeight;
+    int N = w * h;
+
+    // 分配输入输出数组
+    fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
+    fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
+
+    // 填充输入数据并应用(-1)^(x+y)进行频谱中心化
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
+            // 应用(-1)^(x+y)进行频谱中心化
+            double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
+            in[y * w + x][0] = pBits[offset] * factor;
+            in[y * w + x][1] = 0.0;
+        }
+    }
+
+
+    // 正变换
+    fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+    fftw_execute(plan);
+
+    // 理想低通滤波
+    int cx = w / 2, cy = h / 2;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+            if (D > D0) {
+                out[y * w + x][0] = 0;
+                out[y * w + x][1] = 0;
+            }
+        }
+    }
+
+    // 逆变换
+    fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
+    fftw_execute(iplan);
+
+    // 写回图像时再次应用(-1)^(x+y)恢复原始位置
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
+            double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
+            double val = in[y * w + x][0] / N * factor;
+            val = min(255.0, max(0.0, val));
+            pBits[offset] = static_cast<BYTE>(val);
+        }
+    }
+
+    // 写回图像
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
+            double val = in[y * w + x][0] / N;
+            val = min(255.0, max(0.0, val));
+            pBits[offset] = static_cast<BYTE>(val);
+        }
+    }
+
+    fftw_destroy_plan(plan);
+    fftw_destroy_plan(iplan);
+    fftw_free(in);
+    fftw_free(out);
+}
+
+void CImageProc::ButterworthLowPassFilter(double D0, int n)
+{
+    if (!IsValid() || nBitCount != 8) {
+        AfxMessageBox(_T("8 Bit Only!"));
+        return;
+    }
+    int w = nWidth, h = nHeight;
+    int N = w * h;
+
+    fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
+    fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
+
+    // 填充输入数据并应用(-1)^(x+y)进行频谱中心化
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
+            double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
+            in[y * w + x][0] = pBits[offset] * factor;
+            in[y * w + x][1] = 0.0;
+        }
+    }
+
+    fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+    fftw_execute(plan);
+
+    int cx = w / 2, cy = h / 2;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+            double H = 1.0 / (1.0 + pow(D / D0, 2 * n));
+            out[y * w + x][0] *= H;
+            out[y * w + x][1] *= H;
+        }
+    }
+
+    fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
+    fftw_execute(iplan);
+
+    // 写回图像时再次应用(-1)^(x+y)恢复原始位置
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
+            double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
+            double val = in[y * w + x][0] / N * factor;
+            val = min(255.0, max(0.0, val));
+            pBits[offset] = static_cast<BYTE>(val);
+        }
+    }
+
+    fftw_destroy_plan(plan);
+    fftw_destroy_plan(iplan);
+    fftw_free(in);
+    fftw_free(out);
 }

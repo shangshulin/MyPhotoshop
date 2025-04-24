@@ -1,4 +1,4 @@
-﻿
+#pragma execution_character_set("utf-8")
 // MyPhotoshopView.cpp: CMyPhotoshopView 类的实现
 //
 
@@ -15,6 +15,8 @@
 #include <algorithm>
 #include "FilterSizeDialog.h"  
 #include "CINTENSITYDlg.h"
+#include"CLOWFILTERDlg.h"
+#include "fftw3.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -65,7 +67,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_WM_HSCROLL()
     ON_WM_VSCROLL()
     ON_WM_SIZE()
-
+    //低通滤波
+	ON_COMMAND(ID_LOW_FILTER, &CMyPhotoshopView::OnLowFilter)
+    ON_BN_CLICKED(IDC_LOW_FILTER_BUTTON, &CMyPhotoshopView::OnBnClickedLowFilterButton)
 END_MESSAGE_MAP()
 
 
@@ -401,7 +405,7 @@ void CMyPhotoshopView::OnHistogramEqualization()
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid())
     {
-        AfxMessageBox(_T("请先打开有效的图像"));
+        AfxMessageBox(_T("请选择有效图像"));
         return;
     }
 
@@ -427,8 +431,8 @@ void CMyPhotoshopView::OnHistogramEqualization()
     }
     catch (CMemoryException* e) {
         e->Delete();
-        AfxMessageBox(_T("内存不足，无法完成操作"));
-    }
+		AfxMessageBox(_T("内存不足，无法完成操作"));
+	}
     catch (...) {
         AfxMessageBox(_T("直方图均衡化操作失败"));
     }
@@ -1059,3 +1063,75 @@ void CMyPhotoshopView::OnEditUndo()
     }
 }
 
+
+void CMyPhotoshopView::OnLowFilter()
+{
+    // 获取文档对象
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    // 弹出低通滤波参数对话框
+    CLOWFILTERDlg dlg;
+    dlg.SetImageData(pDoc->pImage); // 设置图像数据
+    dlg.DoModal();
+}
+
+void CMyPhotoshopView::OnBnClickedLowFilterButton()
+{
+    // 获取文档对象
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    try {
+        // 创建原始图像的深拷贝（用于撤回）
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        // 弹出低通滤波参数对话框
+        CLOWFILTERDlg dlg;
+        dlg.SetImageData(pDoc->pImage);
+        if (dlg.DoModal() != IDOK) {
+            delete pOldImage;
+            return;
+        }
+
+        // 获取用户输入的参数
+        double D0 = dlg.GetD0(); // 截止频率
+        int filterType = dlg.GetFilterType(); // 滤波器类型 (0: 理想低通, 1: 巴特沃斯低通)
+        int step = dlg.GetStep(); // 巴特沃斯滤波阶数
+
+        // 添加命令到命令栈
+        AddCommand(
+            [pDoc, D0, filterType, step]() {
+                // 执行滤波操作
+                if (filterType == 0) {
+                    // 理想低通滤波
+                    pDoc->pImage->IdealLowPassFilter(D0);
+                } else {
+                    // 巴特沃斯低通滤波
+                    pDoc->pImage->ButterworthLowPassFilter(D0, step);
+                }
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                // 撤回操作：恢复原始图像
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (CMemoryException* e) {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法完成操作"));
+    }
+    catch (...) {
+        AfxMessageBox(_T("低通滤波操作失败"));
+    }
+}

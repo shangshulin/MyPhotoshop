@@ -15,6 +15,7 @@
 #define IDD_DIALOG2                     320
 #define IDD_GAUSSIAN_WHITE_NOISE_DIALOG 320
 #define IDD_FILTER_SIZE                 321
+#define IDD_LOW_FILTERDLG               322
 #define IDC_STATIC_HISTOGRAM            1000
 #define IDC_STATIC_HISTOGRAM2           1001
 #define IDC_EDIT_ALPHA                  1002
@@ -36,6 +37,11 @@
 #define IDC_SIGMA_SLIDER                1018
 #define IDC_SLIDER1                     1019
 #define IDC_FILTER_SIZE                 1020
+#define IDC_LOW_FILTER                  1022
+#define IDC_BW_LOW_FILTER               1023
+#define IDC_BW_LOW_FILTER_EDIT          1028
+#define IDC_EDIT_D0                     1029
+#define IDC_LOW_FILTER_BUTTON           1030
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -79,14 +85,23 @@
 #define ID_ENHANCEMENT                  32811
 #define ID_EDGE_CANNY                   32812
 #define ID_EDGE_LOG                     32813
+#define ID_32816                        32816
+#define ID_32817                        32817
+#define ID_32818                        32818
+#define ID_32819                        32819
+#define ID_LOW_FILTER                   32820
+#define ID_32821                        32821
+#define ID_B_LOW_FILTER                 32822
+#define ID_32823                        32823
+#define ID_LowFilterButton              32824
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        322
-#define _APS_NEXT_COMMAND_VALUE         32816
-#define _APS_NEXT_CONTROL_VALUE         1021
+#define _APS_NEXT_RESOURCE_VALUE        324
+#define _APS_NEXT_COMMAND_VALUE         32825
+#define _APS_NEXT_CONTROL_VALUE         1031
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

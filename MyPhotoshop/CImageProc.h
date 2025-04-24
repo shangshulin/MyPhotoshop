@@ -1,7 +1,8 @@
-
+#pragma execution_character_set("utf-8")
 #pragma once
 #include "pch.h"
 #include <vector>
+#include <complex>
 
 enum class FilterType {
     Mean,
@@ -65,6 +66,11 @@ public:
     void Add(CImageProc& img, double weight1, double weight2); // 图像相加
     void Multiply(CImageProc& img);    // 图像相乘
     void PowerTransform(double gamma); // 幂律变换
+
+    //频率域滤波
+	void IdealLowPassFilter(double D0); // 理想低通滤波器
+	void ButterworthLowPassFilter(double D0, int n); // 巴特沃斯低通滤波器
+
 
 public:
     
