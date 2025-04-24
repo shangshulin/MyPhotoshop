@@ -558,61 +558,134 @@ void CMyPhotoshopView::OnFilterMax()
 void CMyPhotoshopView::OnEdgeDetectionSobel()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
-    {
-        pDoc->pImage->ApplySobelEdgeDetection(); // 应用Sobel边缘检测
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc]() {
+                pDoc->pImage->ApplySobelEdgeDetection();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("Sobel边缘检测操作失败"));
     }
 }
 
 void CMyPhotoshopView::OnEdgeDetectionPrewitt()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
-    {
-        pDoc->pImage->ApplyPrewittEdgeDetection(); // 应用Prewitt边缘检测
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc]() {
+                pDoc->pImage->ApplyPrewittEdgeDetection();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("Prewitt边缘检测操作失败"));
     }
 }
+
 // Robert边缘检测
 void CMyPhotoshopView::OnEdgeDetectionRobert()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
-    {
-        pDoc->pImage->ApplyRobertEdgeDetection(); // 应用Robert边缘检测
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc]() {
+                pDoc->pImage->ApplyRobertEdgeDetection();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("Robert边缘检测操作失败"));
     }
 }
+
 // Canny边缘检测
 void CMyPhotoshopView::OnEdgeDetectionCanny()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
-    {
-        pDoc->pImage->ApplyCannyEdgeDetection(); // 应用Canny边缘检测
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc]() {
+                pDoc->pImage->ApplyCannyEdgeDetection();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("Canny边缘检测操作失败"));
     }
 }
+
 
 //LoG边缘检测
 void CMyPhotoshopView::OnEdgeDetectionLog()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
-    {
-        pDoc->pImage->ApplyLoGEdgeDetection(); // 应用LoG边缘检测
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc]() {
+                pDoc->pImage->ApplyLoGEdgeDetection();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("LoG边缘检测操作失败"));
     }
 }
 
@@ -620,12 +693,26 @@ void CMyPhotoshopView::OnEdgeDetectionLog()
 void CMyPhotoshopView::OnEdgeDetectionLaplace()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (pDoc->pImage)
-    {
-        pDoc->pImage->ApplyLaplaceEdgeDetection(); // 应用Laplace边缘检测
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc]() {
+                pDoc->pImage->ApplyLaplaceEdgeDetection();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("Laplace边缘检测操作失败"));
     }
 }
 
@@ -633,15 +720,26 @@ void CMyPhotoshopView::OnEdgeDetectionLaplace()
 void CMyPhotoshopView::OnEnhancement()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    // 检查文档和图像有效性
-    if (pDoc->pImage)
-    {
-        // 应用图像增强
-        pDoc->ApplyImageEnhancement();
+    if (!pDoc || !pDoc->pImage) return;
 
-        // 视图重绘
-        Invalidate(); // 使视图无效，触发重绘
-        UpdateWindow(); // 立即更新窗口
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc]() {
+                pDoc->ApplyImageEnhancement();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("图像增强操作失败"));
     }
 }
 
