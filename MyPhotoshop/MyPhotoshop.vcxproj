@@ -187,6 +187,7 @@
     <ClInclude Include="CImageProc.h" />
     <ClInclude Include="CINTENSITYDlg.h" />
     <ClInclude Include="Command.h" />
+    <ClInclude Include="FFTLogDialog.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="GaussianNoiseDialog.h" />
     <ClInclude Include="GaussianWhiteNoiseDialog.h" />
@@ -199,6 +200,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
+    <ClCompile Include="FFTLogDialog.cpp" />
     <ClCompile Include="FilterSizeDialog.h" />
   </ItemGroup>
   <ItemGroup>

@@ -15,6 +15,7 @@
 #include <algorithm>
 #include "FilterSizeDialog.h"  
 #include "CINTENSITYDlg.h"
+#include "FFTLogDialog.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -69,6 +70,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_FREQ_FFT, &CMyPhotoshopView::OnFreqFFT)
     ON_COMMAND(ID_FREQ_IFFT, &CMyPhotoshopView::OnFreqIFFT)
     ON_COMMAND(ID_FREQ_UNDO, &CMyPhotoshopView::OnFreqUndo)
+    ON_COMMAND(ID_FREQ_FFT_LOG, &CMyPhotoshopView::OnFreqFftLogTransform)
 END_MESSAGE_MAP()
 
 
@@ -1239,5 +1241,36 @@ void CMyPhotoshopView::OnFreqUndo() {
     }
     catch (...) {
         AfxMessageBox(_T("撤销操作失败"));
+    }
+}
+
+void CMyPhotoshopView::OnFreqFftLogTransform() {
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsFFTPerformed()) {
+        AfxMessageBox(_T("请先执行FFT变换"));
+        return;
+    }
+
+    CFFTLogDialog dlg;
+    if (dlg.DoModal() == IDOK) {
+        // 保存对话框参数到局部变量
+        double logBase = dlg.m_dLogBase;
+        double scaleFactor = dlg.m_dScaleFactor;
+
+        // 保存当前状态用于撤销
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc, logBase, scaleFactor]() {  // 捕获基本类型参数而非对话框对象
+                pDoc->pImage->ApplyFFTLogTransform(logBase, scaleFactor);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
     }
 }

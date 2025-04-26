@@ -15,6 +15,7 @@
 #define IDD_DIALOG2                     320
 #define IDD_GAUSSIAN_WHITE_NOISE_DIALOG 320
 #define IDD_FILTER_SIZE                 321
+#define IDD_FFTLOG_DIALOG               322
 #define IDC_STATIC_HISTOGRAM            1000
 #define IDC_STATIC_HISTOGRAM2           1001
 #define IDC_EDIT_ALPHA                  1002
@@ -36,6 +37,9 @@
 #define IDC_SIGMA_SLIDER                1018
 #define IDC_SLIDER1                     1019
 #define IDC_FILTER_SIZE                 1020
+#define IDC_EDIT_LOGBASE                1021
+#define IDC_EDIT_LOGBASE2               1022
+#define IDC_EDIT_SCALEFACTOR            1022
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -84,14 +88,16 @@
 #define ID_FREQ_FFT                     32818
 #define ID_FREQ_IFFT                    32819
 #define ID_FREQ_UNDO                    32820
+#define ID_32824                        32824
+#define ID_FREQ_FFT_LOG                 32825
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        322
-#define _APS_NEXT_COMMAND_VALUE         32824
-#define _APS_NEXT_CONTROL_VALUE         1021
+#define _APS_NEXT_RESOURCE_VALUE        324
+#define _APS_NEXT_COMMAND_VALUE         32826
+#define _APS_NEXT_CONTROL_VALUE         1023
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

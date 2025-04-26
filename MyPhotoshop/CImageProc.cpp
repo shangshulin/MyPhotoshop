@@ -2922,31 +2922,28 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
 }
 
 void CImageProc::DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
-    int destWidth, int destHeight)
-{
+    int destWidth, int destHeight) {
     if (!m_bFFTPerformed || m_fftData.empty()) return;
 
     int srcW = nWidth;
     int srcH = nHeight;
 
-    // 使用传入的目标尺寸，若未指定则使用原尺寸
     if (destWidth <= 0) destWidth = srcW;
     if (destHeight <= 0) destHeight = srcH;
-
-    // 计算幅度谱并归一化显示
-    double maxMag = 0;
-    std::vector<double> magnitudes(srcW * srcH);
-
-    for (int i = 0; i < srcW * srcH; i++) {
-        magnitudes[i] = std::log(1 + std::abs(m_fftData[i]));
-        if (magnitudes[i] > maxMag) maxMag = magnitudes[i];
-    }
 
     // 计算缩放比例
     double scaleX = (double)srcW / destWidth;
     double scaleY = (double)srcH / destHeight;
 
-    // 绘制频谱图（带缩放）
+    // 计算最大幅度（对数变换后）
+    double maxLogMag = 0;
+    for (auto& val : m_fftData) {
+        double mag = std::abs(val);
+        if (mag > maxLogMag) maxLogMag = mag;
+    }
+    maxLogMag = log(1 + maxLogMag); // 已经应用了对数变换
+
+    // 绘制频谱图
     for (int y = 0; y < destHeight; y++) {
         int srcY = (int)(y * scaleY);
         if (srcY >= srcH) srcY = srcH - 1;
@@ -2955,7 +2952,7 @@ void CImageProc::DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
             int srcX = (int)(x * scaleX);
             if (srcX >= srcW) srcX = srcW - 1;
 
-            double normMag = magnitudes[srcY * srcW + srcX] / maxMag;
+            double normMag = log(1 + std::abs(m_fftData[srcY * srcW + srcX])) / maxLogMag;
             int intensity = static_cast<int>(normMag * 255);
             pDC->SetPixel(x + xOffset, y + yOffset,
                 RGB(intensity, intensity, intensity));
@@ -3115,4 +3112,21 @@ bool CImageProc::RestoreState() {
     memcpy(pBits, m_originalPixels.data(), m_originalPixels.size());
     m_bFFTPerformed = false;
     return true;
+}
+
+void CImageProc::ApplyFFTLogTransform(double logBase, double scaleFactor) {
+    if (!m_bFFTPerformed || m_fftData.empty()) return;
+
+    const double logOfBase = log(logBase);
+    const int size = nWidth * nHeight;
+
+    for (int i = 0; i < size; i++) {
+        double magnitude = std::abs(m_fftData[i]);
+        if (magnitude > 0) {
+            // 对数变换公式: scaleFactor * log(1 + magnitude) / log(base)
+            double logValue = scaleFactor * log(1.0 + magnitude) / logOfBase;
+            // 保持相位不变，只修改幅度
+            m_fftData[i] = std::polar(logValue, std::arg(m_fftData[i]));
+        }
+    }
 }

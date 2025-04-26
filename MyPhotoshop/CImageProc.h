@@ -78,6 +78,7 @@ public:
     //void RestoreState();      // 恢复保存的状态
     bool HasFFTData() const { return m_bFFTPerformed; }
 	bool RestoreState(); // 恢复保存的状态
+	void ApplyFFTLogTransform(double logBase = 10.0, double scaleFactor = 1.0); // FFT对数变换
 private:
     std::vector<std::complex<double>> m_fftData; // 存储频域数据
     bool m_bFFTPerformed = false;
