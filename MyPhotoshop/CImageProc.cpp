@@ -3103,12 +3103,16 @@ void CImageProc::SaveCurrentState() {
     m_bStateSaved = true;
 }
 
-void CImageProc::RestoreState() {
-    if (!m_bStateSaved || !IsValid()) return;
-
-    int dataSize = nWidth * nHeight * (nBitCount / 8);
-    if (m_originalPixels.size() == dataSize) {
-        memcpy(pBits, m_originalPixels.data(), dataSize);
+bool CImageProc::RestoreState() {
+    if (!m_bStateSaved || !IsValid()) {
+        return false;
     }
-    m_bStateSaved = false;
+
+    if (m_originalPixels.size() != nWidth * nHeight * (nBitCount / 8)) {
+        return false;
+    }
+
+    memcpy(pBits, m_originalPixels.data(), m_originalPixels.size());
+    m_bFFTPerformed = false;
+    return true;
 }

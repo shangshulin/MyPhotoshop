@@ -75,7 +75,9 @@ public:
     void CImageProc::FFT1D(std::complex<double>* data, int n, int direction); //一维FFT
 	void CImageProc::BitReverse(std::complex<double>* data, int n); // 位反转重排
     void SaveCurrentState();  // 保存当前状态
-    void RestoreState();      // 恢复保存的状态
+    //void RestoreState();      // 恢复保存的状态
+    bool HasFFTData() const { return m_bFFTPerformed; }
+	bool RestoreState(); // 恢复保存的状态
 private:
     std::vector<std::complex<double>> m_fftData; // 存储频域数据
     bool m_bFFTPerformed = false;
