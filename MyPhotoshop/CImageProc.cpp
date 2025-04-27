@@ -2899,8 +2899,8 @@ void CImageProc::ApplyMeanFilter()
 
 bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
     if (!IsValid()) return false;
-    m_originalImageData.clear();
-    // 保存原始图像数据
+
+    // 保存原始图像数据（包括彩色信息）
     int dataSize = nWidth * nHeight * (nBitCount / 8);
     m_originalImageData.resize(dataSize);
     memcpy(m_originalImageData.data(), pBits, dataSize);
@@ -2910,33 +2910,37 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
     }
 
     try {
-        // 1. 将图像数据转换为复数形式
         int w = nWidth;
         int h = nHeight;
-        int N = w * h;
-        m_fftData.resize(N);
+        m_fftData.resize(w * h);
 
-        // 转换为灰度并归一化
+        // 转换为复数形式（保留各通道信息）
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 BYTE r, g, b;
                 GetColor(x, y, r, g, b);
-                double gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                m_fftData[y * w + x] = std::complex<double>(gray / 255.0, 0);
+                // 使用亮度作为实部，通道差异作为虚部
+                double real = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                double imag = (0.5 * r - 0.5 * b) / 255.0; // 示例性保留部分色彩信息
+                m_fftData[y * w + x] = std::complex<double>(real, imag);
             }
         }
 
-        // 2. 执行二维FFT
-        CalculateFFT(true);
+        // 执行FFT
+        CalculateFFT(m_fftData.data(), w, h, true);
 
-        // 3. 频谱移中
-        FFTShift();
+        // 频谱移中
+        FFTShift(m_fftData.data(), w, h);
 
-        // 保存FFT显示数据
+        // 保存原始FFT数据（用于IFFT）
+        m_originalFFTData = m_fftData;
+        // 保存显示用数据
         m_fftDisplayData = m_fftData;
 
+        // 保存FFT结果的副本
+        m_fftDataCopy = m_fftData;
+
         m_bFFTPerformed = true;
-        m_bIFFTPerformed = false; // 重置IFFT标志
         return true;
     }
     catch (...) {
@@ -2986,38 +2990,22 @@ void CImageProc::DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
 }
 
 // 辅助函数：蝶形运算
-void CImageProc::CalculateFFT(bool bForward) {
-    const int width = nWidth;
-    const int height = nHeight;
-    const int direction = bForward ? 1 : -1; // 正变换1，逆变换-1
+void CImageProc::CalculateFFT(std::complex<double>* data, int width, int height, bool bForward) {
+    const double norm = bForward ? 1.0 : (1.0 / (width * height));
 
-    // 1. 对每一行进行一维FFT/IFFT
+    // 行列变换
     for (int y = 0; y < height; y++) {
-        FFT1D(&m_fftData[y * width], width, direction);
+        FFT1D(&data[y * width], width, bForward ? 1 : -1);
     }
 
-    // 2. 对每一列进行一维FFT/IFFT
     std::vector<std::complex<double>> column(height);
     for (int x = 0; x < width; x++) {
-        // 提取列数据
         for (int y = 0; y < height; y++) {
-            column[y] = m_fftData[y * width + x];
+            column[y] = data[y * width + x];
         }
-
-        // 执行一维变换
-        FFT1D(column.data(), height, direction);
-
-        // 存回数据
+        FFT1D(column.data(), height, bForward ? 1 : -1);
         for (int y = 0; y < height; y++) {
-            m_fftData[y * width + x] = column[y];
-        }
-    }
-
-    // 3. 逆变换需要归一化
-    if (!bForward) {
-        const double norm = 1.0 / sqrt(width * height);
-        for (auto& val : m_fftData) {
-            val *= norm;
+            data[y * width + x] = column[y] * norm;
         }
     }
 }
@@ -3097,17 +3085,15 @@ void CImageProc::BitReverse(std::complex<double>* data, int n) {
     }
 }
 
-void CImageProc::FFTShift() {
-    int w = nWidth;
-    int h = nHeight;
+void CImageProc::FFTShift(std::complex<double>* data, int w, int h) {
     int hw = w / 2;
     int hh = h / 2;
 
     for (int y = 0; y < hh; y++) {
         for (int x = 0; x < hw; x++) {
             // 交换四个象限
-            std::swap(m_fftData[y * w + x], m_fftData[(y + hh) * w + (x + hw)]);
-            std::swap(m_fftData[y * w + (x + hw)], m_fftData[(y + hh) * w + x]);
+            std::swap(data[y * w + x], data[(y + hh) * w + (x + hw)]);
+            std::swap(data[y * w + (x + hw)], data[(y + hh) * w + x]);
         }
     }
 }
@@ -3154,52 +3140,68 @@ void CImageProc::ApplyFFTLogTransform(double logBase, double scaleFactor) {
 
 bool CImageProc::IFFT2D(bool bSaveState) {
     if (!IsValid() || !m_bFFTPerformed) return false;
-    m_ifftResult.clear();
+
     try {
-        // 1. 使用原始FFT数据进行计算
-        if (!m_originalFFTData.empty()) {
-            m_fftData = m_originalFFTData;
-        }
+        // 使用FFT结果的副本进行逆变换
+        std::vector<std::complex<double>> ifftData = m_fftDataCopy;
 
-        // 2. 执行逆FFT移中
-        FFTShift();
+        // 逆移中（恢复原始排列）
+        FFTShift(ifftData.data(), nWidth, nHeight);
 
-        // 3. 执行逆FFT
-        CalculateFFT(false);
+        // 执行逆FFT（会自动应用归一化）
+        CalculateFFT(ifftData.data(), nWidth, nHeight, false);
 
-        // 4. 创建临时缓冲区存储IFFT结果
+        // 准备结果缓冲区
         int w = nWidth;
         int h = nHeight;
         int rowSize = ((w * nBitCount + 31) / 32) * 4;
         int dataSize = w * h * (nBitCount / 8);
         m_ifftResult.resize(dataSize);
 
-        // 5. 将IFFT结果存入临时缓冲区
+        // 转换回图像数据
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
-                std::complex<double> val = m_fftData[y * w + x];
-                double gray = val.real() * 255.0;
-                gray = max(0.0, min(255.0, gray));
-                BYTE intensity = static_cast<BYTE>(gray + 0.5);
+                // 取实部并反归一化
+                double val = ifftData[y * w + x].real() * 255.0;
+                val = std::clamp(val, 0.0, 255.0);
+                BYTE intensity = static_cast<BYTE>(val + 0.5);
 
+                // 写入结果缓冲区
                 int offset = (h - 1 - y) * rowSize + x * (nBitCount / 8);
                 BYTE* pixel = m_ifftResult.data() + offset;
 
+                // 根据位深处理
                 switch (nBitCount) {
-                case 8: *pixel = intensity; break;
-                case 24:
-                    pixel[0] = pixel[1] = pixel[2] = intensity;
+                case 8:
+                    *pixel = intensity;
                     break;
+                case 24:
                 case 32:
-                    pixel[0] = pixel[1] = pixel[2] = intensity;
-                    pixel[3] = 255;
+                    // 从原始图像恢复色彩比例
+                    if (m_originalImageData.size() == dataSize) {
+                        BYTE origR = m_originalImageData[offset + 2];
+                        BYTE origG = m_originalImageData[offset + 1];
+                        BYTE origB = m_originalImageData[offset];
+                        double origLum = 0.299 * origR + 0.587 * origG + 0.114 * origB;
+                        if (origLum > 1e-6) {
+                            double ratio = intensity / origLum;
+                            pixel[0] = std::clamp(static_cast<int>(origB * ratio), 0, 255);
+                            pixel[1] = std::clamp(static_cast<int>(origG * ratio), 0, 255);
+                            pixel[2] = std::clamp(static_cast<int>(origR * ratio), 0, 255);
+                        }
+                        else {
+                            pixel[0] = pixel[1] = pixel[2] = intensity;
+                        }
+                        if (nBitCount == 32) pixel[3] = 255;
+                    }
+                    else {
+                        pixel[0] = pixel[1] = pixel[2] = intensity;
+                        if (nBitCount == 32) pixel[3] = 255;
+                    }
                     break;
                 }
             }
         }
-
-        // 6. 恢复FFT显示数据
-        m_fftData = m_fftDisplayData;
 
         m_bIFFTPerformed = true;
         return true;

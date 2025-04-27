@@ -89,12 +89,13 @@ public:
 	void ApplyFFTLogTransform(double logBase = 10.0, double scaleFactor = 1.0); // FFT对数变换
 private:
     std::vector<std::complex<double>> m_fftData; // 存储频域数据
+    std::vector<std::complex<double>> m_fftDataCopy; // 存储FFT结果的副本
     bool m_bFFTPerformed = false;
     std::vector<BYTE> m_originalPixels;  // 保存原始像素数据
     bool m_bStateSaved;                  // 状态保存标志
     std::vector<std::complex<double>> m_originalFFTData; // 保存原始FFT数据
-    void FFTShift(); // 频谱移中
-    void CalculateFFT(bool bForward);
+    void FFTShift(std::complex<double>* data, int w, int h); // 频谱移中
+    void CalculateFFT(std::complex<double>* data, int width, int height, bool bForward);
 
 public:
     
