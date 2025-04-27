@@ -141,8 +141,7 @@ void CMyPhotoshopView::SetZoomRatio(double ratio, CPoint ptCenter)
     Invalidate(TRUE);
 }
 
-void CMyPhotoshopView::OnDraw(CDC* pDC)
-{
+void CMyPhotoshopView::OnDraw(CDC* pDC) {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage)
         return;
@@ -155,11 +154,19 @@ void CMyPhotoshopView::OnDraw(CDC* pDC)
     int destWidth = int(pDoc->pImage->nWidth * m_dZoomRatio);
     int destHeight = int(pDoc->pImage->nHeight * m_dZoomRatio);
 
-    // 如果进行了FFT，需要两倍的宽度
+    // 计算总宽度和图像数量
     int totalWidth = destWidth;
+    int imageCount = 1;
+
     if (pDoc->pImage->IsFFTPerformed()) {
-        totalWidth = destWidth * 2 + 10; // 原图和频谱图之间留10像素间距
+        imageCount = 2; // 原图和FFT频谱图
+        if (pDoc->pImage->HasIFFTResult()) {
+            imageCount = 3; // 原图、FFT频谱图和IFFT结果
+        }
     }
+
+    // 计算总宽度（每张图之间留10像素间距）
+    totalWidth = destWidth * imageCount + (imageCount - 1) * 10;
 
     CBitmap bitmap;
     bitmap.CreateCompatibleBitmap(pDC, totalWidth, destHeight);
@@ -168,10 +175,15 @@ void CMyPhotoshopView::OnDraw(CDC* pDC)
     // 填充背景
     memDC.FillSolidRect(0, 0, totalWidth, destHeight, RGB(255, 255, 255));
 
-    // 1. 绘制原始图像（带缩放）
-    pDoc->pImage->ShowBMP(&memDC, 0, 0, destWidth, destHeight);
+    // 1. 绘制原始图像
+    if (pDoc->pImage->HasOriginalImageData()) {
+        pDoc->pImage->DisplayOriginalImage(&memDC, 0, 0, destWidth, destHeight);
+    }
+    else {
+        pDoc->pImage->ShowBMP(&memDC, 0, 0, destWidth, destHeight);
+    }
 
-    // 2. 如果进行了FFT，在旁边显示频谱结果
+    // 2. 如果进行了FFT，显示频谱图
     if (pDoc->pImage->IsFFTPerformed()) {
         // 创建临时DC用于频谱绘制
         CDC specDC;
@@ -188,23 +200,40 @@ void CMyPhotoshopView::OnDraw(CDC* pDC)
         pDoc->pImage->DisplayFFTResult(&specDC, 0, 0, destWidth, destHeight);
 
         // 将频谱图拷贝到内存DC
-        memDC.BitBlt(
-            destWidth + 10, 0, destWidth, destHeight,
-            &specDC,
-            0, 0,
-            SRCCOPY);
+        memDC.BitBlt(destWidth + 10, 0, destWidth, destHeight,
+            &specDC, 0, 0, SRCCOPY);
 
         specDC.SelectObject(pOldSpecBmp);
+
+        // 3. 如果进行了IFFT，显示IFFT结果
+        if (pDoc->pImage->HasIFFTResult()) {
+            // 创建临时DC用于IFFT结果绘制
+            CDC ifftDC;
+            ifftDC.CreateCompatibleDC(&memDC);
+
+            CBitmap ifftBmp;
+            ifftBmp.CreateCompatibleBitmap(&memDC, destWidth, destHeight);
+            CBitmap* pOldIfftBmp = ifftDC.SelectObject(&ifftBmp);
+
+            // 填充IFFT结果背景
+            ifftDC.FillSolidRect(0, 0, destWidth, destHeight, RGB(255, 255, 255));
+
+            // 绘制IFFT结果
+            pDoc->pImage->DisplayIFFTResult(&ifftDC, 0, 0, destWidth, destHeight);
+
+            // 将IFFT结果拷贝到内存DC
+            memDC.BitBlt(destWidth * 2 + 20, 0, destWidth, destHeight,
+                &ifftDC, 0, 0, SRCCOPY);
+
+            ifftDC.SelectObject(pOldIfftBmp);
+        }
     }
 
     // 从内存DC拷贝到屏幕DC，考虑滚动位置
     CRect rectClient;
     GetClientRect(&rectClient);
-    pDC->BitBlt(
-        0, 0, rectClient.Width(), rectClient.Height(),
-        &memDC,
-        m_ptScrollPos.x, m_ptScrollPos.y,
-        SRCCOPY);
+    pDC->BitBlt(0, 0, rectClient.Width(), rectClient.Height(),
+        &memDC, m_ptScrollPos.x, m_ptScrollPos.y, SRCCOPY);
 
     memDC.SelectObject(pOldBitmap);
 }

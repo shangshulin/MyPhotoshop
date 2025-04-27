@@ -29,7 +29,7 @@ public:
     void ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight);
     void DisplayColor(CClientDC* pDC,int imgX, int imgY, int x, int y);
     void GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue);
-
+    void ResetFFTState();  // 新增方法声明
     //灰度处理
 	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
     std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
@@ -76,6 +76,7 @@ public:
     void DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
         int destWidth, int destHeight,
         bool bKeepOriginalData = true);
+    void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset, int destWidth, int destHeight);
     // 新增方法：获取/设置复数频谱数据
     const std::vector<std::complex<double>>& GetFFTData() const { return m_fftData; }
     void SetFFTData(const std::vector<std::complex<double>>& data, int w, int h);
@@ -94,6 +95,7 @@ private:
     std::vector<std::complex<double>> m_originalFFTData; // 保存原始FFT数据
     void FFTShift(); // 频谱移中
     void CalculateFFT(bool bForward);
+
 public:
     
     BYTE* pDib;
@@ -106,6 +108,7 @@ public:
     int nBitCount;
     bool m_bIs565Format;
     bool isPaletteDarkToLight;
+    bool m_bIFFTPerformed;
     HANDLE m_hDib;
 
     void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC);
@@ -118,4 +121,18 @@ public:
 public:
     // 深拷贝赋值运算符
     CImageProc& operator=(const CImageProc& other);
+    //bool m_bIFFTPerformed; // 标记是否执行了IFFT
+    //bool HasIFFTResult() const { return m_bIFFTPerformed; }
+    //std::vector<BYTE> m_ifftResult; // 存储IFFT结果
+    //std::vector<BYTE> m_originalImageData;  // 保存原始图像数据
+    //std::vector<std::complex<double>> m_fftDisplayData; // 保存FFT显示数据
+    // 新增成员变量
+    std::vector<BYTE> m_originalImageData;  // 保存原始图像数据
+    std::vector<std::complex<double>> m_fftDisplayData; // 保存FFT显示数据
+    std::vector<BYTE> m_ifftResult;        // 保存IFFT结果
+
+    // 新增方法
+    bool HasOriginalImageData() const;
+    bool HasIFFTResult() const;
+    void DisplayOriginalImage(CDC* pDC, int xOffset, int yOffset, int destWidth, int destHeight);
 };
