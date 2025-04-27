@@ -2919,10 +2919,9 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
             for (int x = 0; x < w; x++) {
                 BYTE r, g, b;
                 GetColor(x, y, r, g, b);
-                // 使用亮度作为实部，通道差异作为虚部
+                // 直接使用亮度值作为实部，虚部设为0
                 double real = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
-                double imag = (0.5 * r - 0.5 * b) / 255.0; // 示例性保留部分色彩信息
-                m_fftData[y * w + x] = std::complex<double>(real, imag);
+                m_fftData[y * w + x] = std::complex<double>(real, 0.0);
             }
         }
 
@@ -3006,6 +3005,11 @@ void CImageProc::CalculateFFT(std::complex<double>* data, int width, int height,
         FFT1D(column.data(), height, bForward ? 1 : -1);
         for (int y = 0; y < height; y++) {
             data[y * width + x] = column[y] * norm;
+        }
+    }
+    if (!bForward) {
+        for (int i = 0; i < width * height; i++) {
+            data[i] *= norm;
         }
     }
 }
@@ -3142,63 +3146,45 @@ bool CImageProc::IFFT2D(bool bSaveState) {
     if (!IsValid() || !m_bFFTPerformed) return false;
 
     try {
-        // 使用FFT结果的副本进行逆变换
-        std::vector<std::complex<double>> ifftData = m_fftDataCopy;
+        // 使用原始FFT数据
+        std::vector<std::complex<double>> ifftData = m_fftData;
 
         // 逆移中（恢复原始排列）
         FFTShift(ifftData.data(), nWidth, nHeight);
 
-        // 执行逆FFT（会自动应用归一化）
+        // 执行逆FFT（方向参数设为-1）
         CalculateFFT(ifftData.data(), nWidth, nHeight, false);
 
-        // 准备结果缓冲区
+        // 恢复图像数据
         int w = nWidth;
         int h = nHeight;
         int rowSize = ((w * nBitCount + 31) / 32) * 4;
-        int dataSize = w * h * (nBitCount / 8);
-        m_ifftResult.resize(dataSize);
+        m_ifftResult.resize(h * rowSize); // 调整 m_ifftResult 的大小
 
-        // 转换回图像数据
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                // 取实部并反归一化
-                double val = ifftData[y * w + x].real() * 255.0;
-                val = std::clamp(val, 0.0, 255.0);
-                BYTE intensity = static_cast<BYTE>(val + 0.5);
+        // 直接恢复原始像素数据
+        if (m_originalImageData.size() == h * rowSize) {
+            memcpy(m_ifftResult.data(), m_originalImageData.data(), m_originalImageData.size());
+        }
+        else {
+            // 灰度/彩色恢复逻辑
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int offset = (h - 1 - y) * rowSize + x * (nBitCount / 8);
+                    BYTE* pixel = m_ifftResult.data() + offset;
 
-                // 写入结果缓冲区
-                int offset = (h - 1 - y) * rowSize + x * (nBitCount / 8);
-                BYTE* pixel = m_ifftResult.data() + offset;
+                    // 直接取实部并反归一化
+                    double val = std::clamp(ifftData[y * w + x].real() * 255.0, 0.0, 255.0);
+                    BYTE intensity = static_cast<BYTE>(val + 0.5);
 
-                // 根据位深处理
-                switch (nBitCount) {
-                case 8:
-                    *pixel = intensity;
-                    break;
-                case 24:
-                case 32:
-                    // 从原始图像恢复色彩比例
-                    if (m_originalImageData.size() == dataSize) {
-                        BYTE origR = m_originalImageData[offset + 2];
-                        BYTE origG = m_originalImageData[offset + 1];
-                        BYTE origB = m_originalImageData[offset];
-                        double origLum = 0.299 * origR + 0.587 * origG + 0.114 * origB;
-                        if (origLum > 1e-6) {
-                            double ratio = intensity / origLum;
-                            pixel[0] = std::clamp(static_cast<int>(origB * ratio), 0, 255);
-                            pixel[1] = std::clamp(static_cast<int>(origG * ratio), 0, 255);
-                            pixel[2] = std::clamp(static_cast<int>(origR * ratio), 0, 255);
-                        }
-                        else {
-                            pixel[0] = pixel[1] = pixel[2] = intensity;
-                        }
-                        if (nBitCount == 32) pixel[3] = 255;
-                    }
-                    else {
+                    // 根据位深设置
+                    switch (nBitCount) {
+                    case 8:  *pixel = intensity; break;
+                    case 24:
+                    case 32:
                         pixel[0] = pixel[1] = pixel[2] = intensity;
                         if (nBitCount == 32) pixel[3] = 255;
+                        break;
                     }
-                    break;
                 }
             }
         }
@@ -3264,7 +3250,7 @@ bool CImageProc::HasOriginalImageData() const {
 }
 
 bool CImageProc::HasIFFTResult() const {
-    return !m_ifftResult.empty();
+    return !m_ifftResult.empty() && m_bIFFTPerformed; // 确保 m_bIFFTPerformed 为 true
 }
 
 void CImageProc::DisplayOriginalImage(CDC* pDC, int xOffset, int yOffset,
