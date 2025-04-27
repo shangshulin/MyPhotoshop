@@ -1169,21 +1169,19 @@ void CMyPhotoshopView::OnFreqFFT() {
 
 void CMyPhotoshopView::OnFreqIFFT() {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage) {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsFFTPerformed()) {
+        AfxMessageBox(_T("请先执行FFT变换"));
         return;
     }
 
     try {
-        // 保存原始图像状态
+        // 保存当前状态用于撤销
         CImageProc* pOldImage = new CImageProc();
-        if (!pOldImage) AfxThrowMemoryException();
         *pOldImage = *pDoc->pImage;
 
-        // 添加到命令栈
         AddCommand(
             [pDoc]() {
-                if (!pDoc->pImage->FFT2D(false)) {
+                if (!pDoc->pImage->IFFT2D(false)) {
                     AfxMessageBox(_T("IFFT变换失败"));
                 }
                 pDoc->UpdateAllViews(nullptr);
@@ -1195,15 +1193,46 @@ void CMyPhotoshopView::OnFreqIFFT() {
             }
         );
     }
-    catch (CMemoryException* e) {
-        e->Delete();
-        AfxMessageBox(_T("内存不足，无法保存图像状态"));
-    }
     catch (...) {
-        AfxMessageBox(_T("IFFT变换初始化失败"));
+        AfxMessageBox(_T("IFFT变换失败"));
     }
 }
 
+//void CMyPhotoshopView::OnFreqIFFT() {
+//    CMyPhotoshopDoc* pDoc = GetDocument();
+//    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsFFTPerformed()) {
+//        AfxMessageBox(_T("请先执行FFT变换"));
+//        return;
+//    }
+//
+//    try {
+//        // 保存当前状态用于撤销
+//        CImageProc* pOldImage = new CImageProc();
+//        *pOldImage = *pDoc->pImage;
+//
+//        AddCommand(
+//            [pDoc]() {
+//                if (!pDoc->pImage->IFFT2D(false)) { // false表示不重复保存状态
+//                    AfxMessageBox(_T("IFFT变换失败"));
+//                }
+//                pDoc->UpdateAllViews(nullptr);
+//            },
+//            [pDoc, pOldImage]() {
+//                *pDoc->pImage = *pOldImage;
+//                delete pOldImage;
+//                pDoc->UpdateAllViews(nullptr);
+//            }
+//        );
+//    }
+//    catch (CMemoryException* e) {
+//        e->Delete();
+//        AfxMessageBox(_T("内存不足，无法执行IFFT"));
+//    }
+//    catch (...) {
+//        AfxMessageBox(_T("IFFT变换初始化失败"));
+//    }
+//}
+//
 void CMyPhotoshopView::OnFreqUndo() {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage) {

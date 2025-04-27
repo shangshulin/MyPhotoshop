@@ -70,8 +70,15 @@ public:
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
     bool FFT2D(bool bForward = true, bool bSaveState = true); // true=FFT, false=IFFT
-    void DisplayFFTResult(CDC* pDC, int xOffset = 0, int yOffset = 0,
-        int destWidth = -1, int destHeight = -1);
+    bool IFFT2D(bool bSaveState = true);
+    /*void DisplayFFTResult(CDC* pDC, int xOffset = 0, int yOffset = 0,
+        int destWidth = -1, int destHeight = -1);*/
+    void DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
+        int destWidth, int destHeight,
+        bool bKeepOriginalData = true);
+    // 新增方法：获取/设置复数频谱数据
+    const std::vector<std::complex<double>>& GetFFTData() const { return m_fftData; }
+    void SetFFTData(const std::vector<std::complex<double>>& data, int w, int h);
     void CImageProc::FFT1D(std::complex<double>* data, int n, int direction); //一维FFT
 	void CImageProc::BitReverse(std::complex<double>* data, int n); // 位反转重排
     void SaveCurrentState();  // 保存当前状态
@@ -84,7 +91,7 @@ private:
     bool m_bFFTPerformed = false;
     std::vector<BYTE> m_originalPixels;  // 保存原始像素数据
     bool m_bStateSaved;                  // 状态保存标志
-
+    std::vector<std::complex<double>> m_originalFFTData; // 保存原始FFT数据
     void FFTShift(); // 频谱移中
     void CalculateFFT(bool bForward);
 public:

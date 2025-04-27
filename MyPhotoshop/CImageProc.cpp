@@ -2908,10 +2908,10 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
         }
 
         // 2. 执行二维FFT
-        CalculateFFT(bForward);
+        CalculateFFT(true);
 
         // 3. 频谱移中
-        if (bForward) FFTShift();
+        FFTShift();
 
         m_bFFTPerformed = true;
         return true;
@@ -2922,9 +2922,11 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
 }
 
 void CImageProc::DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
-    int destWidth, int destHeight) {
+    int destWidth, int destHeight, bool bKeepOriginalData) {
     if (!m_bFFTPerformed || m_fftData.empty()) return;
-
+    if (bKeepOriginalData) {
+        m_originalFFTData = m_fftData; // 保存原始FFT数据
+    }
     int srcW = nWidth;
     int srcH = nHeight;
 
@@ -2966,16 +2968,12 @@ void CImageProc::CalculateFFT(bool bForward) {
     const int height = nHeight;
     const int direction = bForward ? 1 : -1; // 正变换1，逆变换-1
 
-    // 1. 对每一行进行一维FFT
+    // 1. 对每一行进行一维FFT/IFFT
     for (int y = 0; y < height; y++) {
-        // 获取当前行的指针
-        std::complex<double>* row = &m_fftData[y * width];
-
-        // 执行一维FFT
-        FFT1D(row, width, direction);
+        FFT1D(&m_fftData[y * width], width, direction);
     }
 
-    // 2. 对每一列进行一维FFT
+    // 2. 对每一列进行一维FFT/IFFT
     std::vector<std::complex<double>> column(height);
     for (int x = 0; x < width; x++) {
         // 提取列数据
@@ -2983,7 +2981,7 @@ void CImageProc::CalculateFFT(bool bForward) {
             column[y] = m_fftData[y * width + x];
         }
 
-        // 执行一维FFT
+        // 执行一维变换
         FFT1D(column.data(), height, direction);
 
         // 存回数据
@@ -2992,7 +2990,7 @@ void CImageProc::CalculateFFT(bool bForward) {
         }
     }
 
-    // 3. 如果是逆变换，需要归一化
+    // 3. 逆变换需要归一化
     if (!bForward) {
         const double norm = 1.0 / sqrt(width * height);
         for (auto& val : m_fftData) {
@@ -3129,4 +3127,68 @@ void CImageProc::ApplyFFTLogTransform(double logBase, double scaleFactor) {
             m_fftData[i] = std::polar(logValue, std::arg(m_fftData[i]));
         }
     }
+}
+
+bool CImageProc::IFFT2D(bool bSaveState) {
+    if (!IsValid() || !m_bFFTPerformed) return false;
+
+    if (bSaveState) {
+        SaveCurrentState();
+    }
+
+    try {
+        // 恢复原始FFT数据（而不是显示用的数据）
+        if (!m_originalFFTData.empty()) {
+            m_fftData = m_originalFFTData;
+        }
+
+        // 1. 执行逆FFT移中（如果之前执行过FFTShift）
+        FFTShift(); // 再次执行就是反向移位
+
+        // 2. 执行逆FFT
+        CalculateFFT(false);
+
+        // 3. 将结果转换回图像数据
+        int w = nWidth;
+        int h = nHeight;
+        int rowSize = ((w * nBitCount + 31) / 32) * 4;
+
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                std::complex<double> val = m_fftData[y * w + x];
+                double gray = val.real() * 255.0;
+                gray = max(0.0, min(255.0, gray));
+                BYTE intensity = static_cast<BYTE>(gray + 0.5);
+
+                int offset = (h - 1 - y) * rowSize + x * (nBitCount / 8);
+                BYTE* pixel = pBits + offset;
+
+                switch (nBitCount) {
+                case 8: *pixel = intensity; break;
+                case 24:
+                    pixel[0] = pixel[1] = pixel[2] = intensity;
+                    break;
+                case 32:
+                    pixel[0] = pixel[1] = pixel[2] = intensity;
+                    pixel[3] = 255;
+                    break;
+                }
+            }
+        }
+
+        m_bFFTPerformed = false;
+        return true;
+    }
+    catch (...) {
+        return false;
+    }
+}
+
+void CImageProc::SetFFTData(const std::vector<std::complex<double>>& data, int w, int h) {
+    if (data.size() != w * h) return;
+
+    nWidth = w;
+    nHeight = h;
+    m_fftData = data;
+    m_bFFTPerformed = true;
 }
