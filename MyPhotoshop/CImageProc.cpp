@@ -3004,12 +3004,14 @@ void CImageProc::CalculateFFT(std::complex<double>* data, int width, int height,
         }
         FFT1D(column.data(), height, bForward ? 1 : -1);
         for (int y = 0; y < height; y++) {
-            data[y * width + x] = column[y] * norm;
+            data[y * width + x] = column[y]; // 移除列处理时的缩放
         }
     }
+
+    // 统一应用缩放因子
     if (!bForward) {
         for (int i = 0; i < width * height; i++) {
-            data[i] *= norm;
+            data[i] *= norm; // 仅在逆变换时应用一次总缩放
         }
     }
 }
@@ -3146,64 +3148,57 @@ bool CImageProc::IFFT2D(bool bSaveState) {
     if (!IsValid() || !m_bFFTPerformed) return false;
 
     try {
-        // 使用原始FFT数据
         std::vector<std::complex<double>> ifftData = m_fftData;
-
-        // 逆移中（恢复原始排列）
-        FFTShift(ifftData.data(), nWidth, nHeight);
-
-        // 执行逆FFT（方向参数设为-1）
+        FFTShift(ifftData.data(), nWidth, nHeight); // 恢复频谱排列
         CalculateFFT(ifftData.data(), nWidth, nHeight, false);
 
-        // 恢复图像数据
         int w = nWidth;
         int h = nHeight;
         int rowSize = ((w * nBitCount + 31) / 32) * 4;
-        m_ifftResult.resize(h * rowSize); // 调整 m_ifftResult 的大小
+        m_ifftResult.resize(h * rowSize);
 
-        // 直接恢复原始像素数据
-        if (m_originalImageData.size() == h * rowSize) {
-            memcpy(m_ifftResult.data(), m_originalImageData.data(), m_originalImageData.size());
-        }
-        else {
-            // 灰度/彩色恢复逻辑
-            for (int y = 0; y < h; y++) {
-                for (int x = 0; x < w; x++) {
-                    int offset = (h - 1 - y) * rowSize + x * (nBitCount / 8);
-                    BYTE* pixel = m_ifftResult.data() + offset;
+        // 生成图像数据
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int offset = (h - 1 - y) * rowSize + x * (nBitCount / 8);
+                BYTE* pixel = m_ifftResult.data() + offset;
 
-                    // 直接取实部并反归一化
-                    double val = std::clamp(ifftData[y * w + x].real() * 255.0, 0.0, 255.0);
-                    BYTE intensity = static_cast<BYTE>(val + 0.5);
+                // 提取实部并缩放到0-255
+                double realValue = ifftData[y * w + x].real();
+                realValue = realValue * 255.0; // 撤销归一化
+                realValue = std::clamp(realValue, 0.0, 255.0);
+                BYTE intensity = static_cast<BYTE>(realValue + 0.5);
 
-                    // 根据位深设置
-                    switch (nBitCount) {
-                    case 8:  *pixel = intensity; break;
-                    case 16: {
-                        WORD newPixel;
-                        if (m_bIs565Format) {
-                            // RGB565: R5 G6 B5
-                            BYTE r = intensity >> 3;  // 5 bits
-                            BYTE g = intensity >> 2;  // 6 bits
-                            BYTE b = intensity >> 3;
-                            newPixel = (r << 11) | (g << 5) | b;
-                        }
-                        else {
-                            // RGB555: R5 G5 B5
-                            BYTE r = intensity >> 3;
-                            BYTE g = intensity >> 3;
-                            BYTE b = intensity >> 3;
-                            newPixel = (r << 10) | (g << 5) | b;
-                        }
-                        *reinterpret_cast<WORD*>(pixel) = newPixel;
-                        break;
+                // 根据位深设置像素
+                switch (nBitCount) {
+                case 8:
+                    *pixel = intensity;
+                    break;
+                case 16: {
+                    WORD newPixel;
+                    if (m_bIs565Format) {
+                        BYTE r = (intensity >> 3) & 0x1F;
+                        BYTE g = (intensity >> 2) & 0x3F;
+                        BYTE b = (intensity >> 3) & 0x1F;
+                        newPixel = (r << 11) | (g << 5) | b;
                     }
-                    case 24:
-                    case 32:
-                        pixel[0] = pixel[1] = pixel[2] = intensity;
-                        if (nBitCount == 32) pixel[3] = 255;
-                        break;
+                    else {
+                        BYTE r = (intensity >> 3) & 0x1F;
+                        BYTE g = (intensity >> 3) & 0x1F;
+                        BYTE b = (intensity >> 3) & 0x1F;
+                        newPixel = (r << 10) | (g << 5) | b;
                     }
+                    *reinterpret_cast<WORD*>(pixel) = newPixel;
+                    break;
+                }
+                case 24:
+                case 32:
+                    pixel[0] = intensity; // B
+                    pixel[1] = intensity; // G
+                    pixel[2] = intensity; // R
+                    if (nBitCount == 32)
+                        pixel[3] = 255;   // Alpha
+                    break;
                 }
             }
         }
