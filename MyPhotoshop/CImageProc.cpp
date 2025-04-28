@@ -3179,6 +3179,25 @@ bool CImageProc::IFFT2D(bool bSaveState) {
                     // 根据位深设置
                     switch (nBitCount) {
                     case 8:  *pixel = intensity; break;
+                    case 16: {
+                        WORD newPixel;
+                        if (m_bIs565Format) {
+                            // RGB565: R5 G6 B5
+                            BYTE r = intensity >> 3;  // 5 bits
+                            BYTE g = intensity >> 2;  // 6 bits
+                            BYTE b = intensity >> 3;
+                            newPixel = (r << 11) | (g << 5) | b;
+                        }
+                        else {
+                            // RGB555: R5 G5 B5
+                            BYTE r = intensity >> 3;
+                            BYTE g = intensity >> 3;
+                            BYTE b = intensity >> 3;
+                            newPixel = (r << 10) | (g << 5) | b;
+                        }
+                        *reinterpret_cast<WORD*>(pixel) = newPixel;
+                        break;
+                    }
                     case 24:
                     case 32:
                         pixel[0] = pixel[1] = pixel[2] = intensity;
@@ -3250,6 +3269,13 @@ void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset,
             COLORREF color;
             switch (nBitCount) {
             case 8: color = RGB(*pixel, *pixel, *pixel); break;
+            case 16: {
+                WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
+                BYTE r, g, b;
+                GetColor16bit(reinterpret_cast<BYTE*>(&pixelValue), r, g, b);
+                color = RGB(r, g, b);
+                break;
+            }
             case 24: color = RGB(pixel[2], pixel[1], pixel[0]); break;
             case 32: color = RGB(pixel[2], pixel[1], pixel[0]); break;
             default: color = RGB(0, 0, 0);
@@ -3298,6 +3324,13 @@ void CImageProc::DisplayOriginalImage(CDC* pDC, int xOffset, int yOffset,
             switch (nBitCount) {
             case 8: color = RGB(*pixel, *pixel, *pixel); break;
             case 24: color = RGB(pixel[2], pixel[1], pixel[0]); break;
+            case 16: {
+                WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
+                BYTE r, g, b;
+                GetColor16bit(reinterpret_cast<BYTE*>(&pixelValue), r, g, b);
+                color = RGB(r, g, b);
+                break;
+            }
             case 32: color = RGB(pixel[2], pixel[1], pixel[0]); break;
             default: color = RGB(0, 0, 0);
             }
