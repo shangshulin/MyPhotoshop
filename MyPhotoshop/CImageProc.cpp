@@ -3209,6 +3209,21 @@ void CImageProc::SetFFTData(const std::vector<std::complex<double>>& data, int w
 void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset,
     int destWidth, int destHeight) {
     if (m_ifftResult.empty()) return;
+    if (m_ifftResult.empty()) {
+        printf( "m_ifftResult is empty!");
+        return;
+    }
+    // 检查数据是否全为 0
+    bool allZero = true;
+    for (const auto& val : m_ifftResult) {
+        if (val != 0) {
+            allZero = false;
+            break;
+        }
+    }
+    if (allZero) {
+        printf("m_ifftResult contains all zeros!");
+    }
 
     int srcW = nWidth;
     int srcH = nHeight;
@@ -3235,8 +3250,8 @@ void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset,
             COLORREF color;
             switch (nBitCount) {
             case 8: color = RGB(*pixel, *pixel, *pixel); break;
-            case 24: color = RGB(pixel[0], pixel[1], pixel[2]); break;
-            case 32: color = RGB(pixel[0], pixel[1], pixel[2]); break;
+            case 24: color = RGB(pixel[2], pixel[1], pixel[0]); break;
+            case 32: color = RGB(pixel[2], pixel[1], pixel[0]); break;
             default: color = RGB(0, 0, 0);
             }
 
@@ -3282,8 +3297,8 @@ void CImageProc::DisplayOriginalImage(CDC* pDC, int xOffset, int yOffset,
             COLORREF color;
             switch (nBitCount) {
             case 8: color = RGB(*pixel, *pixel, *pixel); break;
-            case 24: color = RGB(pixel[0], pixel[1], pixel[2]); break;
-            case 32: color = RGB(pixel[0], pixel[1], pixel[2]); break;
+            case 24: color = RGB(pixel[2], pixel[1], pixel[0]); break;
+            case 32: color = RGB(pixel[2], pixel[1], pixel[0]); break;
             default: color = RGB(0, 0, 0);
             }
 
