@@ -3066,7 +3066,7 @@ void CImageProc::IdealLowPassFilter(double D0)
     fftw_execute(iplan);
 
     // 写回图像时再次应用(-1)^(x+y)恢复原始位置
-    // 归一化（防止全黑/全白）
+    // 归一化（防止全黑/全白），并做中心化恢复
     double minVal = 1e20, maxVal = -1e20;
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
@@ -3084,7 +3084,6 @@ void CImageProc::IdealLowPassFilter(double D0)
             int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
             double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
             double val = in[y * w + x][0] / N * factor;
-            val = (val - minVal) * 255.0 / range;
             val = min(255.0, max(0.0, val));
             pBits[offset] = static_cast<BYTE>(val);
         }
@@ -3173,4 +3172,5 @@ void CImageProc::ButterworthLowPassFilter(double D0, int n)
     fftw_destroy_plan(iplan);
     fftw_free(in);
     fftw_free(out);
-}}
+}
+}
