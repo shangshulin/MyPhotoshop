@@ -26,6 +26,14 @@ CImageProc::CImageProc()
     nHeight = 0;
     nBitCount = 0;
     m_bIs565Format = true; // 默认假设为565格式
+    pDib = NULL;
+    pBFH = NULL;
+    pBIH = NULL;
+    pQUAD = NULL;
+    pBits = NULL;
+    nWidth = nHeight = nBitCount = 0;
+    m_bIs565Format = true;
+    isPaletteDarkToLight = false;
 }
 CImageProc::~CImageProc()
 {
@@ -37,13 +45,107 @@ CImageProc::~CImageProc()
     }
 }
 
+<<<<<<< Updated upstream
 // 打开文件
+=======
+<<<<<<< Updated upstream
+// ���ļ�
+=======
+void CImageProc::CleanUp()
+{
+    if (m_hDib) {
+        if (pDib) {
+            GlobalUnlock(m_hDib);
+        }
+        GlobalFree(m_hDib);
+    }
+    m_hDib = NULL;
+    pDib = NULL;
+    pBFH = NULL;
+    pBIH = NULL;
+    pQUAD = NULL;
+    pBits = NULL;
+    nWidth = nHeight = nBitCount = 0;
+    m_bIs565Format = true;
+    isPaletteDarkToLight = false;
+}
+
+CImageProc& CImageProc::operator=(const CImageProc& other) {
+    if (this == &other) return *this;
+
+    // 释放当前资源
+    if (m_hDib) {
+        GlobalFree(m_hDib);
+        m_hDib = NULL;
+    }
+
+    // 复制基本参数
+    nWidth = other.nWidth;
+    nHeight = other.nHeight;
+    nBitCount = other.nBitCount;
+
+    if (other.m_hDib) {
+        // 计算源图像数据大小
+        DWORD dwSize = ::GlobalSize(other.m_hDib);
+
+        // 分配新内存
+        m_hDib = ::GlobalAlloc(GHND, dwSize);
+        if (!m_hDib) AfxThrowMemoryException();
+
+        // 锁定内存
+        LPBYTE pSrc = (LPBYTE)::GlobalLock(other.m_hDib);
+        LPBYTE pDst = (LPBYTE)::GlobalLock(m_hDib);
+
+        if (!pSrc || !pDst) {
+            if (pSrc) ::GlobalUnlock(other.m_hDib);
+            if (pDst) ::GlobalUnlock(m_hDib);
+            AfxThrowMemoryException();
+        }
+
+        // 完整拷贝数据
+        memcpy(pDst, pSrc, dwSize);
+
+        // 解锁内存
+        ::GlobalUnlock(other.m_hDib);
+        ::GlobalUnlock(m_hDib);
+
+        // 重新设置指针
+        pDib = (LPBYTE)::GlobalLock(m_hDib);
+        pBFH = (LPBITMAPFILEHEADER)pDib;
+        pBIH = (LPBITMAPINFOHEADER)(pDib + sizeof(BITMAPFILEHEADER));
+
+        // 重新计算像素数据位置
+        int nColorTableSize = 0;
+        if (nBitCount <= 8) {
+            nColorTableSize = (1 << nBitCount) * sizeof(RGBQUAD);
+            pQUAD = (LPRGBQUAD)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        }
+        else {
+            pQUAD = NULL;
+        }
+
+        // 计算像素数据起始位置
+        if (pBFH) {
+            pBits = pDib + pBFH->bfOffBits;
+        }
+        else {
+            pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + nColorTableSize;
+        }
+    }
+    return *this;
+}
+
+//打开文件
 void CImageProc::OpenFile()
 {
     CFileDialog fileDlg(TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, L"Bmp File(*.bmp)|*.bmp|JPG File(*.jpg)|*.jpg|All Files(*.*)|*.*||", NULL);
     if (fileDlg.DoModal() == IDOK)
     {
 		CString stpathname = fileDlg.GetPathName();//获取文件路径
+        LoadBmp(stpathname);//加载图片
+        CString stpathname = fileDlg.GetPathName();
+        LoadBmp(stpathname);
+        CString stpathname = fileDlg.GetPathName();//获取文件路径
         LoadBmp(stpathname);//加载图片
     }
     else
@@ -64,6 +166,95 @@ void CImageProc::LoadBmp(CString stFileName)
         afxDump << "File could not be opened " << e.m_cause << "\n";
 #endif
         return;
+    }
+
+    ULONGLONG nFileSize = file.GetLength();
+    if (nFileSize < sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER))//文件大小太小
+    {
+        file.Close();//关闭文件
+        return;
+    }
+
+    m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);//分配内存
+    if (!m_hDib)//分配内存失败
+    {
+        file.Close();
+        return;
+    }
+
+    pDib = (BYTE*)::GlobalLock(m_hDib);//分配内存
+    if (!pDib)//分配内存失败
+    {
+        GlobalFree(m_hDib);
+        m_hDib = NULL;
+        file.Close();
+        return;
+    }
+
+    UINT nBytesRead = file.Read(pDib, (UINT)nFileSize);//读取文件
+    file.Close();
+
+    if (nBytesRead != nFileSize)//读取文件失败
+    {
+        CleanUp();
+        return;
+    }
+
+    pBFH = (BITMAPFILEHEADER*)pDib;//获取文件头
+    if (pBFH->bfType != 0x4D42)//检查文件头
+    {
+        CleanUp();
+        return;
+    }
+
+    pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];//获取信息头
+    if (pBIH->biSize < sizeof(BITMAPINFOHEADER))//检查信息头
+    {
+        CleanUp();
+        return;
+    }
+
+    pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + pBIH->biSize];//获取调色板
+
+    if (pBFH->bfOffBits >= nFileSize)//检查文件头
+    {
+        CleanUp();
+        return;
+    }
+    pBits = &pDib[pBFH->bfOffBits];//获取位图数据
+    nWidth = pBIH->biWidth;//获取宽高和位深
+    nHeight = abs(pBIH->biHeight);
+    nBitCount = pBIH->biBitCount;
+
+    DWORD dwImageSize = ((nWidth * nBitCount + 31) / 32) * 4 * nHeight;//dwImageSize为位图数据的大小
+    if (pBFH->bfOffBits + dwImageSize > nFileSize)//检查位图数据大小
+    {
+        CleanUp();
+        return;
+    }
+
+    if (pBIH->biCompression == BI_RGB && nBitCount == 16)//检查位图数据格式
+    {
+        m_bIs565Format = false;
+    }
+    else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16)//处理565格式的16位位图数据
+    {
+        if (sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + 3 * sizeof(DWORD) <= nFileSize)//pBIH->biSize为信息头的大小
+        {
+            DWORD* masks = reinterpret_cast<DWORD*>(&pDib[sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)]);
+            DWORD redMask = masks[0];
+            DWORD greenMask = masks[1];
+            DWORD blueMask = masks[2];
+            if (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F)
+            {
+                m_bIs565Format = true;
+            }
+            //m_bIs565Format = (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F);//检查位图数据格式
+        }
+        else
+        {
+            m_bIs565Format = false;
+        }
     }
 
     ULONGLONG nFileSize = file.GetLength();
@@ -226,7 +417,30 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     }
     case 8: // 8位位图
     {
-        CImageProc::GetColor8bit(pixel, red, green, blue, x);
+        return;
+    }
+    // 计算每行字节数
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    // 计算每个像素的字节数
+    int bytePerPixel = nBitCount / 8;
+    // 计算像素在位图中的偏移量
+    int offset = (nHeight - 1 - imgY) * rowSize + imgX * bytePerPixel;
+    // pixel指向当前像素
+    BYTE* pixel = pBits + offset;
+    // 获取像素颜色
+    BYTE red = 0, green = 0, blue = 0;
+    // 根据位深获取像素颜色
+    switch (nBitCount)
+>>>>>>> Stashed changes
+    {
+    case 1:
+        CImageProc::GetColor1bit(pixel, red, green, blue, imgX, imgY, pDC);
+        break;
+    case 4:
+        CImageProc::GetColor4bit(pixel, red, green, blue, imgX);
+        break;
+    case 8:
+        CImageProc::GetColor8bit(pixel, red, green, blue, imgX);
         break;
     case 16:
         CImageProc::GetColor16bit(pixel, red, green, blue);
@@ -243,6 +457,7 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
 
     // 使用 GetPixel 获取像素颜色
     COLORREF pixelColor = pDC->GetPixel(x, y);
+    COLORREF pixelColor = pDC->GetPixel(winX, winY);
     BYTE getPixelRed = GetRValue(pixelColor);
     BYTE getPixelGreen = GetGValue(pixelColor);
     BYTE getPixelBlue = GetBValue(pixelColor);
@@ -258,6 +473,7 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
 
     CString location;
     location.Format(L"location：(%d, %d)", x, y);
+    location.Format(L"location:(%d, %d)", imgX, imgY);
 
     pDC->TextOutW(winX, winY, str);//显示像素颜色
 
@@ -312,6 +528,23 @@ void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
         red = (pixelValue & 0x7C00) >> 10;   
         green = (pixelValue & 0x03E0) >> 5;   
         blue = pixelValue & 0x001F;           
+    if (m_bIs565Format) // 处理565格式
+    {
+
+        red = (pixelValue & 0xF800) >> 11;
+        green = (pixelValue & 0x07E0) >> 5;
+        blue = pixelValue & 0x001F;
+
+
+        red = (red << 3) | (red >> 2);
+        green = (green << 2) | (green >> 4);
+        blue = (blue << 3) | (blue >> 2);
+    }
+    else // 处理555格式
+    {
+        red = (pixelValue & 0x7C00) >> 10;
+        green = (pixelValue & 0x03E0) >> 5;
+        blue = pixelValue & 0x001F;
 
         red = (red << 3) | (red >> 2);
         green = (green << 3) | (green >> 2);
@@ -2833,11 +3066,25 @@ void CImageProc::IdealLowPassFilter(double D0)
     fftw_execute(iplan);
 
     // 写回图像时再次应用(-1)^(x+y)恢复原始位置
+    // 归一化（防止全黑/全白）
+    double minVal = 1e20, maxVal = -1e20;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
+            double val = in[y * w + x][0] / N * factor;
+            if (val < minVal) minVal = val;
+            if (val > maxVal) maxVal = val;
+        }
+    }
+    double range = maxVal - minVal;
+    if (range < 1e-6) range = 1.0; // 防止除零
+
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
             double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
             double val = in[y * w + x][0] / N * factor;
+            val = (val - minVal) * 255.0 / range;
             val = min(255.0, max(0.0, val));
             pBits[offset] = static_cast<BYTE>(val);
         }
@@ -2848,6 +3095,7 @@ void CImageProc::IdealLowPassFilter(double D0)
         for (int x = 0; x < w; ++x) {
             int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
             double val = in[y * w + x][0] / N;
+            val = (val - minVal) * 255.0 / range;
             val = min(255.0, max(0.0, val));
             pBits[offset] = static_cast<BYTE>(val);
         }
@@ -2898,6 +3146,19 @@ void CImageProc::ButterworthLowPassFilter(double D0, int n)
     fftw_execute(iplan);
 
     // 写回图像时再次应用(-1)^(x+y)恢复原始位置
+    // 归一化（防止全黑/全白），并做中心化恢复
+    double minVal = 1e20, maxVal = -1e20;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
+            double val = in[y * w + x][0] / N * factor;
+            if (val < minVal) minVal = val;
+            if (val > maxVal) maxVal = val;
+        }
+    }
+    double range = maxVal - minVal;
+    if (range < 1e-6) range = 1.0; // 防止除零
+
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
             int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
@@ -2912,4 +3173,4 @@ void CImageProc::ButterworthLowPassFilter(double D0, int n)
     fftw_destroy_plan(iplan);
     fftw_free(in);
     fftw_free(out);
-}
+}}
