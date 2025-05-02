@@ -76,7 +76,6 @@ END_MESSAGE_MAP()
 
 
 // CMyPhotoshopView 构造/析构
-
 CMyPhotoshopView::CMyPhotoshopView() noexcept
     : m_bShowPixelInfo(false)
     , m_dZoomRatio(1.0)
@@ -93,10 +92,10 @@ CMyPhotoshopView::~CMyPhotoshopView()
 
 BOOL CMyPhotoshopView::PreCreateWindow(CREATESTRUCT& cs)
 {
-	// TODO: 在此处通过修改
-	//  CREATESTRUCT cs 来修改窗口类或样式
+    // TODO: 在此处通过修改
+    //  CREATESTRUCT cs 来修改窗口类或样式
 
-	return CView::PreCreateWindow(cs);
+    return CView::PreCreateWindow(cs);
 }
 
 // CMyPhotoshopView 绘图
@@ -171,7 +170,6 @@ void CMyPhotoshopView::OnDraw(CDC* pDC)
 
     memDC.SelectObject(pOldBitmap);
 }
-
 void CMyPhotoshopView::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
     SCROLLINFO si;
@@ -370,29 +368,22 @@ void CMyPhotoshopView::OnUpdateViewPixelInfo(CCmdUI* pCmdUI)
 	pCmdUI->SetCheck(m_bShowPixelInfo); // 设置菜单项选中状态
 }
 
-// 左键点击事件处理程序
 void CMyPhotoshopView::OnLButtonDown(UINT nFlags, CPoint point)
 {
+    // TODO: 在此添加消息处理程序代码和/或调用默认值
+
     // 如果启用了显示像素点信息
     if (m_bShowPixelInfo)
     {
         Invalidate(true);
         UpdateWindow();
+        // 获取文档中的图像数据
         if (nFlags & MK_SHIFT)
         {
             CClientDC dc(this);
-            CMyPhotoshopDoc* pDoc = GetDocument();
+            CMyPhotoshopDoc* pDoc = GetDocument();// 获取文档中的图像数据
             ASSERT_VALID(pDoc);
-
-            // 加上自定义滚动偏移
-            int imgX = int((point.x + m_ptScrollPos.x) / m_dZoomRatio);
-            int imgY = int((point.y + m_ptScrollPos.y) / m_dZoomRatio);
-
-            // 判断是否在图像范围内
-            if (imgX >= 0 && imgX < pDoc->pImage->nWidth && imgY >= 0 && imgY < pDoc->pImage->nHeight)
-            {
-                pDoc->pImage->DisplayColor(&dc, imgX, imgY, point.x, point.y);
-            }
+            pDoc->pImage->DisplayColor(&dc, point.x, point.y);
         }
     }
     CView::OnLButtonDown(nFlags, point);

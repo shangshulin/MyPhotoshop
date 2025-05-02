@@ -27,7 +27,7 @@ public:
     void OpenFile();
     void LoadBmp(CString stFileName);
     void ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight);
-    void DisplayColor(CClientDC* pDC,int imgX, int imgY, int x, int y);
+    void DisplayColor(CClientDC* pDC, int x, int y);
     void GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue);
 
     //灰度处理

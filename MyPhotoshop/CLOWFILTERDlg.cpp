@@ -11,11 +11,12 @@
 IMPLEMENT_DYNAMIC(CLOWFILTERDlg, CDialogEx)
 
 CLOWFILTERDlg::CLOWFILTERDlg(CWnd* pParent /*=nullptr*/)
-	: CDialogEx(IDD_LOW_FILTERDLG, pParent)
-	, m_D0(30) // 初始化截止频率为30
-	, m_step(2) // 可选：初始化阶数
-	, m_pImageProc(nullptr)
+	: CDialogEx(IDD_LOW_FILTERDLG, pParent),
+	m_D0(50),  // 截止频率初始化为50
+	m_step(1),  // 巴特沃斯滤波阶数初始化为1
+	m_pImageProc(nullptr) // 图像处理对象指针初始化为nullptr
 {
+
 }
 
 CLOWFILTERDlg::~CLOWFILTERDlg()
@@ -47,8 +48,8 @@ void CLOWFILTERDlg::SetImageData(CImageProc* pImage)
 
 int CLOWFILTERDlg::GetFilterType()
 {
-   // 0表示理想低通滤波器，1表示巴特沃斯低通滤波器
-   return (m_step > 1) ? 1 : 0;
+	// 0表示理想低通滤波器，1表示巴特沃斯低通滤波器
+	return (m_step > 1) ? 1 : 0;
 }
 
 double CLOWFILTERDlg::GetD0()
@@ -112,8 +113,10 @@ void CLOWFILTERDlg::OnBnClickedLowFilterButtonApply()
 	int filterType = GetFilterType();
 	if (filterType == 1) {
 		m_pImageProc->ButterworthLowPassFilter(m_D0, static_cast<int>(m_step));
-	} else {
+	}
+	else {
 		m_pImageProc->IdealLowPassFilter(m_D0);
 	}
 	Invalidate();
+	AfxMessageBox(_T("滤波器已成功应用！"), MB_ICONINFORMATION);
 }

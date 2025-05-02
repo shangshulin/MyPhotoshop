@@ -79,9 +79,6 @@
     <IncludePath>D:\vs\fftw-3.3.5-dll64</IncludePath>
     <LibraryPath>D:\vs\fftw-3.3.5-dll64;$(LibraryPath)</LibraryPath>
     <ExternalIncludePath>D:\vs\fftw-3.3.5-dll64;$(ExternalIncludePath)</ExternalIncludePath>
-    <IncludePath>D:\vs\VC\Tools\MSVC\14.43.34808\atlmfc\include;D:\vs\fftw-3.3.5-dll64</IncludePath>
-    <LibraryPath>D:\vs\fftw-3.3.5-dll64;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>D:\vs\fftw-3.3.5-dll64;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
@@ -92,9 +89,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>D:\vs\fftw-3.3.5-dll64</IncludePath>
-    <LibraryPath>D:\vs\fftw-3.3.5-dll64;$(LibraryPath)</LibraryPath>
-    <ExternalIncludePath>D:\vs\fftw-3.3.5-dll64;$(ExternalIncludePath)</ExternalIncludePath>
-    <IncludePath>D:\vs\VC\Tools\MSVC\14.43.34808\atlmfc\include;D:\vs\fftw-3.3.5-dll64</IncludePath>
     <LibraryPath>D:\vs\fftw-3.3.5-dll64;$(LibraryPath)</LibraryPath>
     <ExternalIncludePath>D:\vs\fftw-3.3.5-dll64;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
