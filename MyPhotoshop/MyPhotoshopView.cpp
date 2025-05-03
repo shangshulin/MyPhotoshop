@@ -17,6 +17,7 @@
 #include "CINTENSITYDlg.h"
 #include "FFTLogDialog.h"
 #include <fftw3.h>
+#include "CHighPassFilterDialog.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -60,6 +61,8 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)// 均值滤波
 	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)//   中值滤波
 	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
+    // 频域滤波
+    ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnHighPassFilter)
 	// 撤销操作
     ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
     // 缩放操作
@@ -1331,5 +1334,44 @@ void CMyPhotoshopView::OnFreqFftLogTransform() {
                 pDoc->UpdateAllViews(nullptr);
             }
         );
+    }
+}
+
+void CMyPhotoshopView::OnHighPassFilter() {
+    CHighPassFilterDialog dlg;
+    if (dlg.DoModal() != IDOK) return;
+
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage) return;
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        HighPassFilterType filterType;
+        if (dlg.GetFilterType() == 0) {
+            filterType = HighPassFilterType::IdealHighPass;
+        }
+        else {
+            filterType = HighPassFilterType::ButterworthHighPass;
+        }
+
+        double cutoffFrequency = dlg.GetCutoffFrequency();
+        int order = dlg.GetOrder();
+
+        AddCommand(
+            [pDoc, filterType, cutoffFrequency, order]() {
+                pDoc->pImage->ApplyHighPassFilter(filterType, cutoffFrequency, order);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("操作失败"));
     }
 }

@@ -7,7 +7,12 @@
 enum class FilterType {
     Mean,
     Median,
-    Max
+    Max,
+};
+
+enum class HighPassFilterType {
+    IdealHighPass,
+    ButterworthHighPass
 };
 
 class CImageProc {
@@ -66,6 +71,11 @@ public:
     void Add(CImageProc& img, double weight1, double weight2); // 图像相加
     void Multiply(CImageProc& img);    // 图像相乘
     void PowerTransform(double gamma); // 幂律变换
+
+	// 频域滤波
+    void ApplyHighPassFilter(HighPassFilterType filterType, double cutoffFrequency, int order);
+    void IdealHighPassFilter(double cutoffFrequency);
+    void ButterworthHighPassFilter(double cutoffFrequency, int order);
 
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
