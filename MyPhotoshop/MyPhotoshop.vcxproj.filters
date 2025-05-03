@@ -48,6 +48,21 @@
     <ClInclude Include="CINTENSITYDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="NoiseRatioDialog.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ImpulseNoiseDialog.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="GaussianNoiseDialog.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="GaussianWhiteNoiseDialog.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Command.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MyPhotoshop.cpp">
@@ -72,6 +87,24 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="CINTENSITYDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="NoiseRatioDialog.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ImpulseNoiseDialog.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="GaussianNoiseDialog.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="GaussianWhiteNoiseDialog.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="FilterSizeDialog.h">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="FilterSizeDialog.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

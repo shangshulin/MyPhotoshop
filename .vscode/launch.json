@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
-      "cwd": "d:/Git_Folder/GitHub/MyPhotoshop/MyPhotoshop",
-      "program": "d:/Git_Folder/GitHub/MyPhotoshop/MyPhotoshop/build/Debug/outDebug",
+      "cwd": "e:/偷读材料/医学图像处理/实验三/MyPhotoshop",
+      "program": "e:/偷读材料/医学图像处理/实验三/MyPhotoshop/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
