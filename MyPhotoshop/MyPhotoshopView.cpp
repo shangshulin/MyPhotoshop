@@ -1071,7 +1071,7 @@ void CMyPhotoshopView::OnLowFilter()
     {
         // 假设对话框在关闭前（例如点击确定或应用）已经修改了 pDoc->pImage
         // 通知视图数据已更改，需要重绘
-        Invalidate(); // <--- 添加这一行来刷新视图
+        Invalidate(true); // <--- 添加这一行来刷新视图
         UpdateWindow(); // 可选：强制立即重绘，而不是等待消息循环处理
     }
     // 如果对话框有“应用”按钮并在不关闭的情况下应用更改，
