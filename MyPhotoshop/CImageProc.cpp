@@ -2919,127 +2919,85 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
         int paddedHeight = nextPowerOfTwo(nHeight);
         m_paddedSize = { paddedWidth, paddedHeight };
 
-        // 准备复数数据（调整到2的幂次尺寸）
-        std::vector<std::complex<double>> fftData(paddedWidth * paddedHeight);
-
-        // 填充数据（原图像区域），其余区域补零
-        for (int y = 0; y < nHeight; y++) {
-            for (int x = 0; x < nWidth; x++) {
-                BYTE r, g, b;
-                GetColor(x, y, r, g, b);
-                // 使用更精确的灰度转换公式
-                double gray = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
-                fftData[y * paddedWidth + x] = std::complex<double>(gray, 0.0);
-            }
+        // 准备复数数据（每个颜色通道单独处理）
+        m_fullSpectrumRGB.resize(3); // R,G,B通道
+        for (int ch = 0; ch < 3; ch++) {
+            m_fullSpectrumRGB[ch].resize(paddedWidth * paddedHeight);
         }
 
-        // 对补零区域初始化
-        for (int y = nHeight; y < paddedHeight; y++) {
-            for (int x = 0; x < paddedWidth; x++) {
-                fftData[y * paddedWidth + x] = std::complex<double>(0, 0);
-            }
-        }
-        for (int y = 0; y < nHeight; y++) {
-            for (int x = nWidth; x < paddedWidth; x++) {
-                fftData[y * paddedWidth + x] = std::complex<double>(0, 0);
-            }
-        }
-
-        // 对每行执行FFT
-        for (int y = 0; y < paddedHeight; y++) {
-            FFT1D(&fftData[y * paddedWidth], paddedWidth, bForward ? 1 : -1);
-        }
-
-        // 对每列执行FFT
-        std::vector<std::complex<double>> column(paddedHeight);
-        for (int x = 0; x < paddedWidth; x++) {
-            // 提取列
-            for (int y = 0; y < paddedHeight; y++) {
-                column[y] = fftData[y * paddedWidth + x];
-            }
-
-            // 执行FFT
-            FFT1D(column.data(), paddedHeight, bForward ? 1 : -1);
-
-            // 存回
-            for (int y = 0; y < paddedHeight; y++) {
-                fftData[y * paddedWidth + x] = column[y];
-            }
-        }
-
-        // 频谱移中处理
-        if (bForward) {
-            // 前向变换后执行移中
-            FFTShift(fftData.data(), paddedWidth, paddedHeight);
-
-            // 保存完整频谱（包含补零区域）
-            m_fullSpectrum = fftData;
-
-            // 保存显示用数据（仅原始图像区域）
-            m_fftData.resize(nWidth * nHeight);
+        // 处理每个颜色通道
+        for (int ch = 0; ch < 3; ch++) {
+            // 填充数据（注意Y坐标从下往上存储）
             for (int y = 0; y < nHeight; y++) {
+                int srcY = nHeight - 1 - y; // 修正：从图像底部开始存储
                 for (int x = 0; x < nWidth; x++) {
-                    m_fftData[y * nWidth + x] = fftData[y * paddedWidth + x];
-                }
-            }
-
-            // 频谱显示数据处理（对数变换增强）
-            m_fftDisplayData.resize(nWidth * nHeight);
-            for (int i = 0; i < nWidth * nHeight; i++) {
-                double mag = std::abs(m_fftData[i]);
-                m_fftDisplayData[i] = std::log(1.0 + mag);
-            }
-
-            // 归一化显示数据
-            auto [minIt, maxIt] = std::minmax_element(m_fftDisplayData.begin(), m_fftDisplayData.end(),
-                [](const std::complex<double>& a, const std::complex<double>& b) {
-                    return std::abs(a) < std::abs(b);  // 比较幅度值
-                });
-
-            double minMag = std::abs(*minIt);  // 获取最小幅度
-            double maxMag = std::abs(*maxIt);  // 获取最大幅度
-            double range = maxMag - minMag;
-
-            if (range > 0) {
-                for (auto& val : m_fftDisplayData) {
-                    double magnitude = std::abs(val);  // 获取当前值的幅度
-                    val = (magnitude - minMag) / range * 255.0;  // 归一化到0-255范围
-                }
-            }
-        }
-        else {
-            // 逆向变换前执行反移中
-            FFTShift(fftData.data(), paddedWidth, paddedHeight);
-
-            // 保存逆变换结果
-            int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-            m_ifftResult.resize(nHeight * rowSize);
-
-            // 归一化处理
-            const double scale = 1.0 / (paddedWidth * paddedHeight);
-            for (auto& val : fftData) {
-                val *= scale;
-            }
-
-            // 生成图像数据
-            for (int y = 0; y < nHeight; y++) {
-                for (int x = 0; x < nWidth; x++) {
-                    double val = fftData[y * paddedWidth + x].real();
-                    val = std::clamp(val * 255.0, 0.0, 255.0);
-
-                    int offset = (nHeight - 1 - y) * rowSize + x * (nBitCount / 8);
-                    BYTE* pixel = m_ifftResult.data() + offset;
-
-                    switch (nBitCount) {
-                    case 8:  *pixel = static_cast<BYTE>(val); break;
-                    case 16: *reinterpret_cast<WORD*>(pixel) = static_cast<WORD>(val * 256); break;
-                    case 24:
-                    case 32:
-                        pixel[0] = pixel[1] = pixel[2] = static_cast<BYTE>(val);
-                        if (nBitCount == 32) pixel[3] = 255;
-                        break;
+                    BYTE r, g, b;
+                    GetColor(x, y, r, g, b);
+                    double val = 0.0;
+                    switch (ch) {
+                    case 0: val = r / 255.0; break;
+                    case 1: val = g / 255.0; break;
+                    case 2: val = b / 255.0; break;
                     }
+                    m_fullSpectrumRGB[ch][srcY * paddedWidth + x] = { val, 0.0 };
                 }
+            }
+
+            // 补零区域初始化
+            for (int y = nHeight; y < paddedHeight; y++) {
+                for (int x = 0; x < paddedWidth; x++) {
+                    m_fullSpectrumRGB[ch][y * paddedWidth + x] = { 0.0, 0.0 };
+                }
+            }
+            for (int y = 0; y < nHeight; y++) {
+                for (int x = nWidth; x < paddedWidth; x++) {
+                    m_fullSpectrumRGB[ch][y * paddedWidth + x] = { 0.0, 0.0 };
+                }
+            }
+
+            // 执行2D FFT
+            for (int y = 0; y < paddedHeight; y++) {
+                FFT1D(&m_fullSpectrumRGB[ch][y * paddedWidth], paddedWidth, bForward ? 1 : -1);
+            }
+
+            std::vector<std::complex<double>> column(paddedHeight);
+            for (int x = 0; x < paddedWidth; x++) {
+                for (int y = 0; y < paddedHeight; y++) {
+                    column[y] = m_fullSpectrumRGB[ch][y * paddedWidth + x];
+                }
+                FFT1D(column.data(), paddedHeight, bForward ? 1 : -1);
+                for (int y = 0; y < paddedHeight; y++) {
+                    m_fullSpectrumRGB[ch][y * paddedWidth + x] = column[y];
+                }
+            }
+
+            // 频谱移中
+            FFTShift(m_fullSpectrumRGB[ch].data(), paddedWidth, paddedHeight);
+        }
+
+        // 频谱显示数据处理（对数变换增强）
+        m_fftDisplayData.resize(nWidth * nHeight);
+        for (int i = 0; i < nWidth * nHeight; i++) {
+            double mag = std::abs(m_fullSpectrumRGB[0][i]); // 使用R通道的幅度
+            m_fftDisplayData[i] = std::log(1.0 + mag);     // 对数变换
+        }
+
+        // 归一化显示数据（修正后的版本）
+        auto [minIt, maxIt] = std::minmax_element(
+            m_fftDisplayData.begin(),
+            m_fftDisplayData.end(),
+            [](const std::complex<double>& a, const std::complex<double>& b) {
+                return std::abs(a) < std::abs(b);
+            });
+
+        double minMag = std::abs(*minIt);
+        double maxMag = std::abs(*maxIt);
+        double range = maxMag - minMag;
+
+        if (range > 0) {
+            for (auto& val : m_fftDisplayData) {
+                double magnitude = std::abs(val);
+                val = (magnitude - minMag) / range * 255.0;
             }
         }
 
@@ -3086,40 +3044,32 @@ static void recursiveFFT(std::complex<double>* data, int N) {
 void CImageProc::DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
     int destWidth, int destHeight, bool bKeepOriginalData)
 {
-    // 检查数据有效性
     if (!m_bFFTPerformed || m_fftDisplayData.empty()) return;
 
     if (bKeepOriginalData) {
         m_originalFFTData = m_fftData;
     }
 
-    // 获取源尺寸（使用实际显示数据尺寸）
     int srcW = nWidth;
     int srcH = nHeight;
 
-    // 设置目标尺寸默认值
     if (destWidth <= 0) destWidth = srcW;
     if (destHeight <= 0) destHeight = srcH;
 
-    // 计算缩放比例
+    // 直接绘制，m_fftDisplayData已经按正确方向存储
     double scaleX = (double)srcW / destWidth;
     double scaleY = (double)srcH / destHeight;
 
-    // 直接使用预处理好的显示数据（不再重复计算）
-    for (int y = 0; y < destHeight; y++)
-    {
+    for (int y = 0; y < destHeight; y++) {
         int srcY = (int)(y * scaleY);
         if (srcY >= srcH) srcY = srcH - 1;
 
-        for (int x = 0; x < destWidth; x++)
-        {
+        for (int x = 0; x < destWidth; x++) {
             int srcX = (int)(x * scaleX);
             if (srcX >= srcW) srcX = srcW - 1;
 
-            // 直接使用预处理好的灰度值（0-255）
             int intensity = static_cast<int>(m_fftDisplayData[srcY * srcW + srcX].real());
             intensity = std::clamp(intensity, 0, 255);
-
             pDC->SetPixel(x + xOffset, y + yOffset,
                 RGB(intensity, intensity, intensity));
         }
@@ -3283,56 +3233,80 @@ bool CImageProc::IFFT2D(bool bSaveState) {
         int paddedWidth = m_paddedSize.first;
         int paddedHeight = m_paddedSize.second;
 
-        // 恢复原始频谱
-        auto ifftData = m_fullSpectrum;
-        FFTShift(ifftData.data(), paddedWidth, paddedHeight);
+        // 处理每个颜色通道
+        std::vector<std::vector<std::complex<double>>> ifftDataRGB = m_fullSpectrumRGB;
 
-        // 执行逆变换
-        std::vector<std::complex<double>> column(paddedHeight);
-        for (int x = 0; x < paddedWidth; x++) {
-            for (int y = 0; y < paddedHeight; y++) {
-                column[y] = ifftData[y * paddedWidth + x];
+        for (int ch = 0; ch < 3; ch++) {
+            // 反移中
+            FFTShift(ifftDataRGB[ch].data(), paddedWidth, paddedHeight);
+
+            // 执行2D IFFT
+            std::vector<std::complex<double>> column(paddedHeight);
+            for (int x = 0; x < paddedWidth; x++) {
+                for (int y = 0; y < paddedHeight; y++) {
+                    column[y] = ifftDataRGB[ch][y * paddedWidth + x];
+                }
+                FFT1D(column.data(), paddedHeight, -1);
+                for (int y = 0; y < paddedHeight; y++) {
+                    ifftDataRGB[ch][y * paddedWidth + x] = column[y];
+                }
             }
-            FFT1D(column.data(), paddedHeight, -1);
+
             for (int y = 0; y < paddedHeight; y++) {
-                ifftData[y * paddedWidth + x] = column[y];
+                FFT1D(&ifftDataRGB[ch][y * paddedWidth], paddedWidth, -1);
+            }
+
+            // 归一化
+            const double scale = 1.0 / (paddedWidth * paddedHeight);
+            for (auto& val : ifftDataRGB[ch]) {
+                val *= scale;
             }
         }
 
-        for (int y = 0; y < paddedHeight; y++) {
-            FFT1D(&ifftData[y * paddedWidth], paddedWidth, -1);
-        }
-
-        // 归一化处理
-        const double scale = 1.0 / (paddedWidth * paddedHeight);
-        for (auto& val : ifftData) {
-            val *= scale;
-        }
-
-        // 生成图像数据
+        // 生成图像数据（修正Y方向）
         int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
         m_ifftResult.resize(nHeight * rowSize);
 
         for (int y = 0; y < nHeight; y++) {
+            int srcY = nHeight - 1 - y; // 修正：从存储的底部恢复
             for (int x = 0; x < nWidth; x++) {
-                double val = ifftData[y * paddedWidth + x].real();  // 明确取实部
-                val = std::clamp(val * 255.0, 0.0, 255.0);
+                double r = std::clamp(ifftDataRGB[0][srcY * paddedWidth + x].real(), 0.0, 1.0);
+                double g = std::clamp(ifftDataRGB[1][srcY * paddedWidth + x].real(), 0.0, 1.0);
+                double b = std::clamp(ifftDataRGB[2][srcY * paddedWidth + x].real(), 0.0, 1.0);
 
-                // 医学影像专用处理
-                int offset = (nHeight - 1 - y) * rowSize + x * (nBitCount / 8);
+                BYTE r8 = static_cast<BYTE>(r * 255.0);
+                BYTE g8 = static_cast<BYTE>(g * 255.0);
+                BYTE b8 = static_cast<BYTE>(b * 255.0);
+
+                int offset = y * rowSize + x * (nBitCount / 8);
                 BYTE* pixel = m_ifftResult.data() + offset;
 
                 switch (nBitCount) {
-                case 8:
-                    *pixel = static_cast<BYTE>(val);
-                    break;
-                case 16:
-                    *reinterpret_cast<WORD*>(pixel) = static_cast<WORD>(val * 256);
+                case 8:  *pixel = static_cast<BYTE>(0.299 * r8 + 0.587 * g8 + 0.114 * b8); break;
+                case 16: // 16位处理
+                    if (m_bIs565Format) { // 565格式
+                        *reinterpret_cast<WORD*>(pixel) =
+                            (static_cast<WORD>(r * 31) << 11) |
+                            (static_cast<WORD>(g * 63) << 5) |
+                            static_cast<WORD>(b * 31);
+                    }
+                    else { // 555格式
+                        *reinterpret_cast<WORD*>(pixel) =
+                            (static_cast<WORD>(r * 31) << 10) |
+                            (static_cast<WORD>(g * 31) << 5) |
+                            static_cast<WORD>(b * 31);
+                    }
                     break;
                 case 24:
+                    pixel[0] = b8;
+                    pixel[1] = g8;
+                    pixel[2] = r8;
+                    break;
                 case 32:
-                    pixel[0] = pixel[1] = pixel[2] = static_cast<BYTE>(val);
-                    if (nBitCount == 32) pixel[3] = 255;
+                    pixel[0] = b8;
+                    pixel[1] = g8;
+                    pixel[2] = r8;
+                    pixel[3] = 255;
                     break;
                 }
             }
@@ -3356,20 +3330,16 @@ void CImageProc::SetFFTData(const std::vector<std::complex<double>>& data, int w
 }
 
 void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset,
-    int destWidth, int destHeight) {
-    if (m_ifftResult.empty()) return;
+    int destWidth, int destHeight)
+{
     if (m_ifftResult.empty()) {
-        printf( "m_ifftResult is empty!");
+        printf("m_ifftResult is empty!");
         return;
     }
-    // 检查数据是否全为 0
-    bool allZero = true;
-    for (const auto& val : m_ifftResult) {
-        if (val != 0) {
-            allZero = false;
-            break;
-        }
-    }
+
+    // 检查数据是否全为0（调试用）
+    bool allZero = std::all_of(m_ifftResult.begin(), m_ifftResult.end(),
+        [](BYTE b) { return b == 0; });
     if (allZero) {
         printf("m_ifftResult contains all zeros!");
     }
@@ -3386,6 +3356,7 @@ void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset,
     int rowSize = ((srcW * nBitCount + 31) / 32) * 4;
 
     for (int y = 0; y < destHeight; y++) {
+        // 关键修改：移除(srcH - 1 - )的翻转操作
         int srcY = (int)(y * scaleY);
         if (srcY >= srcH) srcY = srcH - 1;
 
@@ -3393,22 +3364,39 @@ void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset,
             int srcX = (int)(x * scaleX);
             if (srcX >= srcW) srcX = srcW - 1;
 
-            int offset = (srcH - 1 - srcY) * rowSize + srcX * (nBitCount / 8);
+            // 关键修改：直接使用srcY，不再翻转
+            int offset = srcY * rowSize + srcX * (nBitCount / 8);
             BYTE* pixel = m_ifftResult.data() + offset;
 
             COLORREF color;
             switch (nBitCount) {
-            case 8: color = RGB(*pixel, *pixel, *pixel); break;
+            case 8:
+                color = RGB(*pixel, *pixel, *pixel);
+                break;
             case 16: {
                 WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
-                BYTE r, g, b;
-                GetColor16bit(reinterpret_cast<BYTE*>(&pixelValue), r, g, b);
-                color = RGB(r, g, b);
+                if (m_bIs565Format) { // 565格式
+                    color = RGB(
+                        ((pixelValue & 0xF800) >> 11) * 255 / 31,
+                        ((pixelValue & 0x07E0) >> 5) * 255 / 63,
+                        (pixelValue & 0x001F) * 255 / 31);
+                }
+                else { // 555格式
+                    color = RGB(
+                        ((pixelValue & 0x7C00) >> 10) * 255 / 31,
+                        ((pixelValue & 0x03E0) >> 5) * 255 / 31,
+                        (pixelValue & 0x001F) * 255 / 31);
+                }
                 break;
             }
-            case 24: color = RGB(pixel[2], pixel[1], pixel[0]); break;
-            case 32: color = RGB(pixel[2], pixel[1], pixel[0]); break;
-            default: color = RGB(0, 0, 0);
+            case 24:
+                color = RGB(pixel[2], pixel[1], pixel[0]);
+                break;
+            case 32:
+                color = RGB(pixel[2], pixel[1], pixel[0]);
+                break;
+            default:
+                color = RGB(0, 0, 0);
             }
 
             pDC->SetPixel(x + xOffset, y + yOffset, color);

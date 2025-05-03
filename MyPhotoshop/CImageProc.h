@@ -166,5 +166,5 @@ public:
     int m_fftHeight = 0;
     std::vector<std::complex<double>> m_fullSpectrum;  // 存储完整频谱数据
     std::pair<int, int> m_paddedSize;
-    //std::vector<std::complex<double>> m_fftData;// 存储补零后的尺寸
+    std::vector<std::vector<std::complex<double>>> m_fullSpectrumRGB; // 存储RGB三个通道的频谱
 };
