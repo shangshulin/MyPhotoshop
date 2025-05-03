@@ -76,6 +76,9 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>D:\vs\fftw-3.3.5-dll64</IncludePath>
+    <LibraryPath>D:\vs\fftw-3.3.5-dll64;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>D:\vs\fftw-3.3.5-dll64;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
@@ -85,6 +88,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>D:\vs\fftw-3.3.5-dll64</IncludePath>
+    <LibraryPath>D:\vs\fftw-3.3.5-dll64;$(LibraryPath)</LibraryPath>
+    <ExternalIncludePath>D:\vs\fftw-3.3.5-dll64;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -93,9 +99,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>D:\vs\fftw-3.3.5-dll64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
+      <AdditionalLibraryDirectories>D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\fftw-3.3.5-dll64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3l-3.lib;D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3f-3.lib;D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -165,11 +175,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>D:\vs\fftw-3.3.5-dll64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\fftw-3.3.5-dll64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3l-3.lib;D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3f-3.lib;D:\vs\VC\Tools\MSVC\14.43.34808\bin\Hostx64\x64\libfftw3-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -186,23 +200,36 @@
     <ClInclude Include="CHistogramDlg.h" />
     <ClInclude Include="CImageProc.h" />
     <ClInclude Include="CINTENSITYDlg.h" />
+    <ClInclude Include="CLOWFILTERDlg.h" />
+    <ClInclude Include="Command.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="GaussianNoiseDialog.h" />
+    <ClInclude Include="GaussianWhiteNoiseDialog.h" />
+    <ClInclude Include="ImpulseNoiseDialog.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="MyPhotoshop.h" />
     <ClInclude Include="MyPhotoshopDoc.h" />
     <ClInclude Include="MyPhotoshopView.h" />
+    <ClInclude Include="NoiseRatioDialog.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
+    <ClCompile Include="CLOWFILTERDlg.cpp" />
+    <ClCompile Include="FilterSizeDialog.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CHistogramDlg.cpp" />
     <ClCompile Include="CImageProc.cpp" />
     <ClCompile Include="CINTENSITYDlg.cpp" />
+    <ClCompile Include="GaussianNoiseDialog.cpp" />
+    <ClCompile Include="GaussianWhiteNoiseDialog.cpp" />
+    <ClCompile Include="ImpulseNoiseDialog.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="MyPhotoshop.cpp" />
     <ClCompile Include="MyPhotoshopDoc.cpp" />
     <ClCompile Include="MyPhotoshopView.cpp" />
+    <ClCompile Include="NoiseRatioDialog.cpp" />
+    <ClCompile Include="FilterSizeDialog.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

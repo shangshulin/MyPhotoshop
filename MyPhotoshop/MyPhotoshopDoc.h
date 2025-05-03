@@ -17,7 +17,6 @@ public:
 	CImageProc* pImage;// 图像处理对象，*的意思是指针，指向CImageProc类的对象
 	CImageProc* pTemp1; // 指向临时图像处理对象，用于存储图像处理结果
 	CImageProc* pTemp2;
-
 // 操作
 public:
 

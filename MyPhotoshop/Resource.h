@@ -9,6 +9,13 @@
 #define IDD_DIALOG1                     310
 #define IDD_HISTOGRAM_DLG               310
 #define IDD_INTENSITY_DLG               312
+#define IDD_NOISE_RATIO_DIALOG          314
+#define IDD_IMPULSE_NOISE_DIALOG        316
+#define IDD_GAUSSIAN_NOISE_DIALOG       318
+#define IDD_DIALOG2                     320
+#define IDD_GAUSSIAN_WHITE_NOISE_DIALOG 320
+#define IDD_FILTER_SIZE                 321
+#define IDD_LOW_FILTERDLG               322
 #define IDC_STATIC_HISTOGRAM            1000
 #define IDC_STATIC_HISTOGRAM2           1001
 #define IDC_EDIT_ALPHA                  1002
@@ -16,6 +23,25 @@
 #define IDC_BUTTON_APPLY                1004
 #define IDC_BUTTON_CANCEL               1005
 #define IDC_COMBO1                      1006
+#define IDC_SALT_RATIO_SLIDER           1007
+#define IDC_SALT_RATIO_EDIT             1008
+#define IDC_NOISE_RATIO_EDIT            1009
+#define IDC_NOISE_VALUE2_EDIT           1010
+#define IDC_NOISE_RATIO_SLIDER          1011
+#define IDC_NOISE_VALUE2_SLIDER         1012
+#define IDC_MEAN_EDIT                   1013
+#define IDC_NOISE_VALUE1_EDIT           1014
+#define IDC_MEAN_SLIDER                 1015
+#define IDC_NOISE_VALUE1_SLIDER         1016
+#define IDC_SIGMA_EDIT                  1017
+#define IDC_SIGMA_SLIDER                1018
+#define IDC_SLIDER1                     1019
+#define IDC_FILTER_SIZE                 1020
+#define IDC_LOW_FILTER                  1022
+#define IDC_BW_LOW_FILTER               1023
+#define IDC_BW_LOW_FILTER_EDIT          1028
+#define IDC_EDIT_D0                     1029
+#define IDC_LOW_FILTER_BUTTON           1030
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -44,27 +70,38 @@
 #define ID_STYLE_BLACKWHITE             32796
 #define ID_INTENSITY_TRANS              32797
 #define ID_32798                        32798
-#define ID_32799                        32799
-#define ID_32800                        32800
-#define ID_32801                        32801
-#define ID_32802                        32802
-#define ID_EDGE_SOBEL                   32803
-#define ID_EDGE_PREWITT                 32804
-#define ID_EDGE_ROBERT                  32805
-#define ID_32806                        32806
-#define ID_EDGE_CANNY                   32807
-#define ID_32808                        32808
-#define ID_EDGE_LAPLACE                 32809
-#define ID_32810                        32810
+#define ON_FUNCTION_SALTANDPEPPER       32799
+#define ID_FUNCTION_SALTANDPEPPER       32800
+#define ID_FUNCTION_IMPULSE             32801
+#define ID_FUNCTION_GAUSSIAN            32802
+#define ID_FUNCTION_GAUSSIANWHITE       32803
+#define ID_FILTER_MEAN                  32804
+#define ID_FILTER_MEDIAN                32805
+#define ID_EDGE_SOBEL                   32806
+#define ID_FILTER_MAX                   32807
+#define ID_EDGE_PREWITT                 32808
+#define ID_EDGE_ROBERT                  32809
+#define ID_EDGE_LAPLACE                 32810
 #define ID_ENHANCEMENT                  32811
+#define ID_EDGE_CANNY                   32812
+#define ID_EDGE_LOG                     32813
+#define ID_32816                        32816
+#define ID_32817                        32817
+#define ID_32818                        32818
+#define ID_32819                        32819
+#define ID_LOW_FILTER                   32820
+#define ID_32821                        32821
+#define ID_B_LOW_FILTER                 32822
+#define ID_32823                        32823
+#define ID_LowFilterButton              32824
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        314
-#define _APS_NEXT_COMMAND_VALUE         32812
-#define _APS_NEXT_CONTROL_VALUE         1007
+#define _APS_NEXT_RESOURCE_VALUE        324
+#define _APS_NEXT_COMMAND_VALUE         32825
+#define _APS_NEXT_CONTROL_VALUE         1031
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

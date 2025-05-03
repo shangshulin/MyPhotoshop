@@ -148,7 +148,7 @@ void CMyPhotoshopDoc::Dump(CDumpContext& dc) const
 void CMyPhotoshopDoc::OnFileOpen()
 {
 	// TODO: 在此添加命令处理程序代码
-	pImage->OpenFile();
+	pImage->OpenFile();// 打开文件对话框
 	CMainFrame* pMainFrame = (CMainFrame*)AfxGetApp()->m_pMainWnd;// 获取主窗口
 	CView* pView = pMainFrame->GetActiveView();// 获取当前视图
 	pView->Invalidate(TRUE);
@@ -164,7 +164,7 @@ void CMyPhotoshopDoc::ApplyImageEnhancement()
 
 	// 1. 保存原图像
 	*pTemp1 = *pImage;
-	
+
 	// 2. 拉普拉斯算子处理
 	pImage->ApplyLaplaceEdgeDetection();
 
@@ -187,6 +187,4 @@ void CMyPhotoshopDoc::ApplyImageEnhancement()
 
 	// 8. 幂律变换（γ=0.5）
 	pImage->PowerTransform(0.5);
-
-
 }
