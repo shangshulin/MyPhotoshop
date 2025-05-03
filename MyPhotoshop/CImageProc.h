@@ -136,4 +136,34 @@ public:
     bool HasOriginalImageData() const;
     bool HasIFFTResult() const;
     void DisplayOriginalImage(CDC* pDC, int xOffset, int yOffset, int destWidth, int destHeight);
+public:
+    // 计算大于等于n的最小2的幂次
+    int nextPowerOfTwo(int n) const {
+        if (n <= 0) return 1;
+        n--;
+        n |= n >> 1;
+        n |= n >> 2;
+        n |= n >> 4;
+        n |= n >> 8;
+        n |= n >> 16;
+        return n + 1;
+    }
+
+    // 检查是否为2的幂次
+    bool isPowerOfTwo(int n) const {
+        return (n & (n - 1)) == 0;
+    }
+
+    // 调整数据到2的幂次尺寸
+    void padToPowerOfTwo(std::vector<std::complex<double>>& data, int originalSize, int newSize) {
+        data.resize(newSize);
+        for (int i = originalSize; i < newSize; i++) {
+            data[i] = std::complex<double>(0, 0);
+        }
+    }
+public:
+    int m_fftWidth = 0;
+    int m_fftHeight = 0;
+    std::vector<std::complex<double>> m_fullSpectrum;  // 存储完整频谱数据
+    std::pair<int, int> m_paddedSize;                 // 存储补零后的尺寸
 };

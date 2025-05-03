@@ -1172,13 +1172,27 @@ void CMyPhotoshopView::OnFreqFFT() {
         if (!pOldImage) AfxThrowMemoryException();
         *pOldImage = *pDoc->pImage;
 
+        // 检查是否需要调整尺寸
+        if (!pDoc->pImage->isPowerOfTwo(pDoc->pImage->nWidth) ||
+            !pDoc->pImage->isPowerOfTwo(pDoc->pImage->nHeight)) {
+            int newWidth = pDoc->pImage->nextPowerOfTwo(pDoc->pImage->nWidth);
+            int newHeight = pDoc->pImage->nextPowerOfTwo(pDoc->pImage->nHeight);
+            CString msg;
+            msg.Format(_T("图像尺寸(%dx%d)不是2的幂次，将自动补零到(%dx%d)"),
+                pDoc->pImage->nWidth, pDoc->pImage->nHeight,
+                newWidth, newHeight);
+            AfxMessageBox(msg);
+        }
+
         // 添加到命令栈
         AddCommand(
             [pDoc]() {
-                if (!pDoc->pImage->FFT2D(true)) {
+                if (!pDoc->pImage->FFT2D(true, true)) {
                     AfxMessageBox(_T("FFT变换失败"));
                 }
-                pDoc->UpdateAllViews(nullptr);
+                else {
+                    pDoc->UpdateAllViews(nullptr);
+                }
             },
             [pDoc, pOldImage]() {
                 *pDoc->pImage = *pOldImage;
