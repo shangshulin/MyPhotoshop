@@ -2904,23 +2904,23 @@ static void recursiveFFT(std::complex<double>* data, int N);
 bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
     if (!IsValid()) return false;
 
+    // 保存原始图像数据
+    int dataSize = nWidth * nHeight * (nBitCount / 8);
+    m_originalImageData.resize(dataSize);
+    memcpy(m_originalImageData.data(), pBits, dataSize);
+
+    if (bSaveState) {
+        SaveCurrentState();
+    }
+
     try {
-        // 保存原始图像数据
-        int dataSize = nWidth * nHeight * (nBitCount / 8);
-        m_originalImageData.resize(dataSize);
-        memcpy(m_originalImageData.data(), pBits, dataSize);
-
-        if (bSaveState) {
-            SaveCurrentState();
-        }
-
         // 计算补零后的尺寸
         int paddedWidth = nextPowerOfTwo(nWidth);
         int paddedHeight = nextPowerOfTwo(nHeight);
         m_paddedSize = { paddedWidth, paddedHeight };
 
         // 准备复数数据（调整到2的幂次尺寸）
-        m_fullSpectrum.resize(paddedWidth * paddedHeight);
+        std::vector<std::complex<double>> fftData(paddedWidth * paddedHeight);
 
         // 填充数据（原图像区域），其余区域补零
         for (int y = 0; y < nHeight; y++) {
@@ -2929,50 +2929,117 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
                 GetColor(x, y, r, g, b);
                 // 使用更精确的灰度转换公式
                 double gray = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
-                m_fullSpectrum[y * paddedWidth + x] = { gray, 0.0 };
+                fftData[y * paddedWidth + x] = std::complex<double>(gray, 0.0);
             }
         }
 
-        // 执行2D FFT
-        for (int y = 0; y < paddedHeight; y++) {
-            FFT1D(&m_fullSpectrum[y * paddedWidth], paddedWidth, bForward ? 1 : -1);
+        // 对补零区域初始化
+        for (int y = nHeight; y < paddedHeight; y++) {
+            for (int x = 0; x < paddedWidth; x++) {
+                fftData[y * paddedWidth + x] = std::complex<double>(0, 0);
+            }
+        }
+        for (int y = 0; y < nHeight; y++) {
+            for (int x = nWidth; x < paddedWidth; x++) {
+                fftData[y * paddedWidth + x] = std::complex<double>(0, 0);
+            }
         }
 
+        // 对每行执行FFT
+        for (int y = 0; y < paddedHeight; y++) {
+            FFT1D(&fftData[y * paddedWidth], paddedWidth, bForward ? 1 : -1);
+        }
+
+        // 对每列执行FFT
         std::vector<std::complex<double>> column(paddedHeight);
         for (int x = 0; x < paddedWidth; x++) {
+            // 提取列
             for (int y = 0; y < paddedHeight; y++) {
-                column[y] = m_fullSpectrum[y * paddedWidth + x];
+                column[y] = fftData[y * paddedWidth + x];
             }
+
+            // 执行FFT
             FFT1D(column.data(), paddedHeight, bForward ? 1 : -1);
+
+            // 存回
             for (int y = 0; y < paddedHeight; y++) {
-                m_fullSpectrum[y * paddedWidth + x] = column[y];
+                fftData[y * paddedWidth + x] = column[y];
             }
         }
 
-        // 频谱移中
-        FFTShift(m_fullSpectrum.data(), paddedWidth, paddedHeight);
+        // 频谱移中处理
+        if (bForward) {
+            // 前向变换后执行移中
+            FFTShift(fftData.data(), paddedWidth, paddedHeight);
 
-        /// 频谱显示数据处理（对数变换增强）
-        m_fftDisplayData.resize(nWidth * nHeight);
-        for (int i = 0; i < nWidth * nHeight; i++) {
-            double mag = std::abs(m_fullSpectrum[i]);  // 获取幅度
-            m_fftDisplayData[i] = std::log(1.0 + mag); // 对数变换
+            // 保存完整频谱（包含补零区域）
+            m_fullSpectrum = fftData;
+
+            // 保存显示用数据（仅原始图像区域）
+            m_fftData.resize(nWidth * nHeight);
+            for (int y = 0; y < nHeight; y++) {
+                for (int x = 0; x < nWidth; x++) {
+                    m_fftData[y * nWidth + x] = fftData[y * paddedWidth + x];
+                }
+            }
+
+            // 频谱显示数据处理（对数变换增强）
+            m_fftDisplayData.resize(nWidth * nHeight);
+            for (int i = 0; i < nWidth * nHeight; i++) {
+                double mag = std::abs(m_fftData[i]);
+                m_fftDisplayData[i] = std::log(1.0 + mag);
+            }
+
+            // 归一化显示数据
+            auto [minIt, maxIt] = std::minmax_element(m_fftDisplayData.begin(), m_fftDisplayData.end(),
+                [](const std::complex<double>& a, const std::complex<double>& b) {
+                    return std::abs(a) < std::abs(b);  // 比较幅度值
+                });
+
+            double minMag = std::abs(*minIt);  // 获取最小幅度
+            double maxMag = std::abs(*maxIt);  // 获取最大幅度
+            double range = maxMag - minMag;
+
+            if (range > 0) {
+                for (auto& val : m_fftDisplayData) {
+                    double magnitude = std::abs(val);  // 获取当前值的幅度
+                    val = (magnitude - minMag) / range * 255.0;  // 归一化到0-255范围
+                }
+            }
         }
+        else {
+            // 逆向变换前执行反移中
+            FFTShift(fftData.data(), paddedWidth, paddedHeight);
 
-        // 归一化显示数据（修正后的版本）
-        auto [minIt, maxIt] = std::minmax_element(m_fftDisplayData.begin(), m_fftDisplayData.end(),
-            [](const std::complex<double>& a, const std::complex<double>& b) {
-                return std::abs(a) < std::abs(b);
-            });
+            // 保存逆变换结果
+            int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+            m_ifftResult.resize(nHeight * rowSize);
 
-        double minMag = std::abs(*minIt);
-        double maxMag = std::abs(*maxIt);
-        double range = maxMag - minMag;
+            // 归一化处理
+            const double scale = 1.0 / (paddedWidth * paddedHeight);
+            for (auto& val : fftData) {
+                val *= scale;
+            }
 
-        if (range > 0) {
-            for (auto& val : m_fftDisplayData) {
-                double magnitude = std::abs(val);
-                val = (magnitude - minMag) / range * 255.0;
+            // 生成图像数据
+            for (int y = 0; y < nHeight; y++) {
+                for (int x = 0; x < nWidth; x++) {
+                    double val = fftData[y * paddedWidth + x].real();
+                    val = std::clamp(val * 255.0, 0.0, 255.0);
+
+                    int offset = (nHeight - 1 - y) * rowSize + x * (nBitCount / 8);
+                    BYTE* pixel = m_ifftResult.data() + offset;
+
+                    switch (nBitCount) {
+                    case 8:  *pixel = static_cast<BYTE>(val); break;
+                    case 16: *reinterpret_cast<WORD*>(pixel) = static_cast<WORD>(val * 256); break;
+                    case 24:
+                    case 32:
+                        pixel[0] = pixel[1] = pixel[2] = static_cast<BYTE>(val);
+                        if (nBitCount == 32) pixel[3] = 255;
+                        break;
+                    }
+                }
             }
         }
 
@@ -3140,15 +3207,31 @@ void CImageProc::BitReverse(std::complex<double>* data, int n) {
 }
 
 
-void CImageProc::FFTShift(std::complex<double>* data, int w, int h) {
-    int hw = (w + 1) / 2;  // 处理奇数尺寸
-    int hh = (h + 1) / 2;
+void CImageProc::FFTShift(std::complex<double>* data, int width, int height) {
+    // 计算中心位置（兼容奇偶尺寸）
+    int cx = width / 2;
+    int cy = height / 2;
 
-    for (int y = 0; y < hh; y++) {
-        for (int x = 0; x < hw; x++) {
-            int src = y * w + x;
-            int dst = ((y + hh) % h) * w + ((x + hw) % w);
-            std::swap(data[src], data[dst]);
+    // 临时存储左上象限
+    std::vector<std::complex<double>> temp(cx * cy);
+    for (int y = 0; y < cy; ++y) {
+        for (int x = 0; x < cx; ++x) {
+            temp[y * cx + x] = data[y * width + x];
+        }
+    }
+
+    // 交换象限（左上←→右下）
+    for (int y = 0; y < cy; ++y) {
+        for (int x = 0; x < cx; ++x) {
+            data[y * width + x] = data[(y + cy) * width + (x + cx)];
+            data[(y + cy) * width + (x + cx)] = temp[y * cx + x];
+        }
+    }
+
+    // 交换象限（右上←→左下）
+    for (int y = 0; y < cy; ++y) {
+        for (int x = 0; x < cx; ++x) {
+            std::swap(data[y * width + (x + cx)], data[(y + cy) * width + x]);
         }
     }
 }

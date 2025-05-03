@@ -165,5 +165,6 @@ public:
     int m_fftWidth = 0;
     int m_fftHeight = 0;
     std::vector<std::complex<double>> m_fullSpectrum;  // 存储完整频谱数据
-    std::pair<int, int> m_paddedSize;                 // 存储补零后的尺寸
+    std::pair<int, int> m_paddedSize;
+    //std::vector<std::complex<double>> m_fftData;// 存储补零后的尺寸
 };
