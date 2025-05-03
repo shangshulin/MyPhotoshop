@@ -96,6 +96,8 @@ public:
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	//同态滤波
+	afx_msg void OnHomomorphicFiltering();
 public:
 	template <typename TExecute, typename TUndo>
 	void AddCommand(TExecute&& executeFunc, TUndo&& undoFunc)

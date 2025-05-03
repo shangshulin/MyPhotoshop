@@ -67,6 +67,9 @@ public:
     void Multiply(CImageProc& img);    // 图像相乘
     void PowerTransform(double gamma); // 幂律变换
 
+    //同态滤波
+    void HomomorphicFiltering();
+
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
     bool FFT2D(bool bForward = true, bool bSaveState = true); // true=FFT, false=IFFT

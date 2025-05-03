@@ -90,12 +90,13 @@
 #define ID_FREQ_UNDO                    32820
 #define ID_32824                        32824
 #define ID_FREQ_FFT_LOG                 32825
+#define ID_HOMOMORPHIC_FILTERING        32826
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        324
+#define _APS_NEXT_RESOURCE_VALUE        328
 #define _APS_NEXT_COMMAND_VALUE         32826
 #define _APS_NEXT_CONTROL_VALUE         1023
 #define _APS_NEXT_SYMED_VALUE           310

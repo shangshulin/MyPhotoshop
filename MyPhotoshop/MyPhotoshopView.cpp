@@ -71,6 +71,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_FREQ_IFFT, &CMyPhotoshopView::OnFreqIFFT)
     ON_COMMAND(ID_FREQ_UNDO, &CMyPhotoshopView::OnFreqUndo)
     ON_COMMAND(ID_FREQ_FFT_LOG, &CMyPhotoshopView::OnFreqFftLogTransform)
+
+    //同态滤波
+    ON_COMMAND(ID_HOMOMORPHIC_FILTERING, &CMyPhotoshopView::OnHomomorphicFiltering)
 END_MESSAGE_MAP()
 
 
@@ -1330,5 +1333,41 @@ void CMyPhotoshopView::OnFreqFftLogTransform() {
                 pDoc->UpdateAllViews(nullptr);
             }
         );
+    }
+}
+// 同态滤波
+void CMyPhotoshopView::OnHomomorphicFiltering() {
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像"));
+        return;
+    }
+
+    try {
+        // 创建原始图像的深拷贝（用于撤回）
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        // 添加命令到命令栈
+        AddCommand(
+            [pDoc]() {
+                // 执行同态滤波
+                pDoc->pImage->HomomorphicFiltering();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                // 撤回操作：恢复原始图像
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (CMemoryException* e) {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法完成操作"));
+    }
+    catch (...) {
+        AfxMessageBox(_T("同态滤波操作失败"));
     }
 }
