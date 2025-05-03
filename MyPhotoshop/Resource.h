@@ -9,13 +9,15 @@
 #define IDD_DIALOG1                     310
 #define IDD_HISTOGRAM_DLG               310
 #define IDD_INTENSITY_DLG               312
+#define IDD_HIGH_PASS_FILTER_DIALOG1    313
 #define IDD_NOISE_RATIO_DIALOG          314
 #define IDD_IMPULSE_NOISE_DIALOG        316
 #define IDD_GAUSSIAN_NOISE_DIALOG       318
 #define IDD_DIALOG2                     320
 #define IDD_GAUSSIAN_WHITE_NOISE_DIALOG 320
 #define IDD_FILTER_SIZE                 321
-#define IDD_LOW_FILTERDLG               322
+#define IDD_FFTLOG_DIALOG               322
+#define IDD_HIGH_PASS_FILTER_DIALOG     324
 #define IDC_STATIC_HISTOGRAM            1000
 #define IDC_STATIC_HISTOGRAM2           1001
 #define IDC_EDIT_ALPHA                  1002
@@ -37,11 +39,12 @@
 #define IDC_SIGMA_SLIDER                1018
 #define IDC_SLIDER1                     1019
 #define IDC_FILTER_SIZE                 1020
-#define IDC_LOW_FILTER                  1022
-#define IDC_BW_LOW_FILTER               1023
-#define IDC_BW_LOW_FILTER_EDIT          1028
-#define IDC_EDIT_D0                     1029
-#define IDC_LOW_FILTER_BUTTON           1030
+#define IDC_EDIT_LOGBASE                1021
+#define IDC_EDIT_LOGBASE2               1022
+#define IDC_EDIT_SCALEFACTOR            1022
+#define IDC_FILTER_TYPE_COMBO           1023
+#define IDC_CUTOFF_FREQUENCY_EDIT       1024
+#define IDC_ORDER_EDIT                  1025
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -87,21 +90,20 @@
 #define ID_EDGE_LOG                     32813
 #define ID_32816                        32816
 #define ID_32817                        32817
-#define ID_32818                        32818
-#define ID_32819                        32819
-#define ID_LOW_FILTER                   32820
-#define ID_32821                        32821
-#define ID_B_LOW_FILTER                 32822
-#define ID_32823                        32823
-#define ID_LowFilterButton              32824
+#define ID_FREQ_FFT                     32818
+#define ID_FREQ_IFFT                    32819
+#define ID_FREQ_UNDO                    32820
+#define ID_32824                        32824
+#define ID_FREQ_FFT_LOG                 32825
+#define ID_HIGHPASS_FILTER              32826
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        324
-#define _APS_NEXT_COMMAND_VALUE         32825
-#define _APS_NEXT_CONTROL_VALUE         1031
-#define _APS_NEXT_SYMED_VALUE           310
+#define _APS_NEXT_RESOURCE_VALUE        326
+#define _APS_NEXT_COMMAND_VALUE         32827
+#define _APS_NEXT_CONTROL_VALUE         1026
+#define _APS_NEXT_SYMED_VALUE           314
 #endif
 #endif

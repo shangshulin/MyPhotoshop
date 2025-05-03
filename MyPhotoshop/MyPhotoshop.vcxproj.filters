@@ -63,7 +63,7 @@
     <ClInclude Include="Command.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="CLOWFILTERDlg.h">
+    <ClInclude Include="FFTLogDialog.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -110,7 +110,7 @@
     <ClCompile Include="FilterSizeDialog.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CLOWFILTERDlg.cpp">
+    <ClCompile Include="FFTLogDialog.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
