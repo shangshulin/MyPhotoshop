@@ -1337,34 +1337,31 @@ void CMyPhotoshopView::OnFreqFftLogTransform() {
     }
 }
 
-void CMyPhotoshopView::OnHighPassFilter() {
-    CHighPassFilterDialog dlg;
-    if (dlg.DoModal() != IDOK) return;
-
+void CMyPhotoshopView::OnHighPassFilter()
+{
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage) return;
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
 
     try {
+        // 创建原始图像的深拷贝（用于撤回）
         CImageProc* pOldImage = new CImageProc();
         *pOldImage = *pDoc->pImage;
 
-        HighPassFilterType filterType;
-        if (dlg.GetFilterType() == 0) {
-            filterType = HighPassFilterType::IdealHighPass;
-        }
-        else {
-            filterType = HighPassFilterType::ButterworthHighPass;
-        }
+        // 使用固定截止频率10.0
+        const double cutoffFrequency = 10.0;
 
-        double cutoffFrequency = dlg.GetCutoffFrequency();
-        int order = dlg.GetOrder();
-
+        // 添加命令到命令栈
         AddCommand(
-            [pDoc, filterType, cutoffFrequency, order]() {
-                pDoc->pImage->ApplyHighPassFilter(filterType, cutoffFrequency, order);
+            [pDoc, cutoffFrequency]() {
+                // 执行高通滤波
+                pDoc->pImage->IdealHighPassFilter(cutoffFrequency);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
+                // 撤回操作：恢复原始图像
                 *pDoc->pImage = *pOldImage;
                 delete pOldImage;
                 pDoc->UpdateAllViews(nullptr);
@@ -1372,6 +1369,6 @@ void CMyPhotoshopView::OnHighPassFilter() {
         );
     }
     catch (...) {
-        AfxMessageBox(_T("操作失败"));
+        AfxMessageBox(_T("高通滤波操作失败"));
     }
 }
