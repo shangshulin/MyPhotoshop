@@ -70,10 +70,7 @@ void CLOWFILTERDlg::OnBnClickedLowFilter()
 		AfxMessageBox(_T("截止频率必须大于0！"), MB_ICONERROR);
 		return;
 	}
-	if (m_pImageProc) {
-		m_pImageProc->IdealLowPassFilter(m_D0);
-		Invalidate(); // 刷新显示
-	}
+	UpdateData(FALSE); // 刷新控件显示
 }
 
 void CLOWFILTERDlg::OnBnClickedBwLowFilter()
@@ -87,36 +84,13 @@ void CLOWFILTERDlg::OnBnClickedBwLowFilter()
 		AfxMessageBox(_T("阶数必须大于0！"), MB_ICONERROR);
 		return;
 	}
-	if (m_pImageProc) {
-		m_pImageProc->ButterworthLowPassFilter(m_D0, static_cast<int>(m_step));
-		Invalidate();
-	}
+	UpdateData(FALSE); // 刷新控件显示
 }
 
 void CLOWFILTERDlg::OnBnClickedLowFilterButtonApply()
 {
-	UpdateData(TRUE); // 统一获取界面输入
-
-	if (!m_pImageProc) {
-		AfxMessageBox(_T("图像处理对象未初始化！"), MB_ICONERROR);
-		return;
-	}
-	if (m_D0 <= 0) {
-		AfxMessageBox(_T("截止频率必须大于0！"), MB_ICONERROR);
-		return;
-	}
-	if (m_step <= 0) {
-		AfxMessageBox(_T("阶数必须大于0！"), MB_ICONERROR);
-		return;
-	}
-
-	int filterType = GetFilterType();
-	if (filterType == 1) {
-		m_pImageProc->ButterworthLowPassFilter(m_D0, static_cast<int>(m_step));
-	}
-	else {
-		m_pImageProc->IdealLowPassFilter(m_D0);
-	}
-	Invalidate();
-	AfxMessageBox(_T("滤波器已成功应用！"), MB_ICONINFORMATION);
+	UpdateData(TRUE);
+// 此处不做滤波，只关闭对话框，参数通过成员变量传递
+	Invalidate(); // 刷新显示
+	EndDialog(IDOK);
 }

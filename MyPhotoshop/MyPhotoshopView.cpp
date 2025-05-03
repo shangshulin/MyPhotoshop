@@ -1054,21 +1054,39 @@ void CMyPhotoshopView::OnEditUndo()
     }
 }
 
-
 void CMyPhotoshopView::OnLowFilter()
 {
-    // 获取文档对象
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
+        AfxMessageBox(_T("请先打开有效图像"));
         return;
     }
 
-    // 弹出低通滤波参数对话框
     CLOWFILTERDlg dlg;
-    dlg.SetImageData(pDoc->pImage); // 设置图像数据
-    dlg.DoModal();
+    dlg.SetImageData(pDoc->pImage);
+    if (dlg.DoModal() == IDOK) {
+        double D0 = dlg.GetD0();
+        int filterType = dlg.GetFilterType();
+        int step = dlg.GetStep();
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+        AddCommand(
+            [pDoc, D0, filterType, step]() {
+                if (filterType == 0)
+                    pDoc->pImage->IdealLowPassFilter(D0);
+                else
+                    pDoc->pImage->ButterworthLowPassFilter(D0, step);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
 }
+
 
 void CMyPhotoshopView::OnBnClickedLowFilterButton()
 {
