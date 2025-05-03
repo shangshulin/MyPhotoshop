@@ -16,6 +16,7 @@
 #include "FilterSizeDialog.h"  
 #include "CINTENSITYDlg.h"
 #include "FFTLogDialog.h"
+#include <fftw3.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
