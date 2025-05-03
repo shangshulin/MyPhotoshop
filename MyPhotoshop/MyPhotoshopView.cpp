@@ -15,6 +15,7 @@
 #include <algorithm>
 #include "FilterSizeDialog.h"  
 #include "CINTENSITYDlg.h"
+#include "FFTLogDialog.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -66,6 +67,10 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_WM_VSCROLL()
     ON_WM_SIZE()
 
+    ON_COMMAND(ID_FREQ_FFT, &CMyPhotoshopView::OnFreqFFT)
+    ON_COMMAND(ID_FREQ_IFFT, &CMyPhotoshopView::OnFreqIFFT)
+    ON_COMMAND(ID_FREQ_UNDO, &CMyPhotoshopView::OnFreqUndo)
+    ON_COMMAND(ID_FREQ_FFT_LOG, &CMyPhotoshopView::OnFreqFftLogTransform)
 END_MESSAGE_MAP()
 
 
@@ -136,8 +141,7 @@ void CMyPhotoshopView::SetZoomRatio(double ratio, CPoint ptCenter)
     Invalidate(TRUE);
 }
 
-void CMyPhotoshopView::OnDraw(CDC* pDC)
-{
+void CMyPhotoshopView::OnDraw(CDC* pDC) {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage)
         return;
@@ -146,24 +150,90 @@ void CMyPhotoshopView::OnDraw(CDC* pDC)
     CDC memDC;
     memDC.CreateCompatibleDC(pDC);
 
+    // 计算绘制区域
     int destWidth = int(pDoc->pImage->nWidth * m_dZoomRatio);
     int destHeight = int(pDoc->pImage->nHeight * m_dZoomRatio);
 
+    // 计算总宽度和图像数量
+    int totalWidth = destWidth;
+    int imageCount = 1;
+
+    if (pDoc->pImage->IsFFTPerformed()) {
+        imageCount = 2; // 原图和FFT频谱图
+        if (pDoc->pImage->HasIFFTResult()) {
+            imageCount = 3; // 原图、FFT频谱图和IFFT结果
+        }
+    }
+
+    // 计算总宽度（每张图之间留10像素间距）
+    totalWidth = destWidth * imageCount + (imageCount - 1) * 10;
+
     CBitmap bitmap;
-    bitmap.CreateCompatibleBitmap(pDC, destWidth, destHeight);
+    bitmap.CreateCompatibleBitmap(pDC, totalWidth, destHeight);
     CBitmap* pOldBitmap = memDC.SelectObject(&bitmap);
 
-    // 绘制到内存DC
-    pDoc->pImage->ShowBMP(&memDC, 0, 0, destWidth, destHeight);
+    // 填充背景
+    memDC.FillSolidRect(0, 0, totalWidth, destHeight, RGB(255, 255, 255));
+
+    // 1. 绘制原始图像
+    if (pDoc->pImage->HasOriginalImageData()) {
+        pDoc->pImage->DisplayOriginalImage(&memDC, 0, 0, destWidth, destHeight);
+    }
+    else {
+        pDoc->pImage->ShowBMP(&memDC, 0, 0, destWidth, destHeight);
+    }
+
+    // 2. 如果进行了FFT，显示频谱图
+    if (pDoc->pImage->IsFFTPerformed()) {
+        // 创建临时DC用于频谱绘制
+        CDC specDC;
+        specDC.CreateCompatibleDC(&memDC);
+
+        CBitmap specBmp;
+        specBmp.CreateCompatibleBitmap(&memDC, destWidth, destHeight);
+        CBitmap* pOldSpecBmp = specDC.SelectObject(&specBmp);
+
+        // 填充频谱图背景
+        specDC.FillSolidRect(0, 0, destWidth, destHeight, RGB(255, 255, 255));
+
+        // 绘制频谱图
+        pDoc->pImage->DisplayFFTResult(&specDC, 0, 0, destWidth, destHeight);
+
+        // 将频谱图拷贝到内存DC
+        memDC.BitBlt(destWidth + 10, 0, destWidth, destHeight,
+            &specDC, 0, 0, SRCCOPY);
+
+        specDC.SelectObject(pOldSpecBmp);
+
+        // 3. 如果进行了IFFT，显示IFFT结果
+        if (pDoc->pImage->HasIFFTResult()) {
+            // 创建临时DC用于IFFT结果绘制
+            CDC ifftDC;
+            ifftDC.CreateCompatibleDC(&memDC);
+
+            CBitmap ifftBmp;
+            ifftBmp.CreateCompatibleBitmap(&memDC, destWidth, destHeight);
+            CBitmap* pOldIfftBmp = ifftDC.SelectObject(&ifftBmp);
+
+            // 填充IFFT结果背景
+            ifftDC.FillSolidRect(0, 0, destWidth, destHeight, RGB(255, 255, 255));
+
+            // 绘制IFFT结果
+            pDoc->pImage->DisplayIFFTResult(&ifftDC, 0, 0, destWidth, destHeight);
+
+            // 将IFFT结果拷贝到内存DC
+            memDC.BitBlt(destWidth * 2 + 20, 0, destWidth, destHeight,
+                &ifftDC, 0, 0, SRCCOPY);
+
+            ifftDC.SelectObject(pOldIfftBmp);
+        }
+    }
 
     // 从内存DC拷贝到屏幕DC，考虑滚动位置
     CRect rectClient;
     GetClientRect(&rectClient);
-    pDC->BitBlt(
-        0, 0, rectClient.Width(), rectClient.Height(),
-        &memDC,
-        m_ptScrollPos.x, m_ptScrollPos.y,
-        SRCCOPY);
+    pDC->BitBlt(0, 0, rectClient.Width(), rectClient.Height(),
+        &memDC, m_ptScrollPos.x, m_ptScrollPos.y, SRCCOPY);
 
     memDC.SelectObject(pOldBitmap);
 }
@@ -1059,3 +1129,206 @@ void CMyPhotoshopView::OnEditUndo()
     }
 }
 
+
+
+// MyPhotoshopView.cpp
+//void CMyPhotoshopView::OnFreqFFT() {
+//    CMyPhotoshopDoc* pDoc = GetDocument();
+//    if (!pDoc || !pDoc->pImage) return;
+//
+//    try {
+//        // 保存原始图像
+//        CImageProc* pOldImage = new CImageProc();
+//        *pOldImage = *pDoc->pImage;
+//
+//        AddCommand(
+//            [pDoc]() {
+//                if (pDoc->pImage->FFT2D(true)) {
+//                    pDoc->UpdateAllViews(nullptr);
+//                }
+//            },
+//            [pDoc, pOldImage]() {
+//                *pDoc->pImage = *pOldImage;
+//                delete pOldImage;
+//                pDoc->UpdateAllViews(nullptr);
+//            }
+//        );
+//    }
+//    catch (...) {
+//        AfxMessageBox(_T("FFT操作失败"));
+//    }
+//}
+
+void CMyPhotoshopView::OnFreqFFT() {
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage) {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    try {
+        // 保存原始图像状态
+        CImageProc* pOldImage = new CImageProc();
+        if (!pOldImage) AfxThrowMemoryException();
+        *pOldImage = *pDoc->pImage;
+
+        // 添加到命令栈
+        AddCommand(
+            [pDoc]() {
+                if (!pDoc->pImage->FFT2D(true)) {
+                    AfxMessageBox(_T("FFT变换失败"));
+                }
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (CMemoryException* e) {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法保存图像状态"));
+    }
+    catch (...) {
+        AfxMessageBox(_T("FFT变换初始化失败"));
+    }
+}
+
+void CMyPhotoshopView::OnFreqIFFT() {
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsFFTPerformed()) {
+        AfxMessageBox(_T("请先执行FFT变换"));
+        return;
+    }
+
+    try {
+        // 保存当前状态用于撤销
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc]() {
+                if (!pDoc->pImage->IFFT2D(false)) {
+                    AfxMessageBox(_T("IFFT变换失败"));
+                }
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (...) {
+        AfxMessageBox(_T("IFFT变换失败"));
+    }
+}
+
+//void CMyPhotoshopView::OnFreqIFFT() {
+//    CMyPhotoshopDoc* pDoc = GetDocument();
+//    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsFFTPerformed()) {
+//        AfxMessageBox(_T("请先执行FFT变换"));
+//        return;
+//    }
+//
+//    try {
+//        // 保存当前状态用于撤销
+//        CImageProc* pOldImage = new CImageProc();
+//        *pOldImage = *pDoc->pImage;
+//
+//        AddCommand(
+//            [pDoc]() {
+//                if (!pDoc->pImage->IFFT2D(false)) { // false表示不重复保存状态
+//                    AfxMessageBox(_T("IFFT变换失败"));
+//                }
+//                pDoc->UpdateAllViews(nullptr);
+//            },
+//            [pDoc, pOldImage]() {
+//                *pDoc->pImage = *pOldImage;
+//                delete pOldImage;
+//                pDoc->UpdateAllViews(nullptr);
+//            }
+//        );
+//    }
+//    catch (CMemoryException* e) {
+//        e->Delete();
+//        AfxMessageBox(_T("内存不足，无法执行IFFT"));
+//    }
+//    catch (...) {
+//        AfxMessageBox(_T("IFFT变换初始化失败"));
+//    }
+//}
+//
+void CMyPhotoshopView::OnFreqUndo() {
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage) {
+        AfxMessageBox(_T("没有可撤销的操作"));
+        return;
+    }
+
+    if (!pDoc->pImage->HasFFTData()) {
+        AfxMessageBox(_T("当前没有FFT变换可撤销"));
+        return;
+    }
+
+    try {
+        // 保存当前状态（允许重做）
+        CImageProc* pCurrentImage = new CImageProc();
+        if (!pCurrentImage) AfxThrowMemoryException();
+        *pCurrentImage = *pDoc->pImage;
+
+        // 添加到命令栈
+        AddCommand(
+            [pDoc]() {
+                pDoc->pImage->RestoreState();
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pCurrentImage]() {
+                *pDoc->pImage = *pCurrentImage;
+                delete pCurrentImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (CMemoryException* e) {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法执行撤销操作"));
+    }
+    catch (...) {
+        AfxMessageBox(_T("撤销操作失败"));
+    }
+}
+
+void CMyPhotoshopView::OnFreqFftLogTransform() {
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsFFTPerformed()) {
+        AfxMessageBox(_T("请先执行FFT变换"));
+        return;
+    }
+
+    CFFTLogDialog dlg;
+    if (dlg.DoModal() == IDOK) {
+        // 保存对话框参数到局部变量
+        double logBase = dlg.m_dLogBase;
+        double scaleFactor = dlg.m_dScaleFactor;
+
+        // 保存当前状态用于撤销
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        AddCommand(
+            [pDoc, logBase, scaleFactor]() {  // 捕获基本类型参数而非对话框对象
+                pDoc->pImage->ApplyFFTLogTransform(logBase, scaleFactor);
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+}

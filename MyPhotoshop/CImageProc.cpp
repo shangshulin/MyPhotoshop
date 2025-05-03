@@ -5,134 +5,294 @@
 #include <algorithm> // 用于排序
 #include <omp.h>
 #include <numeric>
-
+#include <complex>
+#include <valarray>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 CImageProc::CImageProc()
 {
     m_hDib = NULL;
-    pDib = new BYTE;
-    pBFH = new BITMAPFILEHEADER;
-    pBIH = new BITMAPINFOHEADER;
-    pQUAD = new RGBQUAD;
-    pBits = new BYTE;
-    nWidth = 0;
-    nHeight = 0;
-    nBitCount = 0;
-    m_bIs565Format = true; // 默认假设为565格式
+    pDib = NULL;
+    pBFH = NULL;
+    pBIH = NULL;
+    pQUAD = NULL;
+    pBits = NULL;
+    nWidth = nHeight = nBitCount = 0;
+    m_bIs565Format = true;
+    isPaletteDarkToLight = false;
+    m_bIFFTPerformed = false;
 }
 CImageProc::~CImageProc()
 {
-    delete pDib;
-    delete pBFH;
-    delete pBIH;
-    delete pQUAD;
-    delete pBits;
-    if (m_hDib != NULL)
-        GlobalUnlock(m_hDib);
+    if (m_hDib) {
+        if (pDib) {
+            GlobalUnlock(m_hDib);
+        }
+        GlobalFree(m_hDib);
+    }
 }
 
-// 打开文件
+void CImageProc::CleanUp()
+{
+    if (m_hDib != NULL)
+    {
+        if (pDib != NULL)
+        {
+            ::GlobalUnlock(m_hDib);
+            pDib = NULL;
+        }
+        ::GlobalFree(m_hDib);
+        m_hDib = NULL;
+    }
+
+    // 清理FFT相关数据
+    ResetFFTState();
+
+    pBFH = NULL;
+    pBIH = NULL;
+    pQUAD = NULL;
+    pBits = NULL;
+    nWidth = 0;
+    nHeight = 0;
+    nBitCount = 0;
+    m_bIs565Format = false;
+}
+
+CImageProc& CImageProc::operator=(const CImageProc& other) {
+    if (this == &other) return *this;
+
+    // 释放当前资源
+    if (m_hDib) {
+        GlobalFree(m_hDib);
+        m_hDib = NULL;
+    }
+
+    // 复制基本参数
+    nWidth = other.nWidth;
+    nHeight = other.nHeight;
+    nBitCount = other.nBitCount;
+
+    if (other.m_hDib) {
+        // 计算源图像数据大小
+        DWORD dwSize = ::GlobalSize(other.m_hDib);
+
+        // 分配新内存
+        m_hDib = ::GlobalAlloc(GHND, dwSize);
+        if (!m_hDib) AfxThrowMemoryException();
+
+        // 锁定内存
+        LPBYTE pSrc = (LPBYTE)::GlobalLock(other.m_hDib);
+        LPBYTE pDst = (LPBYTE)::GlobalLock(m_hDib);
+
+        if (!pSrc || !pDst) {
+            if (pSrc) ::GlobalUnlock(other.m_hDib);
+            if (pDst) ::GlobalUnlock(m_hDib);
+            AfxThrowMemoryException();
+        }
+
+        // 完整拷贝数据
+        memcpy(pDst, pSrc, dwSize);
+
+        // 解锁内存
+        ::GlobalUnlock(other.m_hDib);
+        ::GlobalUnlock(m_hDib);
+
+        // 重新设置指针
+        pDib = (LPBYTE)::GlobalLock(m_hDib);
+        pBFH = (LPBITMAPFILEHEADER)pDib;
+        pBIH = (LPBITMAPINFOHEADER)(pDib + sizeof(BITMAPFILEHEADER));
+
+        // 重新计算像素数据位置
+        int nColorTableSize = 0;
+        if (nBitCount <= 8) {
+            nColorTableSize = (1 << nBitCount) * sizeof(RGBQUAD);
+            pQUAD = (LPRGBQUAD)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        }
+        else {
+            pQUAD = NULL;
+        }
+
+        // 计算像素数据起始位置
+        if (pBFH) {
+            pBits = pDib + pBFH->bfOffBits;
+        }
+        else {
+            pBits = pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + nColorTableSize;
+        }
+    }
+    return *this;
+}
+
+//打开文件
 void CImageProc::OpenFile()
 {
-    CFileDialog fileDlg(TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, L"Bmp File(*.bmp)|*.bmp|JPG File(*.jpg)|*.jpg|All Files(*.*)|*.*||", NULL);
+    CFileDialog fileDlg(TRUE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+        L"Bmp File(*.bmp)|*.bmp|JPG File(*.jpg)|*.jpg|All Files(*.*)|*.*||", NULL);
     if (fileDlg.DoModal() == IDOK)
     {
         CString stpathname = fileDlg.GetPathName();
         LoadBmp(stpathname);
+
+        // 加载成功后重置显示状态
+        if (m_hDib != NULL) {
+            ResetFFTState();
+        }
     }
-    else
-        return;
 }
 
-// 加载 BMP 文件
+// 加载图片
 void CImageProc::LoadBmp(CString stFileName)
 {
-    // TODO: 在此处添加实现代码.
-    CFile file;//文件对象
-    CFileException e;//文件异常对象
-    if (!file.Open(stFileName, CFile::modeRead | CFile::shareExclusive, &e))
+    // 重置FFT相关状态
+    ResetFFTState();
+
+    CleanUp(); // 清空内存
+
+    CFile file;
+    CFileException e;
+
+    if (!file.Open(stFileName, CFile::modeRead | CFile::shareDenyWrite, &e))
     {
 #ifdef _DEBUG
         afxDump << "File could not be opened " << e.m_cause << "\n";
 #endif
+        return;
     }
-    else
+
+    ULONGLONG nFileSize = file.GetLength();
+    if (nFileSize < sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER))
     {
-        ULONGLONG nFileSize;    //匹配GetLength函数的数据类型
-        nFileSize = file.GetLength();   //获取文件大小
-        m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);   //分配内存
-        pDib = (BYTE*)::GlobalLock(m_hDib);   //锁定内存
-        file.Read(pDib, nFileSize);   //读取文件
-        pBFH = (BITMAPFILEHEADER*)pDib;     //指向文件头
-        pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];   //指向信息头
-        pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)];   //指向调色板
-        pBits = (BYTE*)&pDib[pBFH->bfOffBits];   //指向位图数据
-        nWidth = pBIH->biWidth;     // 获取图像的宽高
-        nHeight = pBIH->biHeight;
-		nBitCount = pBIH->biBitCount;   //获取位深度
-   
-        if (pBIH->biCompression == BI_RGB && nBitCount == 16) {
-            //16位图默认为555格式
-            m_bIs565Format = false;
-        }
-        else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16) {
-            // 检查颜色掩码是否为565
-            DWORD* masks = reinterpret_cast<DWORD*>(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        file.Close();
+        return;
+    }
+
+    m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, nFileSize);
+    if (!m_hDib)
+    {
+        file.Close();
+        return;
+    }
+
+    pDib = (BYTE*)::GlobalLock(m_hDib);
+    if (!pDib)
+    {
+        GlobalFree(m_hDib);
+        m_hDib = NULL;
+        file.Close();
+        return;
+    }
+
+    UINT nBytesRead = file.Read(pDib, (UINT)nFileSize);
+    file.Close();
+
+    if (nBytesRead != nFileSize)
+    {
+        CleanUp();
+        return;
+    }
+
+    pBFH = (BITMAPFILEHEADER*)pDib;
+    if (pBFH->bfType != 0x4D42)
+    {
+        CleanUp();
+        return;
+    }
+
+    pBIH = (BITMAPINFOHEADER*)&pDib[sizeof(BITMAPFILEHEADER)];
+    if (pBIH->biSize < sizeof(BITMAPINFOHEADER))
+    {
+        CleanUp();
+        return;
+    }
+
+    pQUAD = (RGBQUAD*)&pDib[sizeof(BITMAPFILEHEADER) + pBIH->biSize];
+
+    if (pBFH->bfOffBits >= nFileSize)
+    {
+        CleanUp();
+        return;
+    }
+    pBits = &pDib[pBFH->bfOffBits];
+    nWidth = pBIH->biWidth;
+    nHeight = abs(pBIH->biHeight);
+    nBitCount = pBIH->biBitCount;
+
+    DWORD dwImageSize = ((nWidth * nBitCount + 31) / 32) * 4 * nHeight;
+    if (pBFH->bfOffBits + dwImageSize > nFileSize)
+    {
+        CleanUp();
+        return;
+    }
+
+    if (pBIH->biCompression == BI_RGB && nBitCount == 16)
+    {
+        m_bIs565Format = false;
+    }
+    else if (pBIH->biCompression == BI_BITFIELDS && nBitCount == 16)
+    {
+        if (sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + 3 * sizeof(DWORD) <= nFileSize)
+        {
+            DWORD* masks = reinterpret_cast<DWORD*>(&pDib[sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER)]);
             DWORD redMask = masks[0];
             DWORD greenMask = masks[1];
             DWORD blueMask = masks[2];
-
-            m_bIs565Format = (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F);
+            if (redMask == 0xF800 && greenMask == 0x07E0 && blueMask == 0x001F)
+            {
+                m_bIs565Format = true;
+            }
         }
-        else {
+        else
+        {
             m_bIs565Format = false;
         }
     }
-}
-
-void CImageProc::ShowBMP(CDC* pDC)
-{
-    // TODO: 在此处添加实现代码.
-    if (m_hDib != NULL)
+    else
     {
-        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);      // 设置拉伸模式为 COLORONCOLOR
-        ::StretchDIBits(pDC->m_hDC, 0, 0, pBIH->biWidth, pBIH->biHeight, 0, 0, pBIH->biWidth, pBIH->biHeight, pBits, (BITMAPINFO*)pBIH, DIB_RGB_COLORS, SRCCOPY);       // 将位图数据复制到目标DC的指定位置
+        m_bIs565Format = false;
     }
 }
 
-// 获取像素颜色
-void CImageProc::GetColor(CClientDC* pDC, int x, int y)
+// 显示图片
+void CImageProc::ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight)
 {
-    //检查坐标以及图像是否有效
+    if (m_hDib != NULL && pBIH != NULL && pBits != NULL)
+    {
+        ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);
+        ::StretchDIBits(
+            pDC->m_hDC,
+            x, y, destWidth, destHeight, // 目标区域（显示区域）
+            0, 0, pBIH->biWidth, pBIH->biHeight, // 源区域（原图大小）
+            pBits,
+            (BITMAPINFO*)pBIH,
+            DIB_RGB_COLORS,
+            SRCCOPY
+        );
+    }
+}
+
+//获取像素颜色
+void CImageProc::GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue)
+{
     if (m_hDib == NULL || x < 0 || x >= nWidth || y < 0 || y >= nHeight)
     {
-        return; // 无效坐标或未加载图像
+        return;
     }
-
-    // 每行字节数 = (每行的bit数 + 31) / 32 * 4     【每行字节数必须是4的倍数，即bit数是32的倍数，向上取整】
+    // 计算每行字节数
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-
-
-    //根据位深度计算出每个像素的起始位置
-
-    float  bytePerPixel = float(nBitCount)/ 8;
-    // 每个像素占用的字节数，nNumColors 为每个像素的位数【浮点数兼容低于8bit位图】
-
+    // 计算每个像素的字节数
+    float bytePerPixel = float(nBitCount) / 8;
+    // 计算像素在位图中的偏移量
     int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-    // 偏移量 = (图像高度 - 1 - 纵坐标) * 每行字节数 + 横坐标 * 每个像素占用的字节数   【y的范围是[0,nHeight-1]】 
-    // 【强制类型转换，对于低于8bit图像，pixel指向当前像素所在字节的起始位置】
-
-    BYTE* pixel = pBits + offset;// 获取像素在位图数据中的位置（起始点+偏移量）
-
-    //  RGB 值
-    BYTE red = 0, green = 0, blue = 0;
-
+    // pixel指向当前像素
+    BYTE* pixel = pBits + offset;
+    // 获取像素颜色
     switch (nBitCount)
     {
-    case 1: // 1位位图
-    {
-        CImageProc::GetColor1bit(pixel,red,green,blue,x,y,pDC);
 
+    case 4:
+        CImageProc::GetColor4bit(pixel, red, green, blue, x);
         break;
     case 8:
         CImageProc::GetColor8bit(pixel, red, green, blue, x);
@@ -158,43 +318,49 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     {
         return;
     }
-    case 8: // 8位位图
+    // 计算每行字节数
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    // 计算每个像素的字节数
+    int bytePerPixel = nBitCount / 8;
+    // 计算像素在位图中的偏移量
+    int offset = (nHeight - 1 - imgY) * rowSize + imgX * bytePerPixel;
+    // pixel指向当前像素
+    BYTE* pixel = pBits + offset;
+    // 获取像素颜色
+    BYTE red = 0, green = 0, blue = 0;
+    // 根据位深获取像素颜色
+    switch (nBitCount)
     {
-        CImageProc::GetColor8bit(pixel, red, green, blue, x);
+    case 1:
+        CImageProc::GetColor1bit(pixel, red, green, blue, imgX, imgY, pDC);
         break;
-    }
-    case 16: // 16位位图
-    {
+    case 4:
+        CImageProc::GetColor4bit(pixel, red, green, blue, imgX);
+        break;
+    case 8:
+        CImageProc::GetColor8bit(pixel, red, green, blue, imgX);
+        break;
+    case 16:
         CImageProc::GetColor16bit(pixel, red, green, blue);
         break;
-    }
-    case 24: // 24位位图
-    {
+    case 24:
         CImageProc::GetColor24bit(pixel, red, green, blue);
         break;
-    }
-    case 32: // 32位位图
-    {
+    case 32:
         CImageProc::GetColor32bit(pixel, red, green, blue);
         break;
-    }
     default:
-        return; // 不支持的颜色深度
+        return;
     }
 
-    // 使用 GetPixel 获取像素颜色
-    COLORREF pixelColor = pDC->GetPixel(x, y);
+    COLORREF pixelColor = pDC->GetPixel(winX, winY);
     BYTE getPixelRed = GetRValue(pixelColor);
     BYTE getPixelGreen = GetGValue(pixelColor);
     BYTE getPixelBlue = GetBValue(pixelColor);
 
-    // 设置文本背景不透明
-    pDC->SetBkMode(OPAQUE);
+    pDC->SetBkMode(OPAQUE);//设置背景色为不透明
+    pDC->SetTextColor(RGB(0, 0, 0));//设置文本颜色为黑色
 
-    // 设置文本颜色为黑色
-    pDC->SetTextColor(RGB(0, 0, 0));
-
-    // 格式化 RGB 值和坐标信息
     CString str;
     str.Format(L"RGB: (%d, %d, %d)", red, green, blue);
 
@@ -202,37 +368,25 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     getPixelStr.Format(L"GetPixel RGB: (%d, %d, %d)", getPixelRed, getPixelGreen, getPixelBlue);
 
     CString location;
-    location.Format(L"location：(%d, %d)", x, y);
+    location.Format(L"location:(%d, %d)", imgX, imgY);
 
-    // 在鼠标点击位置显示 RGB 值
-    pDC->TextOutW(x, y, str);
+    pDC->TextOutW(winX, winY, str);//显示像素颜色
 
-    // 获取文本高度
     CSize textSize = pDC->GetTextExtent(str);
 
-    // 在下一行显示 GetPixel 获取的 RGB 值
-    pDC->TextOutW(x, y + textSize.cy, getPixelStr);
+    pDC->TextOutW(winX, winY + textSize.cy, getPixelStr);//显示GetPixel颜色
 
-    // 在下一行显示坐标
-    pDC->TextOutW(x, y + textSize.cy * 2, location);
-
+    pDC->TextOutW(winX, winY + textSize.cy * 2, location);//显示像素位置
 }
+
 void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC)
 {
     BYTE index = (*pixel >> (7 - x % 8)) & 0x01;
     red = pQUAD[index].rgbRed;
     green = pQUAD[index].rgbGreen;
     blue = pQUAD[index].rgbBlue;
-
-    // 由于原始图像直接转换成1bit图像之后，黑白像素交错分布，难以确定是否正确显示
-    // 以下代码用于查看当前像素值，从而验证是否显示正确
-
-    //CString str2;
-    //str2.Format(L"pixel：(%u);index：(%d)", *pixel, index);
-    //// 获取文本高度
-    //CSize textSize = pDC->GetTextExtent(str2);
-    //pDC->TextOutW(x, y + textSize.cy * 2, str2);
 }
+
 void CImageProc::GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
 {
     BYTE index = (x % 2 == 0) ? (*pixel >> 4) : (*pixel & 0x0F);
@@ -240,6 +394,7 @@ void CImageProc::GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     green = pQUAD[index].rgbGreen;
     blue = pQUAD[index].rgbBlue;
 }
+
 void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
 {
     BYTE index = *pixel;
@@ -247,26 +402,28 @@ void CImageProc::GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, i
     green = pQUAD[index].rgbGreen;
     blue = pQUAD[index].rgbBlue;
 }
+
+
 void CImageProc::GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
 {
     WORD pixelValue = *((WORD*)pixel);
-    if (m_bIs565Format) {
-        // 提取565格式的RGB分量
+    if (m_bIs565Format) // 处理565格式
+    {
+
         red = (pixelValue & 0xF800) >> 11;    
         green = (pixelValue & 0x07E0) >> 5;   
         blue = pixelValue & 0x001F;           
 
-        // 将分量扩展到8位
+
         red = (red << 3) | (red >> 2);        
         green = (green << 2) | (green >> 4);  
         blue = (blue << 3) | (blue >> 2);    
-    } else {
-        // 提取555格式的RGB分量
+    } else // 处理555格式
+    {
         red = (pixelValue & 0x7C00) >> 10;   
         green = (pixelValue & 0x03E0) >> 5;   
         blue = pixelValue & 0x001F;           
 
-        // 将分量扩展到8位
         red = (red << 3) | (red >> 2);
         green = (green << 3) | (green >> 2);
         blue = (blue << 3) | (blue >> 2);
@@ -285,10 +442,10 @@ void CImageProc::GetColor32bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue)
     blue = pixel[0];
 }
 
-// 计算混合模式灰度直方图
-std::vector<int> CImageProc::CalculateGrayHistogramMix()
+// 计算混合直方图
+std::vector<int> CImageProc::CalculateHistogramMix()
 {
-    std::vector<int> histogram(256, 0);
+    std::vector<int> histogram(256, 0);//创建一个256大小的向量，用于存储每个灰度值的像素数量
 
     if (m_hDib == NULL)
     {
@@ -332,9 +489,9 @@ std::vector<int> CImageProc::CalculateGrayHistogramMix()
                 continue;
             }
 
-            // 计算灰度值
-            int gray = static_cast<int>(0.299 * red + 0.587 * green + 0.114 * blue);
-            histogram[gray]++;
+
+            int gray = static_cast<int>(0.299 * red + 0.587 * green + 0.114 * blue);//计算灰度值
+			histogram[gray]++;//将灰度值对应的像素数量加1
         }
     }
 
@@ -350,12 +507,11 @@ std::vector<std::vector<int>> CImageProc::CalculateHistogramRGB()
     {
         return histograms;
     }
-
-    // 每行字节数 = (每行的bit数 + 31) / 32 * 4
+    // 计算每行字节数
     int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-
+    // 计算每个像素的字节数
     float bytePerPixel = float(nBitCount) / 8;
-
+    // 遍历每个像素
     for (int y = 0; y < nHeight; ++y)
     {
         for (int x = 0; x < nWidth; ++x)
@@ -2739,4 +2895,454 @@ void CImageProc::ApplyMeanFilter()
             }
         }
     }
+}
+
+bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
+    if (!IsValid()) return false;
+
+    // 保存原始图像数据（包括彩色信息）
+    int dataSize = nWidth * nHeight * (nBitCount / 8);
+    m_originalImageData.resize(dataSize);
+    memcpy(m_originalImageData.data(), pBits, dataSize);
+
+    if (bSaveState) {
+        SaveCurrentState();
+    }
+
+    try {
+        int w = nWidth;
+        int h = nHeight;
+        m_fftData.resize(w * h);
+
+        // 转换为复数形式（保留各通道信息）
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                BYTE r, g, b;
+                GetColor(x, y, r, g, b);
+                // 直接使用亮度值作为实部，虚部设为0
+                double real = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+                m_fftData[y * w + x] = std::complex<double>(real, 0.0);
+            }
+        }
+
+        // 执行FFT
+        CalculateFFT(m_fftData.data(), w, h, true);
+
+        // 频谱移中
+        FFTShift(m_fftData.data(), w, h);
+
+        // 保存原始FFT数据（用于IFFT）
+        m_originalFFTData = m_fftData;
+        // 保存显示用数据
+        m_fftDisplayData = m_fftData;
+
+        // 保存FFT结果的副本
+        m_fftDataCopy = m_fftData;
+
+        m_bFFTPerformed = true;
+        return true;
+    }
+    catch (...) {
+        return false;
+    }
+}
+
+void CImageProc::DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
+    int destWidth, int destHeight, bool bKeepOriginalData) {
+    if (!m_bFFTPerformed || m_fftData.empty()) return;
+    if (bKeepOriginalData) {
+        m_originalFFTData = m_fftData; // 保存原始FFT数据
+    }
+    int srcW = nWidth;
+    int srcH = nHeight;
+
+    if (destWidth <= 0) destWidth = srcW;
+    if (destHeight <= 0) destHeight = srcH;
+
+    // 计算缩放比例
+    double scaleX = (double)srcW / destWidth;
+    double scaleY = (double)srcH / destHeight;
+
+    // 计算最大幅度（对数变换后）
+    double maxLogMag = 0;
+    for (auto& val : m_fftData) {
+        double mag = std::abs(val);
+        if (mag > maxLogMag) maxLogMag = mag;
+    }
+    maxLogMag = log(1 + maxLogMag); // 已经应用了对数变换
+
+    // 绘制频谱图
+    for (int y = 0; y < destHeight; y++) {
+        int srcY = (int)(y * scaleY);
+        if (srcY >= srcH) srcY = srcH - 1;
+
+        for (int x = 0; x < destWidth; x++) {
+            int srcX = (int)(x * scaleX);
+            if (srcX >= srcW) srcX = srcW - 1;
+
+            double normMag = log(1 + std::abs(m_fftData[srcY * srcW + srcX])) / maxLogMag;
+            int intensity = static_cast<int>(normMag * 255);
+            pDC->SetPixel(x + xOffset, y + yOffset,
+                RGB(intensity, intensity, intensity));
+        }
+    }
+}
+
+// 辅助函数：蝶形运算
+void CImageProc::CalculateFFT(std::complex<double>* data, int width, int height, bool bForward) {
+    const double norm = bForward ? 1.0 : (1.0 / (width * height));
+
+    // 行列变换
+    for (int y = 0; y < height; y++) {
+        FFT1D(&data[y * width], width, bForward ? 1 : -1);
+    }
+
+    std::vector<std::complex<double>> column(height);
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            column[y] = data[y * width + x];
+        }
+        FFT1D(column.data(), height, bForward ? 1 : -1);
+        for (int y = 0; y < height; y++) {
+            data[y * width + x] = column[y]; // 移除列处理时的缩放
+        }
+    }
+
+    // 统一应用缩放因子
+    if (!bForward) {
+        for (int i = 0; i < width * height; i++) {
+            data[i] *= norm; // 仅在逆变换时应用一次总缩放
+        }
+    }
+}
+
+// 一维FFT实现（基2时间抽取算法）
+void CImageProc::FFT1D(std::complex<double>* data, int n, int direction) {
+    // 1. 检查是否为2的幂次，如果不是则补零
+    if ((n & (n - 1)) != 0) {
+        int newSize = 1;
+        while (newSize < n) {
+            newSize <<= 1;
+        }
+
+        // 创建新的数据缓冲区并补零
+        std::vector<std::complex<double>> newData(newSize);
+        for (int i = 0; i < n; i++) {
+            newData[i] = data[i];
+        }
+        for (int i = n; i < newSize; i++) {
+            newData[i] = std::complex<double>(0, 0);
+        }
+
+        // 递归调用FFT1D处理补零后的数据
+        FFT1D(newData.data(), newSize, direction);
+
+        // 将结果复制回原数组（只复制原始长度部分）
+        for (int i = 0; i < n; i++) {
+            data[i] = newData[i];
+        }
+        return;
+    }
+
+    // 2. 位反转重排
+    BitReverse(data, n);
+
+    // 3. 蝶形运算
+    for (int s = 1; s <= (int)(log((double)n) / log(2.0)); s++) {
+        int m = 1 << s; // 当前级的分组大小
+        int m2 = m >> 1; // 半分组大小
+
+        // 计算旋转因子
+        std::complex<double> wm(cos(2.0 * M_PI / m), direction * sin(2.0 * M_PI / m));
+
+        for (int k = 0; k < n; k += m) {
+            std::complex<double> w(1.0, 0.0);
+
+            for (int j = 0; j < m2; j++) {
+                // 蝶形运算
+                std::complex<double> t = w * data[k + j + m2];
+                std::complex<double> u = data[k + j];
+
+                data[k + j] = u + t;
+                data[k + j + m2] = u - t;
+
+                // 更新旋转因子
+                w *= wm;
+            }
+        }
+    }
+}
+
+// 位反转重排
+void CImageProc::BitReverse(std::complex<double>* data, int n) {
+    int j = 0;
+    for (int i = 0; i < n - 1; i++) {
+        if (i < j) {
+            std::swap(data[i], data[j]);
+        }
+
+        // 计算下一个反转数
+        int k = n >> 1;
+        while (k <= j) {
+            j -= k;
+            k >>= 1;
+        }
+        j += k;
+    }
+}
+
+void CImageProc::FFTShift(std::complex<double>* data, int w, int h) {
+    int hw = w / 2;
+    int hh = h / 2;
+
+    for (int y = 0; y < hh; y++) {
+        for (int x = 0; x < hw; x++) {
+            // 交换四个象限
+            std::swap(data[y * w + x], data[(y + hh) * w + (x + hw)]);
+            std::swap(data[y * w + (x + hw)], data[(y + hh) * w + x]);
+        }
+    }
+}
+
+void CImageProc::SaveCurrentState() {
+    if (!IsValid()) return;
+
+    int dataSize = nWidth * nHeight * (nBitCount / 8);
+    m_originalPixels.resize(dataSize);
+    memcpy(m_originalPixels.data(), pBits, dataSize);
+    m_bStateSaved = true;
+}
+
+bool CImageProc::RestoreState() {
+    if (!m_bStateSaved || !IsValid()) {
+        return false;
+    }
+
+    if (m_originalPixels.size() != nWidth * nHeight * (nBitCount / 8)) {
+        return false;
+    }
+
+    memcpy(pBits, m_originalPixels.data(), m_originalPixels.size());
+    m_bFFTPerformed = false;
+    return true;
+}
+
+void CImageProc::ApplyFFTLogTransform(double logBase, double scaleFactor) {
+    if (!m_bFFTPerformed || m_fftData.empty()) return;
+
+    const double logOfBase = log(logBase);
+    const int size = nWidth * nHeight;
+
+    for (int i = 0; i < size; i++) {
+        double magnitude = std::abs(m_fftData[i]);
+        if (magnitude > 0) {
+            // 对数变换公式: scaleFactor * log(1 + magnitude) / log(base)
+            double logValue = scaleFactor * log(1.0 + magnitude) / logOfBase;
+            // 保持相位不变，只修改幅度
+            m_fftData[i] = std::polar(logValue, std::arg(m_fftData[i]));
+        }
+    }
+}
+
+bool CImageProc::IFFT2D(bool bSaveState) {
+    if (!IsValid() || !m_bFFTPerformed) return false;
+
+    try {
+        std::vector<std::complex<double>> ifftData = m_fftData;
+        FFTShift(ifftData.data(), nWidth, nHeight); // 恢复频谱排列
+        CalculateFFT(ifftData.data(), nWidth, nHeight, false);
+
+        int w = nWidth;
+        int h = nHeight;
+        int rowSize = ((w * nBitCount + 31) / 32) * 4;
+        m_ifftResult.resize(h * rowSize);
+
+        // 生成图像数据
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int offset = (h - 1 - y) * rowSize + x * (nBitCount / 8);
+                BYTE* pixel = m_ifftResult.data() + offset;
+
+                // 提取实部并缩放到0-255
+                double realValue = ifftData[y * w + x].real();
+                realValue = realValue * 255.0; // 撤销归一化
+                realValue = std::clamp(realValue, 0.0, 255.0);
+                BYTE intensity = static_cast<BYTE>(realValue + 0.5);
+
+                // 根据位深设置像素
+                switch (nBitCount) {
+                case 8:
+                    *pixel = intensity;
+                    break;
+                case 16: {
+                    WORD newPixel;
+                    if (m_bIs565Format) {
+                        BYTE r = (intensity >> 3) & 0x1F;
+                        BYTE g = (intensity >> 2) & 0x3F;
+                        BYTE b = (intensity >> 3) & 0x1F;
+                        newPixel = (r << 11) | (g << 5) | b;
+                    }
+                    else {
+                        BYTE r = (intensity >> 3) & 0x1F;
+                        BYTE g = (intensity >> 3) & 0x1F;
+                        BYTE b = (intensity >> 3) & 0x1F;
+                        newPixel = (r << 10) | (g << 5) | b;
+                    }
+                    *reinterpret_cast<WORD*>(pixel) = newPixel;
+                    break;
+                }
+                case 24:
+                case 32:
+                    pixel[0] = intensity; // B
+                    pixel[1] = intensity; // G
+                    pixel[2] = intensity; // R
+                    if (nBitCount == 32)
+                        pixel[3] = 255;   // Alpha
+                    break;
+                }
+            }
+        }
+
+        m_bIFFTPerformed = true;
+        return true;
+    }
+    catch (...) {
+        return false;
+    }
+}
+
+void CImageProc::SetFFTData(const std::vector<std::complex<double>>& data, int w, int h) {
+    if (data.size() != w * h) return;
+
+    nWidth = w;
+    nHeight = h;
+    m_fftData = data;
+    m_bFFTPerformed = true;
+}
+
+void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset,
+    int destWidth, int destHeight) {
+    if (m_ifftResult.empty()) return;
+    if (m_ifftResult.empty()) {
+        printf( "m_ifftResult is empty!");
+        return;
+    }
+    // 检查数据是否全为 0
+    bool allZero = true;
+    for (const auto& val : m_ifftResult) {
+        if (val != 0) {
+            allZero = false;
+            break;
+        }
+    }
+    if (allZero) {
+        printf("m_ifftResult contains all zeros!");
+    }
+
+    int srcW = nWidth;
+    int srcH = nHeight;
+
+    if (destWidth <= 0) destWidth = srcW;
+    if (destHeight <= 0) destHeight = srcH;
+
+    double scaleX = (double)srcW / destWidth;
+    double scaleY = (double)srcH / destHeight;
+
+    int rowSize = ((srcW * nBitCount + 31) / 32) * 4;
+
+    for (int y = 0; y < destHeight; y++) {
+        int srcY = (int)(y * scaleY);
+        if (srcY >= srcH) srcY = srcH - 1;
+
+        for (int x = 0; x < destWidth; x++) {
+            int srcX = (int)(x * scaleX);
+            if (srcX >= srcW) srcX = srcW - 1;
+
+            int offset = (srcH - 1 - srcY) * rowSize + srcX * (nBitCount / 8);
+            BYTE* pixel = m_ifftResult.data() + offset;
+
+            COLORREF color;
+            switch (nBitCount) {
+            case 8: color = RGB(*pixel, *pixel, *pixel); break;
+            case 16: {
+                WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
+                BYTE r, g, b;
+                GetColor16bit(reinterpret_cast<BYTE*>(&pixelValue), r, g, b);
+                color = RGB(r, g, b);
+                break;
+            }
+            case 24: color = RGB(pixel[2], pixel[1], pixel[0]); break;
+            case 32: color = RGB(pixel[2], pixel[1], pixel[0]); break;
+            default: color = RGB(0, 0, 0);
+            }
+
+            pDC->SetPixel(x + xOffset, y + yOffset, color);
+        }
+    }
+}
+
+bool CImageProc::HasOriginalImageData() const {
+    return !m_originalImageData.empty();
+}
+
+bool CImageProc::HasIFFTResult() const {
+    return !m_ifftResult.empty() && m_bIFFTPerformed; // 确保 m_bIFFTPerformed 为 true
+}
+
+void CImageProc::DisplayOriginalImage(CDC* pDC, int xOffset, int yOffset,
+    int destWidth, int destHeight) {
+    if (m_originalImageData.empty()) return;
+
+    int srcW = nWidth;
+    int srcH = nHeight;
+
+    if (destWidth <= 0) destWidth = srcW;
+    if (destHeight <= 0) destHeight = srcH;
+
+    double scaleX = (double)srcW / destWidth;
+    double scaleY = (double)srcH / destHeight;
+
+    int rowSize = ((srcW * nBitCount + 31) / 32) * 4;
+
+    for (int y = 0; y < destHeight; y++) {
+        int srcY = (int)(y * scaleY);
+        if (srcY >= srcH) srcY = srcH - 1;
+
+        for (int x = 0; x < destWidth; x++) {
+            int srcX = (int)(x * scaleX);
+            if (srcX >= srcW) srcX = srcW - 1;
+
+            int offset = (srcH - 1 - srcY) * rowSize + srcX * (nBitCount / 8);
+            BYTE* pixel = m_originalImageData.data() + offset;
+
+            COLORREF color;
+            switch (nBitCount) {
+            case 8: color = RGB(*pixel, *pixel, *pixel); break;
+            case 24: color = RGB(pixel[2], pixel[1], pixel[0]); break;
+            case 16: {
+                WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
+                BYTE r, g, b;
+                GetColor16bit(reinterpret_cast<BYTE*>(&pixelValue), r, g, b);
+                color = RGB(r, g, b);
+                break;
+            }
+            case 32: color = RGB(pixel[2], pixel[1], pixel[0]); break;
+            default: color = RGB(0, 0, 0);
+            }
+
+            pDC->SetPixel(x + xOffset, y + yOffset, color);
+        }
+    }
+}
+
+void CImageProc::ResetFFTState() {
+    m_bFFTPerformed = false;
+    m_bIFFTPerformed = false;
+    m_originalImageData.clear();
+    m_fftData.clear();
+    m_fftDisplayData.clear();
+    m_ifftResult.clear();
+    m_originalFFTData.clear();
+    m_originalPixels.clear();
+    m_bStateSaved = false;
 }
