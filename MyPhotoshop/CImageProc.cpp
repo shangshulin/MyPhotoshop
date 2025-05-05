@@ -9,10 +9,9 @@
 #include <valarray>
 #include <fftw3.h>
 #include <cmath>
-<<<<<<< HEAD
+
 #include <iostream>
-=======
->>>>>>> Xiao-Bi（02）
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -3353,7 +3352,6 @@ void CImageProc::ResetFFTState() {
     m_bStateSaved = false;
 }
 
-<<<<<<< HEAD
 void CImageProc::IdealHighPassFilter(double D0)
 {
     if (!IsValid() || (nBitCount != 8 && nBitCount != 16 && nBitCount != 24 && nBitCount != 32)) {
@@ -4036,7 +4034,7 @@ void CImageProc::ButterworthLowPassFilter(double D0, int n)
         fftw_free(in);
         fftw_free(out);
     }
-=======
+}
 // 同态滤波
 void CImageProc::HomomorphicFiltering() {
     if (!IsValid()) {
@@ -4154,5 +4152,5 @@ void CImageProc::HomomorphicFiltering() {
     fftw_free(out);
     fftw_free(in2);
     fftw_free(out2);
->>>>>>> Xiao-Bi（02）
+
 }
