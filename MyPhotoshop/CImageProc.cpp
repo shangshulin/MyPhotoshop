@@ -3475,7 +3475,7 @@ void CImageProc::ButterworthHighPassFilter(double cutoffFrequency, int order) {
 }
 
 
-
+// 理想高通滤波器
 void CImageProc::IdealHighPassFilter(double cutoffFrequency) {
     if (!IsValid()) {
         AfxMessageBox(_T("No valid image is loaded."));
