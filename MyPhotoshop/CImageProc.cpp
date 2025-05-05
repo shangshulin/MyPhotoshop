@@ -7,15 +7,14 @@
 #include <numeric>
 #include <complex>
 #include <valarray>
-<<<<<<< HEAD
 #include <fftw3.h>
 #include <cmath>
 
 #include <iostream>
 
-=======
+
 #include <utility>
->>>>>>> wanghaotian
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
