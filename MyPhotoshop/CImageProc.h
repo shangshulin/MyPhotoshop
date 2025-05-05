@@ -73,9 +73,8 @@ public:
     void PowerTransform(double gamma); // 幂律变换
 
 	// 频域滤波
-    void ApplyHighPassFilter(HighPassFilterType filterType, double cutoffFrequency, int order);
-    void IdealHighPassFilter(double cutoffFrequency);
-    void ButterworthHighPassFilter(double cutoffFrequency, int order);
+    void IdealHighPassFilter(double D0); // 理想高通滤波器
+    void ButterworthHighPassFilter(double D0, int n); // 巴特沃斯高通滤波器
 
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }

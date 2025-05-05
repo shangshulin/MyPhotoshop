@@ -17,7 +17,7 @@
 #include "CINTENSITYDlg.h"
 #include "FFTLogDialog.h"
 #include <fftw3.h>
-#include "CHighPassFilterDialog.h"
+#include "CHighPassFilterDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -1337,31 +1337,28 @@ void CMyPhotoshopView::OnFreqFftLogTransform() {
     }
 }
 
-void CMyPhotoshopView::OnHighPassFilter() {
-    CHighPassFilterDialog dlg;
-    if (dlg.DoModal() != IDOK) return;
-
+void CMyPhotoshopView::OnHighPassFilter()
+{
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage) return;
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效图像"));
+        return;
+    }
 
-    try {
+    CHighPassFilterDlg dlg;
+    dlg.SetImageData(pDoc->pImage);
+    if (dlg.DoModal() == IDOK) {
+        double D0 = dlg.GetD0();
+        int filterType = dlg.GetFilterType();
+        int step = dlg.GetStep();
         CImageProc* pOldImage = new CImageProc();
         *pOldImage = *pDoc->pImage;
-
-        HighPassFilterType filterType;
-        if (dlg.GetFilterType() == 0) {
-            filterType = HighPassFilterType::IdealHighPass;
-        }
-        else {
-            filterType = HighPassFilterType::ButterworthHighPass;
-        }
-
-        double cutoffFrequency = dlg.GetCutoffFrequency();
-        int order = dlg.GetOrder();
-
         AddCommand(
-            [pDoc, filterType, cutoffFrequency, order]() {
-                pDoc->pImage->ApplyHighPassFilter(filterType, cutoffFrequency, order);
+            [pDoc, D0, filterType, step]() {
+                if (filterType == 0)
+                    pDoc->pImage->IdealHighPassFilter(D0);
+                else
+                    pDoc->pImage->ButterworthHighPassFilter(D0, step);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -1370,8 +1367,5 @@ void CMyPhotoshopView::OnHighPassFilter() {
                 pDoc->UpdateAllViews(nullptr);
             }
         );
-    }
-    catch (...) {
-        AfxMessageBox(_T("操作失败"));
     }
 }

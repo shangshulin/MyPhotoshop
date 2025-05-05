@@ -187,7 +187,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="CHighPassFilterDialog.h" />
+    <ClInclude Include="CHighPassFilterDlg.h" />
     <ClInclude Include="CHistogramDlg.h" />
     <ClInclude Include="CImageProc.h" />
     <ClInclude Include="CINTENSITYDlg.h" />
@@ -205,7 +205,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
-    <ClCompile Include="CHighPassFilterDialog.cpp" />
+    <ClCompile Include="CHighPassFilterDlg.cpp" />
     <ClCompile Include="FFTLogDialog.cpp" />
     <ClCompile Include="FilterSizeDialog.h" />
   </ItemGroup>
