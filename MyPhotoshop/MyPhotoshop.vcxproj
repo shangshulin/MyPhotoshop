@@ -95,11 +95,14 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>D:\fftw-3.3.5-dll64</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\FFTW;%(AdditionalIncludeDirectories);D:\fftw-3.3.5-dll64</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <AdditionalLibraryDirectories>D:\fftw-3.3.5-dll64</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfftw3-3.lib;libfftw3f-3.lib;libfftw3l-3.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\FFTW;%(AdditionalLibraryDirectories);D:\fftw-3.3.5-dll64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libfftw3-3.lib;libfftw3f-3.lib;libfftw3l-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>

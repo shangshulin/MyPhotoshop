@@ -9,7 +9,10 @@
 #include <valarray>
 #include <fftw3.h>
 #include <cmath>
+<<<<<<< HEAD
 #include <iostream>
+=======
+>>>>>>> Xiao-Bi（02）
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -3350,6 +3353,7 @@ void CImageProc::ResetFFTState() {
     m_bStateSaved = false;
 }
 
+<<<<<<< HEAD
 void CImageProc::IdealHighPassFilter(double D0)
 {
     if (!IsValid() || (nBitCount != 8 && nBitCount != 16 && nBitCount != 24 && nBitCount != 32)) {
@@ -4032,4 +4036,123 @@ void CImageProc::ButterworthLowPassFilter(double D0, int n)
         fftw_free(in);
         fftw_free(out);
     }
+=======
+// 同态滤波
+void CImageProc::HomomorphicFiltering() {
+    if (!IsValid()) {
+        AfxMessageBox(_T("No valid image is loaded."));
+        return;
+    }
+
+    int M = nHeight;
+    int N = nWidth;
+
+    // 取对数
+    std::vector<double> img_log(M * N);
+    for (int y = 0; y < M; ++y) {
+        for (int x = 0; x < N; ++x) {
+            int offset = (M - 1 - y) * GetAlignedWidthBytes() + x * (nBitCount / 8);
+            BYTE* pixel = pBits + offset;
+            BYTE gray = *pixel; // 假设为灰度图像
+            img_log[y * N + x] = std::log(double(gray) + 1);
+        }
+    }
+
+    // 平移到中心
+    std::vector<double> img_py(M * N);
+    for (int y = 0; y < M; ++y) {
+        for (int x = 0; x < N; ++x) {
+            if ((y + x) % 2 == 0) {
+                img_py[y * N + x] = img_log[y * N + x];
+            }
+            else {
+                img_py[y * N + x] = -1 * img_log[y * N + x];
+            }
+        }
+    }
+
+    // 对填充后的图像进行傅里叶变换
+    fftw_complex* in, * out;
+    in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    for (int i = 0; i < M * N; ++i) {
+        in[i][0] = img_py[i];
+        in[i][1] = 0;
+    }
+    fftw_plan p = fftw_plan_dft_2d(M, N, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+    fftw_execute(p);
+
+    // 同态滤波函数
+    double rH = 1;
+    double rL = 0.1;
+    double c = 0.2;
+    double D0 = 10;
+    std::vector<double> img_tt(M * N);
+    double deta_r = rH - rL;
+    double D = D0 * D0;
+    int m_mid = M / 2;
+    int n_mid = N / 2;
+    for (int y = 0; y < M; ++y) {
+        for (int x = 0; x < N; ++x) {
+            double dis = (y - m_mid) * (y - m_mid) + (x - n_mid) * (x - n_mid);
+            img_tt[y * N + x] = deta_r * (1 - std::exp((-c) * (dis / D))) + rL;
+        }
+    }
+
+    // 滤波
+    for (int i = 0; i < M * N; ++i) {
+        out[i][0] *= img_tt[i];
+        out[i][1] *= img_tt[i];
+    }
+
+    // 反变换
+    fftw_complex* in2, * out2;
+    in2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    out2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    for (int i = 0; i < M * N; ++i) {
+        in2[i][0] = out[i][0];
+        in2[i][1] = out[i][1];
+    }
+    fftw_plan p2 = fftw_plan_dft_2d(M, N, in2, out2, FFTW_BACKWARD, FFTW_ESTIMATE);
+    fftw_execute(p2);
+
+    // 取实部，绝对值
+    std::vector<double> img_temp(M * N);
+    for (int i = 0; i < M * N; ++i) {
+        img_temp[i] = std::abs(out2[i][0]) / (M * N);
+    }
+
+    // 指数化
+    for (int i = 0; i < M * N; ++i) {
+        img_temp[i] = std::exp(img_temp[i]) - 1;
+    }
+
+    // 归一化处理
+    double max_num = img_temp[0];
+    double min_num = img_temp[0];
+    for (int i = 0; i < M * N; ++i) {
+        if (img_temp[i] > max_num) {
+            max_num = img_temp[i];
+        }
+        if (img_temp[i] < min_num) {
+            min_num = img_temp[i];
+        }
+    }
+    double range = max_num - min_num;
+    for (int y = 0; y < M; ++y) {
+        for (int x = 0; x < N; ++x) {
+            int offset = (M - 1 - y) * GetAlignedWidthBytes() + x * (nBitCount / 8);
+            BYTE* pixel = pBits + offset;
+            *pixel = static_cast<BYTE>(255 * (img_temp[y * N + x] - min_num) / range);
+        }
+    }
+
+    // 释放FFTW资源
+    fftw_destroy_plan(p);
+    fftw_destroy_plan(p2);
+    fftw_free(in);
+    fftw_free(out);
+    fftw_free(in2);
+    fftw_free(out2);
+>>>>>>> Xiao-Bi（02）
 }
