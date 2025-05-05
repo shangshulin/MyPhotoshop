@@ -191,6 +191,7 @@
     <ClInclude Include="CHistogramDlg.h" />
     <ClInclude Include="CImageProc.h" />
     <ClInclude Include="CINTENSITYDlg.h" />
+    <ClInclude Include="CLOWFILTERDlg.h" />
     <ClInclude Include="Command.h" />
     <ClInclude Include="FFTLogDialog.h" />
     <ClInclude Include="framework.h" />
@@ -206,6 +207,7 @@
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
     <ClCompile Include="CHighPassFilterDlg.cpp" />
+    <ClCompile Include="CLOWFILTERDlg.cpp" />
     <ClCompile Include="FFTLogDialog.cpp" />
     <ClCompile Include="FilterSizeDialog.h" />
   </ItemGroup>

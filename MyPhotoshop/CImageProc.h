@@ -73,6 +73,8 @@ public:
     void PowerTransform(double gamma); // 幂律变换
 
 	// 频域滤波
+    void IdealLowPassFilter(double D0); // 理想低通滤波器
+    void ButterworthLowPassFilter(double D0, int n); // 巴特沃斯低通滤波器
     void IdealHighPassFilter(double D0); // 理想高通滤波器
     void ButterworthHighPassFilter(double D0, int n); // 巴特沃斯高通滤波器
 

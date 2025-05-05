@@ -18,6 +18,7 @@
 #include "FFTLogDialog.h"
 #include <fftw3.h>
 #include "CHighPassFilterDlg.h"
+#include "CLOWFILTERDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -63,6 +64,8 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
     // 频域滤波
     ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnHighPassFilter)
+    ON_COMMAND(ID_LOWPASS_FILTER, &CMyPhotoshopView::OnBnClickedLowFilterButton)
+
 	// 撤销操作
     ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
     // 缩放操作
@@ -1367,5 +1370,54 @@ void CMyPhotoshopView::OnHighPassFilter()
                 pDoc->UpdateAllViews(nullptr);
             }
         );
+    }
+}
+
+void CMyPhotoshopView::OnBnClickedLowFilterButton()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
+
+    try {
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        CLOWFILTERDlg dlg;
+        dlg.SetImageData(pDoc->pImage);
+        if (dlg.DoModal() != IDOK) {
+            delete pOldImage;
+            return;
+        }
+
+        double D0 = dlg.GetD0();
+        int filterType = dlg.GetFilterType();
+        int step = dlg.GetStep();
+
+        AddCommand(
+            [pDoc, D0, filterType, step]() {
+                if (filterType == 0) {
+                    pDoc->pImage->IdealLowPassFilter(D0);
+                }
+                else {
+                    pDoc->pImage->ButterworthLowPassFilter(D0, step);
+                }
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (CMemoryException* e) {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法完成操作"));
+    }
+    catch (...) {
+        AfxMessageBox(_T("低通滤波操作失败"));
     }
 }
