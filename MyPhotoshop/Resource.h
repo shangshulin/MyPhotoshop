@@ -19,6 +19,8 @@
 #define IDD_FFTLOG_DIALOG               322
 #define IDD_HIGH_PASS_FILTER_DIALOG     324
 #define IDD_HIGH_FILTERDLG              324
+#define IDD_DIALOG3                     328
+#define IDD_SPECTRUM_DLG                328
 #define IDC_STATIC_HISTOGRAM            1000
 #define IDC_STATIC_HISTOGRAM2           1001
 #define IDC_EDIT_ALPHA                  1002
@@ -58,6 +60,7 @@
 #define IDC_RADIO1                      1033
 #define IDC_LOW_FILTER                  1033
 #define IDC_LOW_FILTER_BUTTON           1034
+#define IDC_SPECTRUM_VIEW               1035
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -117,9 +120,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        328
+#define _APS_NEXT_RESOURCE_VALUE        330
 #define _APS_NEXT_COMMAND_VALUE         32831
-#define _APS_NEXT_CONTROL_VALUE         1035
+#define _APS_NEXT_CONTROL_VALUE         1036
 #define _APS_NEXT_SYMED_VALUE           320
 #endif
 #endif

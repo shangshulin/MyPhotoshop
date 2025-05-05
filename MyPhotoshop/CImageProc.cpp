@@ -14,6 +14,7 @@
 
 
 #include <utility>
+#include "CSpectrumDlg.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -4278,4 +4279,59 @@ void CImageProc::HomomorphicFiltering() {
     fftw_free(in2);
     fftw_free(out2);
 
+}
+
+void CImageProc::ShowSpectrumDialog(CWnd* pParent)
+{
+    CSpectrumDlg dlg(pParent, this);
+    dlg.DoModal();
+}
+
+void CImageProc::DisplayFullSpectrum(CDC* pDC, int xOffset, int yOffset,
+    int destWidth, int destHeight)
+{
+    if (!m_bFFTPerformed || m_fullSpectrumRGB.empty()) return;
+
+    int srcW = m_paddedSize.first;
+    int srcH = m_paddedSize.second;
+
+    if (destWidth <= 0) destWidth = srcW;
+    if (destHeight <= 0) destHeight = srcH;
+
+    // 计算缩放比例
+    double scaleX = (double)srcW / destWidth;
+    double scaleY = (double)srcH / destHeight;
+
+    // 创建临时位图
+    CBitmap bitmap;
+    bitmap.CreateCompatibleBitmap(pDC, destWidth, destHeight);
+    CDC memDC;
+    memDC.CreateCompatibleDC(pDC);
+    CBitmap* pOldBitmap = memDC.SelectObject(&bitmap);
+
+    // 绘制完整频谱
+    for (int y = 0; y < destHeight; y++) {
+        int srcY = (int)(y * scaleY);
+        if (srcY >= srcH) srcY = srcH - 1;
+
+        for (int x = 0; x < destWidth; x++) {
+            int srcX = (int)(x * scaleX);
+            if (srcX >= srcW) srcX = srcW - 1;
+
+            // 计算幅度（使用R通道）
+            double mag = std::abs(m_fullSpectrumRGB[0][srcY * srcW + srcX]);
+            int intensity = static_cast<int>(255 * std::log(1 + mag) / std::log(1 + 255));
+            intensity = std::clamp(intensity, 0, 255);
+
+            memDC.SetPixel(x, y, RGB(intensity, intensity, intensity));
+        }
+    }
+
+    // 将位图绘制到目标DC
+    pDC->BitBlt(xOffset, yOffset, destWidth, destHeight, &memDC, 0, 0, SRCCOPY);
+
+    // 清理资源
+    memDC.SelectObject(pOldBitmap);
+    bitmap.DeleteObject();
+    memDC.DeleteDC();
 }

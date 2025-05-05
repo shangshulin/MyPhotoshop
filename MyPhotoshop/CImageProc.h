@@ -175,6 +175,10 @@ public:
             data[i] = std::complex<double>(0, 0);
         }
     }
+
+    void ShowSpectrumDialog(CWnd* pParent);
+    void DisplayFullSpectrum(CDC* pDC, int xOffset = 0, int yOffset = 0,
+        int destWidth = -1, int destHeight = -1);
 public:
     int m_fftWidth = 0;
     int m_fftHeight = 0;

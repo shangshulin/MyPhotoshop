@@ -19,6 +19,7 @@
 #include <fftw3.h>
 #include "CHighPassFilterDlg.h"
 #include "CLOWFILTERDlg.h"
+#include "CSpectrumDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -207,8 +208,8 @@ void CMyPhotoshopView::OnDraw(CDC* pDC) {
         specDC.FillSolidRect(0, 0, destWidth, destHeight, RGB(255, 255, 255));
 
         // 绘制频谱图
-        pDoc->pImage->DisplayFFTResult(&specDC, 0, 0, destWidth, destHeight);
-
+        //pDoc->pImage->DisplayFFTResult(&specDC, 0, 0, destWidth, destHeight);
+        pDoc->pImage->DisplayFullSpectrum(&specDC, 0, 0, destWidth, destHeight);
         // 将频谱图拷贝到内存DC
         memDC.BitBlt(destWidth + 10, 0, destWidth, destHeight,
             &specDC, 0, 0, SRCCOPY);
