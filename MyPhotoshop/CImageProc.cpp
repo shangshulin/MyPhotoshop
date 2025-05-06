@@ -3728,7 +3728,7 @@ void CImageProc::ButterworthHighPassFilter(double D0, int n)
         for (int y = 0; y < h; ++y) {
             BYTE* pPixel = pBits + (h - 1 - y) * rowSize;
             for (int x = 0; x < w; ++x) {
-                int idx = y * w + x;
+                int idx = y * w + x;//
                 int val = 0;
                 if (nBitCount == 16) {
                     WORD* pixel = (WORD*)(pPixel + x * 2);

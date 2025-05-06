@@ -22,4 +22,5 @@ protected:
 
 private:
     CImageProc* m_pImageProc;
+    CStatic m_spectrumView;
 };

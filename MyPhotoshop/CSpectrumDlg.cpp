@@ -16,6 +16,7 @@ CSpectrumDlg::~CSpectrumDlg()
 void CSpectrumDlg::DoDataExchange(CDataExchange* pDX)
 {
     CDialogEx::DoDataExchange(pDX);
+    DDX_Control(pDX, IDC_SPECTRUM_VIEW, m_spectrumView); // 绑定picture control
 }
 
 BEGIN_MESSAGE_MAP(CSpectrumDlg, CDialogEx)
@@ -30,34 +31,23 @@ BOOL CSpectrumDlg::OnInitDialog()
 
 void CSpectrumDlg::OnPaint()
 {
-    CPaintDC dc(this);
+    CDialogEx::OnPaint(); // 保证父类绘制
+
+    CWnd* pWnd = GetDlgItem(IDC_SPECTRUM_VIEW);
+    if (!pWnd) return;
 
     CRect rect;
-    GetDlgItem(IDC_SPECTRUM_VIEW)->GetClientRect(&rect);
+    pWnd->GetClientRect(&rect);
 
-    CDC memDC;
-    memDC.CreateCompatibleDC(&dc);
-    CBitmap bitmap;
-    bitmap.CreateCompatibleBitmap(&dc, rect.Width(), rect.Height());
-    CBitmap* pOldBitmap = memDC.SelectObject(&bitmap);
-
-    // 绘制背景
-    memDC.FillSolidRect(&rect, RGB(255, 255, 255));
-
-    if (m_pImageProc)
-    {
-        // 获取显示区域尺寸
-        int width = rect.Width();
-        int height = rect.Height();
-
-        // 调用CImageProc的频谱显示方法
-        m_pImageProc->DisplayFullSpectrum(&memDC, 0, 0, width, height);
+    CDC* pDC = pWnd->GetDC();
+    if (pDC && m_pImageProc && m_pImageProc->IsFFTPerformed()) {
+        int destWidth = rect.Width();
+        int destHeight = rect.Height();
+        m_pImageProc->DisplayFullSpectrum(pDC, 0, 0, destWidth, destHeight);
+        pWnd->ReleaseDC(pDC);
     }
-
-    dc.BitBlt(rect.left, rect.top, rect.Width(), rect.Height(),
-        &memDC, 0, 0, SRCCOPY);
-
-    memDC.SelectObject(pOldBitmap);
-    bitmap.DeleteObject();
-    memDC.DeleteDC();
+    else if (pDC) {
+        pDC->TextOutW(10, 10, L"无可用频谱数据");
+        pWnd->ReleaseDC(pDC);
+    }
 }
