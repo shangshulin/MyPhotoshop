@@ -3419,33 +3419,34 @@ void CImageProc::IdealHighPassFilter(double D0)
         AfxMessageBox(_T("仅支持8/16/24/32位图像!"));
         return;
     }
-    int w = nWidth, h = nHeight, N = w * h;
+    int w = nWidth, h = nHeight, N = w * h;//  图像尺寸
 
     if (nBitCount == 8) {
         // 分配输入输出数组
-        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
+        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);//in用于存储输入数据
+        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);//out用于存储输出数据
 
         // 填充输入数据并应用(-1)^(x+y)进行频谱中心化
         for (int y = 0; y < h; ++y) {
             for (int x = 0; x < w; ++x) {
                 int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
                 // 应用(-1)^(x+y)进行频谱中心化
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                in[y * w + x][0] = pBits[offset] * factor;
+                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;//factor是(-1)^(x+y)
+                in[y * w + x][0] = pBits[offset] * factor;//归一化的输入数据
                 in[y * w + x][1] = 0.0;
             }
         }
 
         // 正变换
-        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
+        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);//创建正变换计划
+        fftw_execute(plan);//执行正变换
 
         // 理想高通滤波
         int cx = w / 2, cy = h / 2;
         for (int y = 0; y < h; ++y) {
             for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));//计算与中心点的距离
+                //应用理想高通滤波
                 if (D < D0) {
                     out[y * w + x][0] = 0;
                     out[y * w + x][1] = 0;
@@ -3454,19 +3455,21 @@ void CImageProc::IdealHighPassFilter(double D0)
         }
 
         // 逆变换
-        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
-        fftw_execute(iplan);
+        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);//创建逆变换计划
+        fftw_execute(iplan);//执行逆变换
 
-        // 归一化（防止全黑/全白），并做中心化恢复
-        double minVal = 1e20, maxVal = -1e20;
+        // 中心化恢复
+        double minVal = 1e20, maxVal = -1e20;// 用于记录灰度值的最小值和最大值
         for (int y = 0; y < h; ++y) {
             for (int x = 0; x < w; ++x) {
                 double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[y * w + x][0] / N * factor;
+                double val = in[y * w + x][0] / N * factor;// 频谱中心化恢复
                 if (val < minVal) minVal = val;
-                if (val > maxVal) maxVal = val;
+                if (val > maxVal) maxVal = val;//  记录灰度值范围
             }
         }
+
+        // 归一化并映射到[0, 255]
         double range = maxVal - minVal;
         if (range < 1e-6) range = 1.0; // 防止除零
 
@@ -3477,14 +3480,14 @@ void CImageProc::IdealHighPassFilter(double D0)
                 double val = in[y * w + x][0] / N * factor;
                 val = (val - minVal) * 255.0 / range;
                 val = min(255.0, max(0.0, val));
-                pBits[offset] = static_cast<BYTE>(val);
+                pBits[offset] = static_cast<BYTE>(val);//将结果写回到图像数据中
             }
         }
 
         fftw_destroy_plan(plan);
-        fftw_destroy_plan(iplan);
+        fftw_destroy_plan(iplan);   // 销毁逆变换计划
         fftw_free(in);
-        fftw_free(out);
+        fftw_free(out);     // 释放内存
         return;
     }
 
@@ -3660,7 +3663,7 @@ void CImageProc::ButterworthHighPassFilter(double D0, int n)
         for (int y = 0; y < h; ++y) {
             BYTE* pPixel = pBits + (h - 1 - y) * rowSize;
             for (int x = 0; x < w; ++x) {
-                int idx = y * w + x;
+                int idx = y * w + x;//
                 int val = 0;
                 if (nBitCount == 16) {
                     WORD* pixel = (WORD*)(pPixel + x * 2);

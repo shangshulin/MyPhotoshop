@@ -72,14 +72,13 @@ public:
     void Multiply(CImageProc& img);    // 图像相乘
     void PowerTransform(double gamma); // 幂律变换
 
-    //同态滤波
-    void HomomorphicFiltering();
 
 	// 频域滤波
     void IdealLowPassFilter(double D0); // 理想低通滤波器
     void ButterworthLowPassFilter(double D0, int n); // 巴特沃斯低通滤波器
     void IdealHighPassFilter(double D0); // 理想高通滤波器
     void ButterworthHighPassFilter(double D0, int n); // 巴特沃斯高通滤波器
+    void HomomorphicFiltering();    //同态滤波
 
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }

@@ -64,9 +64,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)//   中值滤波
 	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
     // 频域滤波
-    ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnHighPassFilter)
-    ON_COMMAND(ID_LOWPASS_FILTER, &CMyPhotoshopView::OnBnClickedLowFilterButton)
-
+    ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnHighPassFilter)     //高通滤波
+    ON_COMMAND(ID_LOWPASS_FILTER, &CMyPhotoshopView::OnBnClickedLowFilterButton)    //低通滤波
+    ON_COMMAND(ID_HOMOMORPHIC_FILTERING, &CMyPhotoshopView::OnHomomorphicFiltering)    //同态滤波
 	// 撤销操作
     ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
     // 缩放操作
@@ -74,14 +74,12 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_WM_HSCROLL()
     ON_WM_VSCROLL()
     ON_WM_SIZE()
-
+    //FFT与IFFT
     ON_COMMAND(ID_FREQ_FFT, &CMyPhotoshopView::OnFreqFFT)
     ON_COMMAND(ID_FREQ_IFFT, &CMyPhotoshopView::OnFreqIFFT)
     ON_COMMAND(ID_FREQ_UNDO, &CMyPhotoshopView::OnFreqUndo)
     ON_COMMAND(ID_FREQ_FFT_LOG, &CMyPhotoshopView::OnFreqFftLogTransform)
 
-    //同态滤波
-    ON_COMMAND(ID_HOMOMORPHIC_FILTERING, &CMyPhotoshopView::OnHomomorphicFiltering)
 END_MESSAGE_MAP()
 
 
@@ -196,6 +194,11 @@ void CMyPhotoshopView::OnDraw(CDC* pDC) {
 
     // 2. 如果进行了FFT，显示频谱图
     if (pDoc->pImage->IsFFTPerformed()) {
+        CImageProc* pImageProc = pDoc->pImage;
+        // FFT后自动弹出频谱对话框
+        CSpectrumDlg spectrumDlg(AfxGetMainWnd(), pImageProc);
+        spectrumDlg.DoModal();
+
         // 创建临时DC用于频谱绘制
         CDC specDC;
         specDC.CreateCompatibleDC(&memDC);
@@ -248,9 +251,10 @@ void CMyPhotoshopView::OnDraw(CDC* pDC) {
     memDC.SelectObject(pOldBitmap);
 }
 
+// 滚动条处理
 void CMyPhotoshopView::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
-    SCROLLINFO si;
+    SCROLLINFO si;// 滚动条信息结构体
     GetScrollInfo(SB_HORZ, &si, SIF_ALL);
 
     int nPosOld = si.nPos;
