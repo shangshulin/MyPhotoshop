@@ -83,19 +83,15 @@ public:
 
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
-    bool FFT2D(bool bForward = true, bool bSaveState = true); // true=FFT, false=IFFT
+    bool FFT2D(bool bSaveState = true);
     bool IFFT2D(bool bSaveState = true);
-    /*void DisplayFFTResult(CDC* pDC, int xOffset = 0, int yOffset = 0,
-        int destWidth = -1, int destHeight = -1);*/
-    void DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
-        int destWidth, int destHeight,
-        bool bKeepOriginalData = true);
     void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset, int destWidth, int destHeight);
     // 新增方法：获取/设置复数频谱数据
     const std::vector<std::complex<double>>& GetFFTData() const { return m_fftData; }
     void SetFFTData(const std::vector<std::complex<double>>& data, int w, int h);
     void CImageProc::FFT1D(std::complex<double>* data, int n, int direction); //一维FFT
 	void CImageProc::BitReverse(std::complex<double>* data, int n); // 位反转重排
+    int CImageProc::FindTargetBit(int i, int n); //位翻转重排辅助函数
     void SaveCurrentState();  // 保存当前状态
     //void RestoreState();      // 恢复保存的状态
     bool HasFFTData() const { return m_bFFTPerformed; }
@@ -109,7 +105,7 @@ private:
     bool m_bStateSaved;                  // 状态保存标志
     std::vector<std::complex<double>> m_originalFFTData; // 保存原始FFT数据
     void FFTShift(std::complex<double>* data, int w, int h); // 频谱移中
-    void CalculateFFT(std::complex<double>* data, int width, int height, bool bForward);
+    
 
 public:
     
@@ -136,12 +132,6 @@ public:
 public:
     // 深拷贝赋值运算符
     CImageProc& operator=(const CImageProc& other);
-    //bool m_bIFFTPerformed; // 标记是否执行了IFFT
-    //bool HasIFFTResult() const { return m_bIFFTPerformed; }
-    //std::vector<BYTE> m_ifftResult; // 存储IFFT结果
-    //std::vector<BYTE> m_originalImageData;  // 保存原始图像数据
-    //std::vector<std::complex<double>> m_fftDisplayData; // 保存FFT显示数据
-    // 新增成员变量
     std::vector<BYTE> m_originalImageData;  // 保存原始图像数据
     std::vector<std::complex<double>> m_fftDisplayData; // 保存FFT显示数据
     std::vector<BYTE> m_ifftResult;        // 保存IFFT结果
@@ -166,14 +156,6 @@ public:
     // 检查是否为2的幂次
     bool isPowerOfTwo(int n) const {
         return (n & (n - 1)) == 0;
-    }
-
-    // 调整数据到2的幂次尺寸
-    void padToPowerOfTwo(std::vector<std::complex<double>>& data, int originalSize, int newSize) {
-        data.resize(newSize);
-        for (int i = originalSize; i < newSize; i++) {
-            data[i] = std::complex<double>(0, 0);
-        }
     }
 
     void ShowSpectrumDialog(CWnd* pParent);

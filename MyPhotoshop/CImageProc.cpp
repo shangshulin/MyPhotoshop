@@ -2906,10 +2906,7 @@ void CImageProc::ApplyMeanFilter()
     }
 }
 
-// 前向声明递归FFT函数
-static void recursiveFFT(std::complex<double>* data, int N);
-
-bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
+bool CImageProc::FFT2D(bool bSaveState) {
     if (!IsValid()) return false;
 
     // 保存原始图像数据
@@ -2965,7 +2962,7 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
 
             // 执行2D FFT
             for (int y = 0; y < paddedHeight; y++) {
-                FFT1D(&m_fullSpectrumRGB[ch][y * paddedWidth], paddedWidth, bForward ? 1 : -1);
+                FFT1D(&m_fullSpectrumRGB[ch][y * paddedWidth], paddedWidth, 1);
             }
 
             std::vector<std::complex<double>> column(paddedHeight);
@@ -2973,7 +2970,7 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
                 for (int y = 0; y < paddedHeight; y++) {
                     column[y] = m_fullSpectrumRGB[ch][y * paddedWidth + x];
                 }
-                FFT1D(column.data(), paddedHeight, bForward ? 1 : -1);
+                FFT1D(column.data(), paddedHeight, 1);
                 for (int y = 0; y < paddedHeight; y++) {
                     m_fullSpectrumRGB[ch][y * paddedWidth + x] = column[y];
                 }
@@ -3017,101 +3014,6 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
     }
 }
 
-// 实现递归FFT函数
-static void recursiveFFT(std::complex<double>* data, int N) {
-    if (N <= 1) return;
-
-    // 检查是否为2的幂次
-    if ((N & (N - 1)) != 0) {
-        throw std::invalid_argument("FFT input length must be a power of 2");
-    }
-
-    // 分离偶数和奇数元素
-    std::vector<std::complex<double>> even(N / 2);
-    std::vector<std::complex<double>> odd(N / 2);
-
-    for (int i = 0; i < N / 2; i++) {
-        even[i] = data[2 * i];
-        odd[i] = data[2 * i + 1];
-    }
-
-    // 递归处理
-    recursiveFFT(even.data(), N / 2);
-    recursiveFFT(odd.data(), N / 2);
-
-    // 合并结果
-    for (int k = 0; k < N / 2; k++) {
-        double angle = -2.0 * M_PI * k / N;
-        std::complex<double> w(cos(angle), sin(angle));
-        std::complex<double> t = w * odd[k];
-        data[k] = even[k] + t;
-        data[k + N / 2] = even[k] - t;
-    }
-}
-
-void CImageProc::DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
-    int destWidth, int destHeight, bool bKeepOriginalData)
-{
-    if (!m_bFFTPerformed || m_fftDisplayData.empty()) return;
-
-    if (bKeepOriginalData) {
-        m_originalFFTData = m_fftData;
-    }
-
-    int srcW = nWidth;
-    int srcH = nHeight;
-
-    if (destWidth <= 0) destWidth = srcW;
-    if (destHeight <= 0) destHeight = srcH;
-
-    // 直接绘制，m_fftDisplayData已经按正确方向存储
-    double scaleX = (double)srcW / destWidth;
-    double scaleY = (double)srcH / destHeight;
-
-    for (int y = 0; y < destHeight; y++) {
-        int srcY = (int)(y * scaleY);
-        if (srcY >= srcH) srcY = srcH - 1;
-
-        for (int x = 0; x < destWidth; x++) {
-            int srcX = (int)(x * scaleX);
-            if (srcX >= srcW) srcX = srcW - 1;
-
-            int intensity = static_cast<int>(m_fftDisplayData[srcY * srcW + srcX].real());
-            intensity = std::clamp(intensity, 0, 255);
-            pDC->SetPixel(x + xOffset, y + yOffset,
-                RGB(intensity, intensity, intensity));
-        }
-    }
-}
-
-// 辅助函数：蝶形运算
-void CImageProc::CalculateFFT(std::complex<double>* data, int width, int height, bool bForward) {
-    const double norm = bForward ? 1.0 : (1.0 / (width * height));
-
-    // 行列变换
-    for (int y = 0; y < height; y++) {
-        FFT1D(&data[y * width], width, bForward ? 1 : -1);
-    }
-
-    std::vector<std::complex<double>> column(height);
-    for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) {
-            column[y] = data[y * width + x];
-        }
-        FFT1D(column.data(), height, bForward ? 1 : -1);
-        for (int y = 0; y < height; y++) {
-            data[y * width + x] = column[y]; // 移除列处理时的缩放
-        }
-    }
-
-    // 统一应用缩放因子
-    if (!bForward) {
-        for (int i = 0; i < width * height; i++) {
-            data[i] *= norm; // 仅在逆变换时应用一次总缩放
-        }
-    }
-}
-
 // 一维FFT实现（基2时间抽取算法）
 void CImageProc::FFT1D(std::complex<double>* data, int n, int direction) {
     // 检查是否为2的幂次，如果不是则补零
@@ -3150,20 +3052,46 @@ void CImageProc::FFT1D(std::complex<double>* data, int n, int direction) {
 }
 
 // 位反转重排
-void CImageProc::BitReverse(std::complex<double>* data, int n) {
-    int j = 0;
-    for (int i = 0; i < n - 1; i++) {
-        if (i < j) std::swap(data[i], data[j]);
+//void CImageProc::BitReverse(std::complex<double>* data, int n) {
+//    int j = 0;
+//    for (int i = 0; i < n - 1; i++) {
+//        if (i < j) std::swap(data[i], data[j]);
+//
+//        int mask = n >> 1;
+//        while (j >= mask) {
+//            j -= mask;
+//            mask >>= 1;
+//        }
+//        j += mask;
+//    }
+//}
 
-        int mask = n >> 1;
-        while (j >= mask) {
-            j -= mask;
-            mask >>= 1;
-        }
-        j += mask;
+void CImageProc::BitReverse(std::complex<double>* data, int n) {
+    for (int i = 0; i < n; i++)
+    {
+        int target = FindTargetBit(i, n);
+		if (i < target)
+		{
+			std::swap(data[i], data[target]);
+		}
     }
 }
+int CImageProc::FindTargetBit(int i, int n)
+{
+	int numBits = 0;
+	int temp = n;
+	// 计算 n 的二进制位数
+	while (temp > 1) {
+		temp >>= 1;
+		numBits++;
+	}
 
+	int target = 0;
+	for (int j = 0; j < numBits; j++) {
+		target = (target << 1) | ((i >> j) & 1);
+	}
+	return target;
+}
 
 void CImageProc::FFTShift(std::complex<double>* data, int width, int height) {
     // 计算中心位置（兼容奇偶尺寸）
