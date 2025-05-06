@@ -63,13 +63,13 @@
     <ClInclude Include="Command.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="FFTLogDialog.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="CHighPassFilterDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="CLOWFILTERDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CSpectrumDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -116,13 +116,13 @@
     <ClCompile Include="FilterSizeDialog.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="FFTLogDialog.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="CHighPassFilterDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="CLOWFILTERDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CSpectrumDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

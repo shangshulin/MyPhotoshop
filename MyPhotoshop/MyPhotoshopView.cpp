@@ -15,7 +15,7 @@
 #include <algorithm>
 #include "FilterSizeDialog.h"  
 #include "CINTENSITYDlg.h"
-#include "FFTLogDialog.h"
+
 #include <fftw3.h>
 #include "CHighPassFilterDlg.h"
 #include "CLOWFILTERDlg.h"

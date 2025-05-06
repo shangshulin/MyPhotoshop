@@ -16,7 +16,6 @@
 #define IDD_DIALOG2                     320
 #define IDD_GAUSSIAN_WHITE_NOISE_DIALOG 320
 #define IDD_FILTER_SIZE                 321
-#define IDD_FFTLOG_DIALOG               322
 #define IDD_HIGH_PASS_FILTER_DIALOG     324
 #define IDD_HIGH_FILTERDLG              324
 #define IDD_DIALOG3                     328
@@ -42,9 +41,7 @@
 #define IDC_SIGMA_SLIDER                1018
 #define IDC_SLIDER1                     1019
 #define IDC_FILTER_SIZE                 1020
-#define IDC_EDIT_LOGBASE                1021
 #define IDC_EDIT_LOGBASE2               1022
-#define IDC_EDIT_SCALEFACTOR            1022
 #define IDC_FILTER_TYPE_COMBO           1023
 #define IDC_CUTOFF_FREQUENCY_EDIT       1024
 #define IDC_EDIT_D0_HIGH                1024
