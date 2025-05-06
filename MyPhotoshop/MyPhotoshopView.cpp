@@ -1112,18 +1112,49 @@ void CMyPhotoshopView::OnEditUndo()
 }
 
 
-void CMyPhotoshopView::OnFreqFFT()
-{
+void CMyPhotoshopView::OnFreqFFT() {
     CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage) return;
+    if (!pDoc || !pDoc->pImage) {
+        AfxMessageBox(_T("请先打开有效的图像文件"));
+        return;
+    }
 
-    // 执行FFT
-    if (pDoc->pImage->FFT2D(true)) {
-        // 显示频谱对话框
-        CSpectrumDlg dlg(AfxGetMainWnd(), pDoc->pImage);
-        dlg.DoModal();
+    try {
+        // 保存原始图像状态
+        CImageProc* pOldImage = new CImageProc();
+        if (!pOldImage) AfxThrowMemoryException();
+        *pOldImage = *pDoc->pImage;
 
-        pDoc->UpdateAllViews(nullptr);
+        // 添加到命令栈
+        AddCommand(
+            [pDoc]() {
+                // 执行FFT
+                if (pDoc->pImage->FFT2D(true)) {
+                    // 显示频谱对话框
+                    CSpectrumDlg dlg(AfxGetMainWnd(), pDoc->pImage);
+                    dlg.DoModal();
+
+                    pDoc->UpdateAllViews(nullptr);
+                }
+                else if (!pDoc->pImage->FFT2D(true)) {
+                    AfxMessageBox(_T("FFT变换失败"));
+                }
+                pDoc->UpdateAllViews(nullptr);
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->pImage->ResetFFTState();
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+    catch (CMemoryException* e) {
+        e->Delete();
+        AfxMessageBox(_T("内存不足，无法保存图像状态"));
+    }
+    catch (...) {
+        AfxMessageBox(_T("FFT变换初始化失败"));
     }
 }
 
