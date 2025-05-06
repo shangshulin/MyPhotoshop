@@ -3315,7 +3315,9 @@ void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset,
             COLORREF color;
             switch (nBitCount) {
             case 8:
-                color = RGB(*pixel, *pixel, *pixel);
+                BYTE r, g, b;
+                GetColor(srcX, srcY, r, g, b);
+                color = RGB(r, g, b);
                 break;
             case 16: {
                 WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
@@ -3384,7 +3386,11 @@ void CImageProc::DisplayOriginalImage(CDC* pDC, int xOffset, int yOffset,
 
             COLORREF color;
             switch (nBitCount) {
-            case 8: color = RGB(*pixel, *pixel, *pixel); break;
+            case 8: 
+                BYTE r, g, b;
+                GetColor(srcX, srcY, r, g, b);
+                color = RGB(r, g, b);
+                break;
             case 24: color = RGB(pixel[2], pixel[1], pixel[0]); break;
             case 16: {
                 WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
