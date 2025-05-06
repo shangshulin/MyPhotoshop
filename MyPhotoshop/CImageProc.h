@@ -161,15 +161,6 @@ public:
         return (n & (n - 1)) == 0;
     }
 
-    // 调整数据到2的幂次尺寸
-    void padToPowerOfTwo(std::vector<std::complex<double>>& data, int originalSize, int newSize) {
-        data.resize(newSize);
-        for (int i = originalSize; i < newSize; i++) {
-            data[i] = std::complex<double>(0, 0);
-        }
-    }
-
-
 public:
     int m_fftWidth = 0;
     int m_fftHeight = 0;

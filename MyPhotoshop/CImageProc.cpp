@@ -2907,9 +2907,6 @@ void CImageProc::ApplyMeanFilter()
     }
 }
 
-// 前向声明递归FFT函数
-static void recursiveFFT(std::complex<double>* data, int N);
-
 bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
     if (!IsValid()) return false;
 
@@ -3017,39 +3014,6 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
         return false;
     }
 }
-
-// 实现递归FFT函数
-static void recursiveFFT(std::complex<double>* data, int N) {
-    if (N <= 1) return;
-
-    // 检查是否为2的幂次
-    if ((N & (N - 1)) != 0) {
-        throw std::invalid_argument("FFT input length must be a power of 2");
-    }
-
-    // 分离偶数和奇数元素
-    std::vector<std::complex<double>> even(N / 2);
-    std::vector<std::complex<double>> odd(N / 2);
-
-    for (int i = 0; i < N / 2; i++) {
-        even[i] = data[2 * i];
-        odd[i] = data[2 * i + 1];
-    }
-
-    // 递归处理
-    recursiveFFT(even.data(), N / 2);
-    recursiveFFT(odd.data(), N / 2);
-
-    // 合并结果
-    for (int k = 0; k < N / 2; k++) {
-        double angle = -2.0 * M_PI * k / N;
-        std::complex<double> w(cos(angle), sin(angle));
-        std::complex<double> t = w * odd[k];
-        data[k] = even[k] + t;
-        data[k + N / 2] = even[k] - t;
-    }
-}
-
 
 // 一维FFT实现（基2时间抽取算法）
 void CImageProc::FFT1D(std::complex<double>* data, int n, int direction) {
