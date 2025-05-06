@@ -4079,15 +4079,46 @@ void CImageProc::HomomorphicFiltering() {
 
     int M = nHeight;
     int N = nWidth;
+    int rowSize = ((N * nBitCount + 31) / 32) * 4;
 
     // 取对数
     std::vector<double> img_log(M * N);
     for (int y = 0; y < M; ++y) {
         for (int x = 0; x < N; ++x) {
-            int offset = (M - 1 - y) * GetAlignedWidthBytes() + x * (nBitCount / 8);
+            int offset = (M - 1 - y) * rowSize + x * (nBitCount / 8);
             BYTE* pixel = pBits + offset;
-            BYTE gray = *pixel; // 假设为灰度图像
-            img_log[y * N + x] = std::log(double(gray) + 1);
+            double gray = 0;
+
+            switch (nBitCount) {
+            case 8:
+                gray = *pixel;
+                break;
+            case 16: {
+                WORD value = *reinterpret_cast<WORD*>(pixel);
+                if (m_bIs565Format) {
+                    BYTE r = (value >> 11) & 0x1F;
+                    BYTE g = (value >> 5) & 0x3F;
+                    BYTE b = value & 0x1F;
+                    gray = 0.299 * (r << 3) + 0.587 * (g << 2) + 0.114 * (b << 3);
+                }
+                else {
+                    BYTE r = (value >> 10) & 0x1F;
+                    BYTE g = (value >> 5) & 0x1F;
+                    BYTE b = value & 0x1F;
+                    gray = 0.299 * (r << 3) + 0.587 * (g << 3) + 0.114 * (b << 3);
+                }
+                break;
+            }
+            case 24:
+            case 32:
+                gray = 0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0];
+                break;
+            default:
+                AfxMessageBox(_T("Unsupported bit count."));
+                return;
+            }
+
+            img_log[y * N + x] = std::log(gray + 1);
         }
     }
 
@@ -4095,19 +4126,13 @@ void CImageProc::HomomorphicFiltering() {
     std::vector<double> img_py(M * N);
     for (int y = 0; y < M; ++y) {
         for (int x = 0; x < N; ++x) {
-            if ((y + x) % 2 == 0) {
-                img_py[y * N + x] = img_log[y * N + x];
-            }
-            else {
-                img_py[y * N + x] = -1 * img_log[y * N + x];
-            }
+            img_py[y * N + x] = ((y + x) % 2 == 0) ? img_log[y * N + x] : -img_log[y * N + x];
         }
     }
 
-    // 对填充后的图像进行傅里叶变换
-    fftw_complex* in, * out;
-    in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
-    out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    // 傅里叶变换
+    fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
     for (int i = 0; i < M * N; ++i) {
         in[i][0] = img_py[i];
         in[i][1] = 0;
@@ -4116,19 +4141,14 @@ void CImageProc::HomomorphicFiltering() {
     fftw_execute(p);
 
     // 同态滤波函数
-    double rH = 1;
-    double rL = 0.1;
-    double c = 0.2;
-    double D0 = 10;
+    double rH = 1.2, rL = 0.4, c = 0.4, D0 = 12;
     std::vector<double> img_tt(M * N);
-    double deta_r = rH - rL;
-    double D = D0 * D0;
-    int m_mid = M / 2;
-    int n_mid = N / 2;
+    double deta_r = rH - rL, D = D0 * D0;
+    int m_mid = M / 2, n_mid = N / 2;
     for (int y = 0; y < M; ++y) {
         for (int x = 0; x < N; ++x) {
             double dis = (y - m_mid) * (y - m_mid) + (x - n_mid) * (x - n_mid);
-            img_tt[y * N + x] = deta_r * (1 - std::exp((-c) * (dis / D))) + rL;
+            img_tt[y * N + x] = deta_r * (1 - exp(-c * dis / D)) + rL;
         }
     }
 
@@ -4139,9 +4159,8 @@ void CImageProc::HomomorphicFiltering() {
     }
 
     // 反变换
-    fftw_complex* in2, * out2;
-    in2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
-    out2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    fftw_complex* in2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    fftw_complex* out2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
     for (int i = 0; i < M * N; ++i) {
         in2[i][0] = out[i][0];
         in2[i][1] = out[i][1];
@@ -4149,7 +4168,7 @@ void CImageProc::HomomorphicFiltering() {
     fftw_plan p2 = fftw_plan_dft_2d(M, N, in2, out2, FFTW_BACKWARD, FFTW_ESTIMATE);
     fftw_execute(p2);
 
-    // 取实部，绝对值
+    // 取实部
     std::vector<double> img_temp(M * N);
     for (int i = 0; i < M * N; ++i) {
         img_temp[i] = std::abs(out2[i][0]) / (M * N);
@@ -4157,37 +4176,57 @@ void CImageProc::HomomorphicFiltering() {
 
     // 指数化
     for (int i = 0; i < M * N; ++i) {
-        img_temp[i] = std::exp(img_temp[i]) - 1;
+        img_temp[i] = exp(img_temp[i]) - 1;
     }
 
     // 归一化处理
-    double max_num = img_temp[0];
-    double min_num = img_temp[0];
+    double max_num = img_temp[0], min_num = img_temp[0];
     for (int i = 0; i < M * N; ++i) {
-        if (img_temp[i] > max_num) {
-            max_num = img_temp[i];
-        }
-        if (img_temp[i] < min_num) {
-            min_num = img_temp[i];
-        }
+        max_num = max(max_num, img_temp[i]);
+        min_num = min(min_num, img_temp[i]);
     }
-    double range = max_num - min_num;
+    double range = (max_num - min_num) == 0 ? 1e-6 : max_num - min_num;
+
+    // 像素赋值
     for (int y = 0; y < M; ++y) {
         for (int x = 0; x < N; ++x) {
-            int offset = (M - 1 - y) * GetAlignedWidthBytes() + x * (nBitCount / 8);
+            int offset = (M - 1 - y) * rowSize + x * (nBitCount / 8);
             BYTE* pixel = pBits + offset;
-            *pixel = static_cast<BYTE>(255 * (img_temp[y * N + x] - min_num) / range);
+            double newValue = 255.0 * (img_temp[y * N + x] - min_num) / range;
+            newValue = max(0.0, min(255.0, newValue));
+
+            switch (nBitCount) {
+            case 8:
+                *pixel = static_cast<BYTE>(newValue);
+                break;
+            case 16: {
+                BYTE r = static_cast<BYTE>(newValue);
+                BYTE g = static_cast<BYTE>(newValue);
+                BYTE b = static_cast<BYTE>(newValue);
+                WORD value = (m_bIs565Format) ?
+                    ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3) :
+                    ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+                *reinterpret_cast<WORD*>(pixel) = value;
+                break;
+            }
+            case 24:
+            case 32:
+                pixel[0] = static_cast<BYTE>(newValue); // B 通道
+                pixel[1] = static_cast<BYTE>(newValue); // G 通道
+                pixel[2] = static_cast<BYTE>(newValue); // R 通道
+                if (nBitCount == 32) pixel[3] = 255; // Alpha 通道
+                break;
+            }
         }
     }
 
-    // 释放FFTW资源
-    fftw_destroy_plan(p);
-    fftw_destroy_plan(p2);
+    // 释放 FFTW 内存
     fftw_free(in);
     fftw_free(out);
     fftw_free(in2);
     fftw_free(out2);
-
+    fftw_destroy_plan(p);
+    fftw_destroy_plan(p2);
 }
 
 void CImageProc::ShowSpectrumDialog(CWnd* pParent)
