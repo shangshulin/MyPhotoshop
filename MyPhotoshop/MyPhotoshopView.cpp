@@ -61,7 +61,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_FUNCTION_GAUSSIANWHITE, &CMyPhotoshopView::OnFunctionGaussianwhite)// 添加高斯白噪声
     //空域滤波
     ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)// 均值滤波
-	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)//   中值滤波
+	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)// 中值滤波
 	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
     // 频域滤波
     ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnHighPassFilter)     //高通滤波

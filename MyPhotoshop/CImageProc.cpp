@@ -4141,7 +4141,7 @@ void CImageProc::HomomorphicFiltering() {
     fftw_execute(p);
 
     // 同态滤波函数
-    double rH = 1.2, rL = 0.4, c = 0.4, D0 = 12;
+    double rH = 1.1, rL = 0.3, c = 0.4, D0 = 15;
     std::vector<double> img_tt(M * N);
     double deta_r = rH - rL, D = D0 * D0;
     int m_mid = M / 2, n_mid = N / 2;
