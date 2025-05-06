@@ -26,10 +26,6 @@ public:
 	double m_D0;  // 截止频率
 	double m_step; // 巴特沃斯滤波阶数
 	void SetImageData(CImageProc* pImage); // 设置图像数据
-	int GetFilterType(); // 获取滤波器类型
-	double GetD0(); // 获取截止频率
-	int GetStep(); // 获取巴特沃斯滤波阶数
-	afx_msg void OnBnClickedHighFilter();
-	afx_msg void OnBnClickedBwHighFilter();
-	afx_msg void OnBnClickedHighFilterButtonApply();
+	int m_high_filter_type;
+	afx_msg void OnBnClickedHighFilterButtonApply(); // 应用按钮点击事件
 };

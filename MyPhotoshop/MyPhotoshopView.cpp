@@ -1201,17 +1201,14 @@ void CMyPhotoshopView::OnHighPassFilter()
     CHighPassFilterDlg dlg;
     dlg.SetImageData(pDoc->pImage);
     if (dlg.DoModal() == IDOK) {
-        double D0 = dlg.GetD0();
-        int filterType = dlg.GetFilterType();
-        int step = dlg.GetStep();
+        double D0 = dlg.m_D0;
+        int filterType = dlg.m_high_filter_type;
+        int step = dlg.m_step;
         CImageProc* pOldImage = new CImageProc();
         *pOldImage = *pDoc->pImage;
         AddCommand(
             [pDoc, D0, filterType, step]() {
-                if (filterType == 0)
-                    pDoc->pImage->IdealHighPassFilter(D0);
-                else
-                    pDoc->pImage->ButterworthHighPassFilter(D0, step);
+                pDoc->pImage->HighPassFilter(D0, step, filterType);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
