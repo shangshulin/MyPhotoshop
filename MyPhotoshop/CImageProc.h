@@ -94,6 +94,7 @@ public:
     void SetFFTData(const std::vector<std::complex<double>>& data, int w, int h);
     void CImageProc::FFT1D(std::complex<double>* data, int n, int direction); //一维FFT
 	void CImageProc::BitReverse(std::complex<double>* data, int n); // 位反转重排
+	int CImageProc::FindTargetBit(int i, int n); // 查找目标位
     void SaveCurrentState();  // 保存当前状态
     bool HasFFTData() const { return m_bFFTPerformed; }
 	bool RestoreState(); // 恢复保存的状态

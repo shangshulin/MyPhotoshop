@@ -3090,17 +3090,30 @@ void CImageProc::FFT1D(std::complex<double>* data, int n, int direction) {
 
 // 位反转重排
 void CImageProc::BitReverse(std::complex<double>* data, int n) {
-    int j = 0;
-    for (int i = 0; i < n - 1; i++) {
-        if (i < j) std::swap(data[i], data[j]);
-
-        int mask = n >> 1;
-        while (j >= mask) {
-            j -= mask;
-            mask >>= 1;
+    for (int i = 0; i < n; i++)
+    {
+        int target = FindTargetBit(i, n);
+        if (i < target)
+        {
+            std::swap(data[i], data[target]);
         }
-        j += mask;
     }
+}
+int CImageProc::FindTargetBit(int i, int n)
+{
+    int numBits = 0;
+    int temp = n;
+    // 计算 n 的二进制位数
+    while (temp > 1) {
+        temp >>= 1;
+        numBits++;
+    }
+
+    int target = 0;
+    for (int j = 0; j < numBits; j++) {
+        target = (target << 1) | ((i >> j) & 1);
+    }
+    return target;
 }
 
 
