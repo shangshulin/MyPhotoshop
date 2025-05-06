@@ -1123,7 +1123,7 @@ void CMyPhotoshopView::OnFreqFFT()
         CSpectrumDlg dlg(AfxGetMainWnd(), pDoc->pImage);
         dlg.DoModal();
 
-        // 不自动刷新视图，保留原图像显示
+        pDoc->UpdateAllViews(nullptr);
     }
 }
 
@@ -1148,6 +1148,7 @@ void CMyPhotoshopView::OnFreqIFFT() {
             },
             [pDoc, pOldImage]() {
                 *pDoc->pImage = *pOldImage;
+                pDoc->pImage->ResetFFTState();
                 delete pOldImage;
                 pDoc->UpdateAllViews(nullptr);
             }
