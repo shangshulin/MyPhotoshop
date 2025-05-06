@@ -14,6 +14,7 @@
 
 
 #include <utility>
+#include "CSpectrumDlg.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -81,6 +82,7 @@ CImageProc& CImageProc::operator=(const CImageProc& other) {
     nWidth = other.nWidth;
     nHeight = other.nHeight;
     nBitCount = other.nBitCount;
+    m_bIFFTPerformed = other.m_bIFFTPerformed;
 
     if (other.m_hDib) {
         // 计算源图像数据大小
@@ -2905,9 +2907,6 @@ void CImageProc::ApplyMeanFilter()
     }
 }
 
-// 前向声明递归FFT函数
-static void recursiveFFT(std::complex<double>* data, int N);
-
 bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
     if (!IsValid()) return false;
 
@@ -3016,101 +3015,6 @@ bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
     }
 }
 
-// 实现递归FFT函数
-static void recursiveFFT(std::complex<double>* data, int N) {
-    if (N <= 1) return;
-
-    // 检查是否为2的幂次
-    if ((N & (N - 1)) != 0) {
-        throw std::invalid_argument("FFT input length must be a power of 2");
-    }
-
-    // 分离偶数和奇数元素
-    std::vector<std::complex<double>> even(N / 2);
-    std::vector<std::complex<double>> odd(N / 2);
-
-    for (int i = 0; i < N / 2; i++) {
-        even[i] = data[2 * i];
-        odd[i] = data[2 * i + 1];
-    }
-
-    // 递归处理
-    recursiveFFT(even.data(), N / 2);
-    recursiveFFT(odd.data(), N / 2);
-
-    // 合并结果
-    for (int k = 0; k < N / 2; k++) {
-        double angle = -2.0 * M_PI * k / N;
-        std::complex<double> w(cos(angle), sin(angle));
-        std::complex<double> t = w * odd[k];
-        data[k] = even[k] + t;
-        data[k + N / 2] = even[k] - t;
-    }
-}
-
-void CImageProc::DisplayFFTResult(CDC* pDC, int xOffset, int yOffset,
-    int destWidth, int destHeight, bool bKeepOriginalData)
-{
-    if (!m_bFFTPerformed || m_fftDisplayData.empty()) return;
-
-    if (bKeepOriginalData) {
-        m_originalFFTData = m_fftData;
-    }
-
-    int srcW = nWidth;
-    int srcH = nHeight;
-
-    if (destWidth <= 0) destWidth = srcW;
-    if (destHeight <= 0) destHeight = srcH;
-
-    // 直接绘制，m_fftDisplayData已经按正确方向存储
-    double scaleX = (double)srcW / destWidth;
-    double scaleY = (double)srcH / destHeight;
-
-    for (int y = 0; y < destHeight; y++) {
-        int srcY = (int)(y * scaleY);
-        if (srcY >= srcH) srcY = srcH - 1;
-
-        for (int x = 0; x < destWidth; x++) {
-            int srcX = (int)(x * scaleX);
-            if (srcX >= srcW) srcX = srcW - 1;
-
-            int intensity = static_cast<int>(m_fftDisplayData[srcY * srcW + srcX].real());
-            intensity = std::clamp(intensity, 0, 255);
-            pDC->SetPixel(x + xOffset, y + yOffset,
-                RGB(intensity, intensity, intensity));
-        }
-    }
-}
-
-// 辅助函数：蝶形运算
-void CImageProc::CalculateFFT(std::complex<double>* data, int width, int height, bool bForward) {
-    const double norm = bForward ? 1.0 : (1.0 / (width * height));
-
-    // 行列变换
-    for (int y = 0; y < height; y++) {
-        FFT1D(&data[y * width], width, bForward ? 1 : -1);
-    }
-
-    std::vector<std::complex<double>> column(height);
-    for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) {
-            column[y] = data[y * width + x];
-        }
-        FFT1D(column.data(), height, bForward ? 1 : -1);
-        for (int y = 0; y < height; y++) {
-            data[y * width + x] = column[y]; // 移除列处理时的缩放
-        }
-    }
-
-    // 统一应用缩放因子
-    if (!bForward) {
-        for (int i = 0; i < width * height; i++) {
-            data[i] *= norm; // 仅在逆变换时应用一次总缩放
-        }
-    }
-}
-
 // 一维FFT实现（基2时间抽取算法）
 void CImageProc::FFT1D(std::complex<double>* data, int n, int direction) {
     // 检查是否为2的幂次，如果不是则补零
@@ -3150,17 +3054,30 @@ void CImageProc::FFT1D(std::complex<double>* data, int n, int direction) {
 
 // 位反转重排
 void CImageProc::BitReverse(std::complex<double>* data, int n) {
-    int j = 0;
-    for (int i = 0; i < n - 1; i++) {
-        if (i < j) std::swap(data[i], data[j]);
-
-        int mask = n >> 1;
-        while (j >= mask) {
-            j -= mask;
-            mask >>= 1;
+    for (int i = 0; i < n; i++)
+    {
+        int target = FindTargetBit(i, n);
+        if (i < target)
+        {
+            std::swap(data[i], data[target]);
         }
-        j += mask;
     }
+}
+int CImageProc::FindTargetBit(int i, int n)
+{
+    int numBits = 0;
+    int temp = n;
+    // 计算 n 的二进制位数
+    while (temp > 1) {
+        temp >>= 1;
+        numBits++;
+    }
+
+    int target = 0;
+    for (int j = 0; j < numBits; j++) {
+        target = (target << 1) | ((i >> j) & 1);
+    }
+    return target;
 }
 
 
@@ -3216,22 +3133,6 @@ bool CImageProc::RestoreState() {
     return true;
 }
 
-void CImageProc::ApplyFFTLogTransform(double logBase, double scaleFactor) {
-    if (!m_bFFTPerformed || m_fftData.empty()) return;
-
-    const double logOfBase = log(logBase);
-    const int size = nWidth * nHeight;
-
-    for (int i = 0; i < size; i++) {
-        double magnitude = std::abs(m_fftData[i]);
-        if (magnitude > 0) {
-            // 对数变换公式: scaleFactor * log(1 + magnitude) / log(base)
-            double logValue = scaleFactor * log(1.0 + magnitude) / logOfBase;
-            // 保持相位不变，只修改幅度
-            m_fftData[i] = std::polar(logValue, std::arg(m_fftData[i]));
-        }
-    }
-}
 
 bool CImageProc::IFFT2D(bool bSaveState) {
     if (!m_bFFTPerformed) return false;
@@ -3378,7 +3279,9 @@ void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset,
             COLORREF color;
             switch (nBitCount) {
             case 8:
-                color = RGB(*pixel, *pixel, *pixel);
+                BYTE r, g, b;
+                GetColor(srcX, srcY, r, g, b);
+                color = RGB(r, g, b);
                 break;
             case 16: {
                 WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
@@ -3447,7 +3350,11 @@ void CImageProc::DisplayOriginalImage(CDC* pDC, int xOffset, int yOffset,
 
             COLORREF color;
             switch (nBitCount) {
-            case 8: color = RGB(*pixel, *pixel, *pixel); break;
+            case 8: 
+                BYTE r, g, b;
+                GetColor(srcX, srcY, r, g, b);
+                color = RGB(r, g, b);
+                break;
             case 24: color = RGB(pixel[2], pixel[1], pixel[0]); break;
             case 16: {
                 WORD pixelValue = *reinterpret_cast<WORD*>(pixel);
@@ -3483,33 +3390,34 @@ void CImageProc::IdealHighPassFilter(double D0)
         AfxMessageBox(_T("仅支持8/16/24/32位图像!"));
         return;
     }
-    int w = nWidth, h = nHeight, N = w * h;
+    int w = nWidth, h = nHeight, N = w * h;//  图像尺寸
 
     if (nBitCount == 8) {
         // 分配输入输出数组
-        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
+        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);//in用于存储输入数据
+        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);//out用于存储输出数据
 
         // 填充输入数据并应用(-1)^(x+y)进行频谱中心化
         for (int y = 0; y < h; ++y) {
             for (int x = 0; x < w; ++x) {
                 int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
                 // 应用(-1)^(x+y)进行频谱中心化
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                in[y * w + x][0] = pBits[offset] * factor;
+                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;//factor是(-1)^(x+y)
+                in[y * w + x][0] = pBits[offset] * factor;//归一化的输入数据
                 in[y * w + x][1] = 0.0;
             }
         }
 
         // 正变换
-        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
+        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);//创建正变换计划
+        fftw_execute(plan);//执行正变换
 
         // 理想高通滤波
         int cx = w / 2, cy = h / 2;
         for (int y = 0; y < h; ++y) {
             for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));//计算与中心点的距离
+                //应用理想高通滤波
                 if (D < D0) {
                     out[y * w + x][0] = 0;
                     out[y * w + x][1] = 0;
@@ -3518,19 +3426,21 @@ void CImageProc::IdealHighPassFilter(double D0)
         }
 
         // 逆变换
-        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
-        fftw_execute(iplan);
+        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);//创建逆变换计划
+        fftw_execute(iplan);//执行逆变换
 
-        // 归一化（防止全黑/全白），并做中心化恢复
-        double minVal = 1e20, maxVal = -1e20;
+        // 中心化恢复
+        double minVal = 1e20, maxVal = -1e20;// 用于记录灰度值的最小值和最大值
         for (int y = 0; y < h; ++y) {
             for (int x = 0; x < w; ++x) {
                 double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[y * w + x][0] / N * factor;
+                double val = in[y * w + x][0] / N * factor;// 频谱中心化恢复
                 if (val < minVal) minVal = val;
-                if (val > maxVal) maxVal = val;
+                if (val > maxVal) maxVal = val;//  记录灰度值范围
             }
         }
+
+        // 归一化并映射到[0, 255]
         double range = maxVal - minVal;
         if (range < 1e-6) range = 1.0; // 防止除零
 
@@ -3541,14 +3451,14 @@ void CImageProc::IdealHighPassFilter(double D0)
                 double val = in[y * w + x][0] / N * factor;
                 val = (val - minVal) * 255.0 / range;
                 val = min(255.0, max(0.0, val));
-                pBits[offset] = static_cast<BYTE>(val);
+                pBits[offset] = static_cast<BYTE>(val);//将结果写回到图像数据中
             }
         }
 
         fftw_destroy_plan(plan);
-        fftw_destroy_plan(iplan);
+        fftw_destroy_plan(iplan);   // 销毁逆变换计划
         fftw_free(in);
-        fftw_free(out);
+        fftw_free(out);     // 释放内存
         return;
     }
 
@@ -3724,7 +3634,7 @@ void CImageProc::ButterworthHighPassFilter(double D0, int n)
         for (int y = 0; y < h; ++y) {
             BYTE* pPixel = pBits + (h - 1 - y) * rowSize;
             for (int x = 0; x < w; ++x) {
-                int idx = y * w + x;
+                int idx = y * w + x;//
                 int val = 0;
                 if (nBitCount == 16) {
                     WORD* pixel = (WORD*)(pPixel + x * 2);
@@ -4169,15 +4079,46 @@ void CImageProc::HomomorphicFiltering() {
 
     int M = nHeight;
     int N = nWidth;
+    int rowSize = ((N * nBitCount + 31) / 32) * 4;
 
     // 取对数
     std::vector<double> img_log(M * N);
     for (int y = 0; y < M; ++y) {
         for (int x = 0; x < N; ++x) {
-            int offset = (M - 1 - y) * GetAlignedWidthBytes() + x * (nBitCount / 8);
+            int offset = (M - 1 - y) * rowSize + x * (nBitCount / 8);
             BYTE* pixel = pBits + offset;
-            BYTE gray = *pixel; // 假设为灰度图像
-            img_log[y * N + x] = std::log(double(gray) + 1);
+            double gray = 0;
+
+            switch (nBitCount) {
+            case 8:
+                gray = *pixel;
+                break;
+            case 16: {
+                WORD value = *reinterpret_cast<WORD*>(pixel);
+                if (m_bIs565Format) {
+                    BYTE r = (value >> 11) & 0x1F;
+                    BYTE g = (value >> 5) & 0x3F;
+                    BYTE b = value & 0x1F;
+                    gray = 0.299 * (r << 3) + 0.587 * (g << 2) + 0.114 * (b << 3);
+                }
+                else {
+                    BYTE r = (value >> 10) & 0x1F;
+                    BYTE g = (value >> 5) & 0x1F;
+                    BYTE b = value & 0x1F;
+                    gray = 0.299 * (r << 3) + 0.587 * (g << 3) + 0.114 * (b << 3);
+                }
+                break;
+            }
+            case 24:
+            case 32:
+                gray = 0.299 * pixel[2] + 0.587 * pixel[1] + 0.114 * pixel[0];
+                break;
+            default:
+                AfxMessageBox(_T("Unsupported bit count."));
+                return;
+            }
+
+            img_log[y * N + x] = std::log(gray + 1);
         }
     }
 
@@ -4185,19 +4126,13 @@ void CImageProc::HomomorphicFiltering() {
     std::vector<double> img_py(M * N);
     for (int y = 0; y < M; ++y) {
         for (int x = 0; x < N; ++x) {
-            if ((y + x) % 2 == 0) {
-                img_py[y * N + x] = img_log[y * N + x];
-            }
-            else {
-                img_py[y * N + x] = -1 * img_log[y * N + x];
-            }
+            img_py[y * N + x] = ((y + x) % 2 == 0) ? img_log[y * N + x] : -img_log[y * N + x];
         }
     }
 
-    // 对填充后的图像进行傅里叶变换
-    fftw_complex* in, * out;
-    in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
-    out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    // 傅里叶变换
+    fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
     for (int i = 0; i < M * N; ++i) {
         in[i][0] = img_py[i];
         in[i][1] = 0;
@@ -4206,19 +4141,14 @@ void CImageProc::HomomorphicFiltering() {
     fftw_execute(p);
 
     // 同态滤波函数
-    double rH = 1;
-    double rL = 0.1;
-    double c = 0.2;
-    double D0 = 10;
+    double rH = 1.1, rL = 0.3, c = 0.4, D0 = 15;
     std::vector<double> img_tt(M * N);
-    double deta_r = rH - rL;
-    double D = D0 * D0;
-    int m_mid = M / 2;
-    int n_mid = N / 2;
+    double deta_r = rH - rL, D = D0 * D0;
+    int m_mid = M / 2, n_mid = N / 2;
     for (int y = 0; y < M; ++y) {
         for (int x = 0; x < N; ++x) {
             double dis = (y - m_mid) * (y - m_mid) + (x - n_mid) * (x - n_mid);
-            img_tt[y * N + x] = deta_r * (1 - std::exp((-c) * (dis / D))) + rL;
+            img_tt[y * N + x] = deta_r * (1 - exp(-c * dis / D)) + rL;
         }
     }
 
@@ -4229,9 +4159,8 @@ void CImageProc::HomomorphicFiltering() {
     }
 
     // 反变换
-    fftw_complex* in2, * out2;
-    in2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
-    out2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    fftw_complex* in2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
+    fftw_complex* out2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * M * N);
     for (int i = 0; i < M * N; ++i) {
         in2[i][0] = out[i][0];
         in2[i][1] = out[i][1];
@@ -4239,7 +4168,7 @@ void CImageProc::HomomorphicFiltering() {
     fftw_plan p2 = fftw_plan_dft_2d(M, N, in2, out2, FFTW_BACKWARD, FFTW_ESTIMATE);
     fftw_execute(p2);
 
-    // 取实部，绝对值
+    // 取实部
     std::vector<double> img_temp(M * N);
     for (int i = 0; i < M * N; ++i) {
         img_temp[i] = std::abs(out2[i][0]) / (M * N);
@@ -4247,35 +4176,110 @@ void CImageProc::HomomorphicFiltering() {
 
     // 指数化
     for (int i = 0; i < M * N; ++i) {
-        img_temp[i] = std::exp(img_temp[i]) - 1;
+        img_temp[i] = exp(img_temp[i]) - 1;
     }
 
     // 归一化处理
-    double max_num = img_temp[0];
-    double min_num = img_temp[0];
+    double max_num = img_temp[0], min_num = img_temp[0];
     for (int i = 0; i < M * N; ++i) {
-        if (img_temp[i] > max_num) {
-            max_num = img_temp[i];
-        }
-        if (img_temp[i] < min_num) {
-            min_num = img_temp[i];
-        }
+        max_num = max(max_num, img_temp[i]);
+        min_num = min(min_num, img_temp[i]);
     }
-    double range = max_num - min_num;
+    double range = (max_num - min_num) == 0 ? 1e-6 : max_num - min_num;
+
+    // 像素赋值
     for (int y = 0; y < M; ++y) {
         for (int x = 0; x < N; ++x) {
-            int offset = (M - 1 - y) * GetAlignedWidthBytes() + x * (nBitCount / 8);
+            int offset = (M - 1 - y) * rowSize + x * (nBitCount / 8);
             BYTE* pixel = pBits + offset;
-            *pixel = static_cast<BYTE>(255 * (img_temp[y * N + x] - min_num) / range);
+            double newValue = 255.0 * (img_temp[y * N + x] - min_num) / range;
+            newValue = max(0.0, min(255.0, newValue));
+
+            switch (nBitCount) {
+            case 8:
+                *pixel = static_cast<BYTE>(newValue);
+                break;
+            case 16: {
+                BYTE r = static_cast<BYTE>(newValue);
+                BYTE g = static_cast<BYTE>(newValue);
+                BYTE b = static_cast<BYTE>(newValue);
+                WORD value = (m_bIs565Format) ?
+                    ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3) :
+                    ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+                *reinterpret_cast<WORD*>(pixel) = value;
+                break;
+            }
+            case 24:
+            case 32:
+                pixel[0] = static_cast<BYTE>(newValue); // B 通道
+                pixel[1] = static_cast<BYTE>(newValue); // G 通道
+                pixel[2] = static_cast<BYTE>(newValue); // R 通道
+                if (nBitCount == 32) pixel[3] = 255; // Alpha 通道
+                break;
+            }
         }
     }
 
-    // 释放FFTW资源
-    fftw_destroy_plan(p);
-    fftw_destroy_plan(p2);
+    // 释放 FFTW 内存
     fftw_free(in);
     fftw_free(out);
     fftw_free(in2);
     fftw_free(out2);
+    fftw_destroy_plan(p);
+    fftw_destroy_plan(p2);
+}
 
+void CImageProc::ShowSpectrumDialog(CWnd* pParent)
+{
+    CSpectrumDlg dlg(pParent, this);
+    dlg.DoModal();
+}
+
+void CImageProc::DisplayFullSpectrum(CDC* pDC, int xOffset, int yOffset,
+    int destWidth, int destHeight)
+{
+    if (!m_bFFTPerformed || m_fullSpectrumRGB.empty()) return;
+
+    int srcW = m_paddedSize.first;
+    int srcH = m_paddedSize.second;
+
+    if (destWidth <= 0) destWidth = srcW;
+    if (destHeight <= 0) destHeight = srcH;
+
+    // 计算缩放比例
+    double scaleX = (double)srcW / destWidth;
+    double scaleY = (double)srcH / destHeight;
+
+    // 创建临时位图
+    CBitmap bitmap;
+    bitmap.CreateCompatibleBitmap(pDC, destWidth, destHeight);
+    CDC memDC;
+    memDC.CreateCompatibleDC(pDC);
+    CBitmap* pOldBitmap = memDC.SelectObject(&bitmap);
+
+    // 绘制完整频谱
+    for (int y = 0; y < destHeight; y++) {
+        int srcY = (int)(y * scaleY);
+        if (srcY >= srcH) srcY = srcH - 1;
+
+        for (int x = 0; x < destWidth; x++) {
+            int srcX = (int)(x * scaleX);
+            if (srcX >= srcW) srcX = srcW - 1;
+
+            // 计算幅度（使用R通道）
+            double mag = std::abs(m_fullSpectrumRGB[0][srcY * srcW + srcX]);
+            int intensity = static_cast<int>(255 * std::log(1 + mag) / std::log(1 + 255));
+            intensity = std::clamp(intensity, 0, 255);
+
+            memDC.SetPixel(x, y, RGB(intensity, intensity, intensity));
+        }
+    }
+
+    // 将位图绘制到目标DC
+    pDC->BitBlt(xOffset, yOffset, destWidth, destHeight, &memDC, 0, 0, SRCCOPY);
+
+    // 清理资源
+    memDC.SelectObject(pOldBitmap);
+    bitmap.DeleteObject();
+    memDC.DeleteDC();
 }

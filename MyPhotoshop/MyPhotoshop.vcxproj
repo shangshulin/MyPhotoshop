@@ -196,6 +196,7 @@
     <ClInclude Include="CINTENSITYDlg.h" />
     <ClInclude Include="CLOWFILTERDlg.h" />
     <ClInclude Include="Command.h" />
+    <ClInclude Include="CSpectrumDlg.h" />
     <ClInclude Include="FFTLogDialog.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="GaussianNoiseDialog.h" />
@@ -211,6 +212,7 @@
     <ClInclude Include="targetver.h" />
     <ClCompile Include="CHighPassFilterDlg.cpp" />
     <ClCompile Include="CLOWFILTERDlg.cpp" />
+    <ClCompile Include="CSpectrumDlg.cpp" />
     <ClCompile Include="FFTLogDialog.cpp" />
     <ClCompile Include="FilterSizeDialog.h" />
   </ItemGroup>
