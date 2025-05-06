@@ -117,9 +117,6 @@ public:
 	afx_msg void OnEditUndo();
 	afx_msg void OnFreqIFFT();
 	afx_msg void OnFreqFFT();
-	afx_msg void OnFreqUndo();
-	
-	afx_msg void OnFreqFftLogTransform();
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本
