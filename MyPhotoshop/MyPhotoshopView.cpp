@@ -13,12 +13,11 @@
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
 #include <algorithm>
-#include "FilterSizeDialog.h"  
+#include "CFilterSizeDialog.h"  
 #include "CINTENSITYDlg.h"
-#include "FFTLogDialog.h"
+
 #include <fftw3.h>
-#include "CHighPassFilterDlg.h"
-#include "CLOWFILTERDlg.h"
+#include "CFreqPassFilterDlg.h"
 #include "CSpectrumDlg.h"
 
 #ifdef _DEBUG
@@ -64,8 +63,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)// 中值滤波
 	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
     // 频域滤波
-    ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnHighPassFilter)     //高通滤波
-    ON_COMMAND(ID_LOWPASS_FILTER, &CMyPhotoshopView::OnBnClickedLowFilterButton)    //低通滤波
+    ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnFreqPassFilter)     //高通/低通滤波
     ON_COMMAND(ID_HOMOMORPHIC_FILTERING, &CMyPhotoshopView::OnHomomorphicFiltering)    //同态滤波
 	// 撤销操作
     ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
@@ -524,13 +522,9 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
 
         AddCommand(
             [pDoc, pTargetImage]() {
-                if (pDoc->pImage->HistogramMatching(*pTargetImage))
-                {
-                    pDoc->SetModifiedFlag(TRUE);
-                    pDoc->UpdateAllViews(nullptr);
-                    AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
-                }
+                pDoc->pImage->HistogramMatching(*pTargetImage);
                 delete pTargetImage; // 执行完成后释放目标图像
+                pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
                 *pDoc->pImage = *pOldImage;
@@ -827,7 +821,7 @@ void CMyPhotoshopView::OnFilterMean()
 
         AddCommand(
             [pDoc, filterSize]() {
-                pDoc->pImage->MeanFilter(filterSize);
+                pDoc->pImage->SpatialFilter(filterSize, FilterType::Mean);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -866,7 +860,7 @@ void CMyPhotoshopView::OnFilterMedian()
 
         AddCommand(
             [pDoc, filterSize]() {
-                pDoc->pImage->MedianFilter(filterSize);
+                pDoc->pImage->SpatialFilter(filterSize, FilterType::Mean);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -896,7 +890,7 @@ void CMyPhotoshopView::OnFilterMax()
 
         AddCommand(
             [pDoc, filterSize]() {
-                pDoc->pImage->MaxFilter(filterSize);
+                pDoc->pImage->SpatialFilter(filterSize, FilterType::Max);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -1190,7 +1184,7 @@ void CMyPhotoshopView::OnFreqIFFT() {
     }
 }
 
-void CMyPhotoshopView::OnHighPassFilter()
+void CMyPhotoshopView::OnFreqPassFilter()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
@@ -1198,20 +1192,17 @@ void CMyPhotoshopView::OnHighPassFilter()
         return;
     }
 
-    CHighPassFilterDlg dlg;
+    CFreqPassFilterDlg dlg;
     dlg.SetImageData(pDoc->pImage);
     if (dlg.DoModal() == IDOK) {
-        double D0 = dlg.GetD0();
-        int filterType = dlg.GetFilterType();
-        int step = dlg.GetStep();
+        double D0 = dlg.m_D0;
+        int filterType = dlg.m_high_filter_type;
+        int step = dlg.m_step;
         CImageProc* pOldImage = new CImageProc();
         *pOldImage = *pDoc->pImage;
         AddCommand(
             [pDoc, D0, filterType, step]() {
-                if (filterType == 0)
-                    pDoc->pImage->IdealHighPassFilter(D0);
-                else
-                    pDoc->pImage->ButterworthHighPassFilter(D0, step);
+                pDoc->pImage->FreqPassFilter(D0, step, filterType);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -1223,54 +1214,8 @@ void CMyPhotoshopView::OnHighPassFilter()
     }
 }
 
-void CMyPhotoshopView::OnBnClickedLowFilterButton()
-{
-    CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
 
-    try {
-        CImageProc* pOldImage = new CImageProc();
-        *pOldImage = *pDoc->pImage;
-
-        CLOWFILTERDlg dlg;
-        dlg.SetImageData(pDoc->pImage);
-        if (dlg.DoModal() != IDOK) {
-            delete pOldImage;
-            return;
-        }
-
-        double D0 = dlg.GetD0();
-        int filterType = dlg.GetFilterType();
-        int step = dlg.GetStep();
-
-        AddCommand(
-            [pDoc, D0, filterType, step]() {
-                if (filterType == 0) {
-                    pDoc->pImage->IdealLowPassFilter(D0);
-                }
-                else {
-                    pDoc->pImage->ButterworthLowPassFilter(D0, step);
-                }
-                pDoc->UpdateAllViews(nullptr);
-            },
-            [pDoc, pOldImage]() {
-                *pDoc->pImage = *pOldImage;
-                delete pOldImage;
-                pDoc->UpdateAllViews(nullptr);
-            }
-        );
-    }
-    catch (CMemoryException* e) {
-        e->Delete();
-        AfxMessageBox(_T("内存不足，无法完成操作"));
-    }
-    catch (...) {
-        AfxMessageBox(_T("低通滤波操作失败"));
-    }
-}// 同态滤波
+// 同态滤波
 void CMyPhotoshopView::OnHomomorphicFiltering() {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
