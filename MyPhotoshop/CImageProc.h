@@ -32,6 +32,7 @@ public:
     void OpenFile();
     void LoadBmp(CString stFileName);
     void ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight);
+    BYTE* GetPixelPtr(int x, int y);
     void DisplayColor(CClientDC* pDC,int imgX, int imgY, int x, int y);
     void GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue);
     void SetColor(BYTE* pixel, int x, int y, BYTE r, BYTE g, BYTE b);
@@ -40,7 +41,7 @@ public:
 	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
     std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
 	std::vector<std::vector<int>> Balance_Transformations();    // 直方图均衡化
-    bool HistogramMatching(CImageProc& targetImageProc); // 直方图规格化
+    void HistogramMatching(CImageProc& targetImageProc); // 直方图规格化
 
     //风格变换
     void ApplyBlackAndWhiteStyle();// 黑白风格
@@ -53,11 +54,7 @@ public:
     void AddGaussianWhiteNoise(double sigma = 30.0); // 添加高斯白噪声
 
 	//空域滤波
-    BYTE ProcessKernel(int x, int y, int c, int radius, FilterType type);
-    void MeanFilter(int filterSize);
-    void MedianFilter(int filterSize);
-    void MaxFilter(int filterSize);
-    int CalculatePitch(int width);
+    void SpatialFilter(int filterSize, FilterType type);
     void ApplyMeanFilter(); // 均值滤波
 
     //边缘检测

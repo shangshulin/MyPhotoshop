@@ -523,8 +523,8 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
         AddCommand(
             [pDoc, pTargetImage]() {
                 pDoc->pImage->HistogramMatching(*pTargetImage);
-                pDoc->UpdateAllViews(nullptr);
                 delete pTargetImage; // 执行完成后释放目标图像
+                pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
                 *pDoc->pImage = *pOldImage;
@@ -821,7 +821,7 @@ void CMyPhotoshopView::OnFilterMean()
 
         AddCommand(
             [pDoc, filterSize]() {
-                pDoc->pImage->MeanFilter(filterSize);
+                pDoc->pImage->SpatialFilter(filterSize, FilterType::Mean);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -860,7 +860,7 @@ void CMyPhotoshopView::OnFilterMedian()
 
         AddCommand(
             [pDoc, filterSize]() {
-                pDoc->pImage->MedianFilter(filterSize);
+                pDoc->pImage->SpatialFilter(filterSize, FilterType::Mean);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -890,7 +890,7 @@ void CMyPhotoshopView::OnFilterMax()
 
         AddCommand(
             [pDoc, filterSize]() {
-                pDoc->pImage->MaxFilter(filterSize);
+                pDoc->pImage->SpatialFilter(filterSize, FilterType::Max);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {

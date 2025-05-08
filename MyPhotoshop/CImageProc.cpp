@@ -9,10 +9,8 @@
 #include <valarray>
 #include <fftw3.h>
 #include <cmath>
-
+#include <random> // 用于生成高斯分布随机数
 #include <iostream>
-
-
 #include <utility>
 #include "CSpectrumDlg.h"
 
@@ -282,6 +280,13 @@ void CImageProc::ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight)
     }
 }
 
+BYTE* CImageProc::GetPixelPtr(int x, int y) {
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    float bytePerPixel = float(nBitCount) / 8;
+    int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
+    return pBits + offset;
+}
+
 //获取像素颜色
 void CImageProc::GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue)
 {
@@ -289,18 +294,14 @@ void CImageProc::GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue)
     {
         return;
     }
-    // 计算每行字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    // 计算每个像素的字节数
-    float bytePerPixel = float(nBitCount) / 8;
-    // 计算像素在位图中的偏移量
-    int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
     // pixel指向当前像素
-    BYTE* pixel = pBits + offset;
+    BYTE* pixel = GetPixelPtr(x, y);
     // 获取像素颜色
     switch (nBitCount)
     {
-
+    case 1:
+        CImageProc::GetColor1bit(pixel, red, green, blue, x);
+        break;
     case 4:
         CImageProc::GetColor4bit(pixel, red, green, blue, x);
         break;
@@ -356,14 +357,8 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     {
         return;
     }
-    // 计算每行字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    // 计算每个像素的字节数
-    int bytePerPixel = nBitCount / 8;
-    // 计算像素在位图中的偏移量
-    int offset = (nHeight - 1 - imgY) * rowSize + imgX * bytePerPixel;
     // pixel指向当前像素
-    BYTE* pixel = pBits + offset;
+    BYTE* pixel = GetPixelPtr(imgX, imgY);
     // 获取像素颜色
     BYTE red = 0, green = 0, blue = 0;
     // 根据位深获取像素颜色
@@ -467,18 +462,12 @@ std::vector<int> CImageProc::CalculateHistogramMix()
     {
         return histogram;//如果位图数据为空，则返回空直方图
     }
-
-    // 计算每行字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    // 计算每个像素的字节数
-    float bytePerPixel = float(nBitCount) / 8;
     // 遍历每个像素
     for (int y = 0; y < nHeight; ++y)
     {
         for (int x = 0; x < nWidth; ++x)
         {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);//计算像素在位图中的偏移量
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
             BYTE red = 0, green = 0, blue = 0;
 
             GetColor(x, y, red, green, blue);
@@ -500,17 +489,12 @@ std::vector<std::vector<int>> CImageProc::CalculateHistogramRGB()
     {
         return histograms;
     }
-    // 计算每行字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    // 计算每个像素的字节数
-    float bytePerPixel = float(nBitCount) / 8;
     // 遍历每个像素
     for (int y = 0; y < nHeight; ++y)
     {
         for (int x = 0; x < nWidth; ++x)
         {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             BYTE red = 0, green = 0, blue = 0;
 
@@ -564,8 +548,6 @@ void CImageProc::ApplyVintageStyle()
     }
     else{  
         // 统一处理16/24/32位图像
-        int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-        int bytesPerPixel = nBitCount / 8;
         for (int y = 0; y < nHeight; y++) {
             for (int x = 0; x < nWidth; x++) {
                 BYTE r, g, b;
@@ -581,8 +563,7 @@ void CImageProc::ApplyVintageStyle()
                 newG = static_cast<int>(newG * 0.95 + 5);
                 newB = static_cast<int>(newB * 0.95);
                 // 计算像素指针
-                int offset = (nHeight - 1 - y) * rowSize + x * bytesPerPixel;
-                BYTE* pixel = pBits + offset;
+                BYTE* pixel = GetPixelPtr(x, y);
                 SetColor(pixel, x, y, (BYTE)newR, (BYTE)newG, (BYTE)newB);
             }
         }
@@ -629,23 +610,13 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations()
         F[j] = static_cast<int>(S[j] + 0.5f);  // 浮点转整型，四舍五入(：C++浮点转整数会直接截断小数部分)
         F[j] = max(0, min(255, F[j]));         // 防止越界
     }
-
-    // 计算每行像素数据的字节对齐长度（兼容32位对齐规则）
-    int rowSize = ((w * nBitCount + 31) / 32) * 4;
-    // 计算每个像素占用的字节数（根据位深度nBitCount）
-    float bytePerPixel = nBitCount / 8.0f;
-
     // 遍历图像每个像素,进行均衡化处理
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            // 计算当前像素的内存偏移量（考虑图像倒置存储）
-            int offset = (h - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);//图像倒置存储+当前行内像素的水平偏移
             // 获取像素指针（pBits为类内图像数据指针）
-            BYTE* pixel = pBits + offset;//pixel指向当前像素的起始位置
-
+            BYTE* pixel = GetPixelPtr(x, y);
             // 定义RGB分量变量
             BYTE red, green, blue;
-
             // 根据位深度调用不同的颜色解析方法
             GetColor(x, y, red, green, blue);
 
@@ -664,7 +635,6 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations()
                 {
                     SetColor(pixel, x, y, 0, 0, 0);
                 }
-               
                 balancedRgbHistograms[0][0]++;      // 记录R通道直方图
                 balancedRgbHistograms[1][0]++;      // 记录G通道直方图
                 balancedRgbHistograms[2][0]++;      // 记录B通道直方图
@@ -731,26 +701,16 @@ void CImageProc::ApplyBlackAndWhiteStyle()
     }
     else
     {
-        // 获取图像的行字节数
-        int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-        // 计算每个像素的字节数
-        float bytePerPixel = float(nBitCount) / 8;
-
         // 遍历图像的每个像素点
         for (int y = 0; y < nHeight; ++y)
         {
             for (int x = 0; x < nWidth; ++x)
             {
-                int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);//计算像素在位图中的偏移量
-                BYTE* pixel = pBits + offset;// 获取像素的偏移量
-
+                BYTE* pixel = GetPixelPtr(x, y);
                 BYTE red = 0, green = 0, blue = 0;
-
                 GetColor(x, y, red, green, blue);
-
                 // 计算灰度值
                 BYTE grayValue = static_cast<BYTE>((red * 0.299) + (green * 0.587) + (blue * 0.114));
-
                 // 根据灰度值设置像素
                 SetColor(pixel, x, y, grayValue, grayValue, grayValue);
             }
@@ -759,12 +719,12 @@ void CImageProc::ApplyBlackAndWhiteStyle()
 }
 
 //直方图规格化
-bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
+void CImageProc::HistogramMatching(CImageProc& targetImageProc)
 {
     if (!IsValid() || !targetImageProc.IsValid())
     {
         AfxMessageBox(_T("图像数据无效"));
-        return false;
+        return;
     }
 
     int width = nWidth;
@@ -935,7 +895,6 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                             BYTE& r = pPal[idx].rgbRed;
                             BYTE& g = pPal[idx].rgbGreen;
                             BYTE& b = pPal[idx].rgbBlue;
-
                             // 对每个颜色通道应用映射
                             r = mapping[r];
                             g = mapping[g];
@@ -951,168 +910,63 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
             }
         }
     }
-
-    return true;
+    return;
 }
 
 // 添加椒盐噪声
 void CImageProc::AddSaltAndPepperNoise(double noiseRatio, double saltRatio)
 {
-    if (!IsValid())
-    {
+    if (!IsValid()) {
         AfxMessageBox(_T("No valid image is loaded."));
         return;
     }
-
-    // 确保噪声比例在合理范围内(0-1)
     noiseRatio = max(0.0, min(1.0, noiseRatio));
-
-    // 计算要添加噪声的像素数量
     int totalPixels = nWidth * nHeight;
     int noisePixels = static_cast<int>(totalPixels * noiseRatio);
-
-    // 获取随机数种子
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    // 计算行大小和每个像素的字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
-
-    for (int i = 0; i < noisePixels; ++i)
-    {
-        // 随机选择像素位置
+    for (int i = 0; i < noisePixels; ++i) {
         int x = rand() % nWidth;
         int y = rand() % nHeight;
-
-        // 计算像素偏移量
-        int offset = (nHeight - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);
-        BYTE* pixel = pBits + offset;
-
-        // 随机决定是椒(黑)还是盐(白)
+        BYTE* pixel = GetPixelPtr(x, y);
         bool isSalt = (rand() % 100) < (saltRatio * 100);
 
-        // 根据位深度处理噪声
-        switch (nBitCount)
-        {
-        case 1: // 1位图像
-        {
-            // 获取当前像素值
-            BYTE currentByte = *pixel;
+        switch (nBitCount) {
+        case 1: {
             int bitPos = 7 - (x % 8);
-            int currentBit = (currentByte >> bitPos) & 0x01;
-
-            // 设置新值(椒=0,盐=1)
-            int newBit = isSalt ? 1 : 0;
-
-            // 更新字节
-            if (currentBit != newBit)
-            {
-                *pixel ^= (1 << bitPos);
-            }
-        }
-        break;
-
-        case 4: // 4位图像
-        {
-            BYTE currentByte = *pixel;
-            bool isHighNibble = (x % 2) == 0;
-            BYTE newValue = isSalt ? 0x0F : 0x00; // 盐=15(白),椒=0(黑)
-
-            if (isHighNibble)
-            {
-                *pixel = (newValue << 4) | (currentByte & 0x0F);
-            }
+            if (isSalt)
+                *pixel |= (1 << bitPos);
             else
-            {
-                *pixel = (currentByte & 0xF0) | newValue;
-            }
+                *pixel &= ~(1 << bitPos);
+            break;
         }
-        break;
-
-        case 8: // 8位灰度图像
-        {
-            BYTE newValue = isSalt ? 255 : 0;
-            *pixel = newValue;
-        }
-        break;
-
-        case 16: // 16位图像
-        {
-            WORD newValue;
-            if (m_bIs565Format)
-            {
-                // RGB565格式
-                if (isSalt)
-                {
-                    // 白色: 0xFFFF
-                    newValue = 0xFFFF;
-                }
-                else
-                {
-                    // 黑色: 0x0000
-                    newValue = 0x0000;
-                }
-            }
+        case 4: {
+            BYTE newValue = isSalt ? 0x0F : 0x00;
+            if (x % 2 == 0)
+                *pixel = (*pixel & 0x0F) | (newValue << 4);
             else
-            {
-                // RGB555格式
-                if (isSalt)
-                {
-                    // 白色: 0x7FFF
-                    newValue = 0x7FFF;
-                }
-                else
-                {
-                    // 黑色: 0x0000
-                    newValue = 0x0000;
-                }
-            }
+                *pixel = (*pixel & 0xF0) | newValue;
+            break;
+        }
+        case 8:
+            //这里取决于图像调色板的顺序，与设置的盐噪声比例不同
+            *pixel = isSalt ? 255 : 0;
+            break;
+        case 16: {
+            WORD newValue = 0;
+            if (isSalt)
+                newValue = m_bIs565Format ? 0xFFFF : 0x7FFF;
             *reinterpret_cast<WORD*>(pixel) = newValue;
+            break;
         }
-        break;
-
-        case 24: // 24位真彩色
-        {
-            if (isSalt)
-            {
-                // 白色(255,255,255)
-                pixel[0] = 255; // B
-                pixel[1] = 255; // G
-                pixel[2] = 255; // R
-            }
-            else
-            {
-                // 黑色(0,0,0)
-                pixel[0] = 0; // B
-                pixel[1] = 0; // G
-                pixel[2] = 0; // R
-            }
-        }
-        break;
-
-        case 32: // 32位图像
-        {
-            if (isSalt)
-            {
-                // 白色(255,255,255), Alpha不变
-                pixel[0] = 255; // B
-                pixel[1] = 255; // G
-                pixel[2] = 255; // R
-                // pixel[3]保持不变(Alpha)
-            }
-            else
-            {
-                // 黑色(0,0,0), Alpha不变
-                pixel[0] = 0; // B
-                pixel[1] = 0; // G
-                pixel[2] = 0; // R
-                // pixel[3]保持不变(Alpha)
-            }
-        }
-        break;
-
+        case 24:
+            memset(pixel, isSalt ? 255 : 0, 3);
+            break;
+        case 32:
+            pixel[0] = pixel[1] = pixel[2] = isSalt ? 255 : 0;
+            // pixel[3] alpha保持不变
+            break;
         default:
-            // 不支持的位深度
             AfxMessageBox(_T("Unsupported bit count."));
             return;
         }
@@ -1138,10 +992,6 @@ void CImageProc::AddImpulseNoise(double noiseRatio, BYTE noiseValue1, BYTE noise
     // 获取随机数种子
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    // 计算行大小和每个像素的字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
-
     for (int i = 0; i < noisePixels; ++i)
     {
         // 随机选择像素位置
@@ -1149,8 +999,7 @@ void CImageProc::AddImpulseNoise(double noiseRatio, BYTE noiseValue1, BYTE noise
         int y = rand() % nHeight;
 
         // 计算像素偏移量
-        int offset = (nHeight - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);
-        BYTE* pixel = pBits + offset;
+        BYTE* pixel = GetPixelPtr(x, y);
 
         // 随机决定使用哪个噪声值
         BYTE noiseValue = (rand() % 2) ? noiseValue1 : noiseValue2;
@@ -1241,7 +1090,6 @@ void CImageProc::AddImpulseNoise(double noiseRatio, BYTE noiseValue1, BYTE noise
     }
 }
 
-#include <random> // 用于生成高斯分布随机数
 // 添加高斯噪声
 void CImageProc::AddGaussianNoise(double mean, double sigma)
 {
@@ -1256,44 +1104,17 @@ void CImageProc::AddGaussianNoise(double mean, double sigma)
     std::mt19937 gen(rd()); //伪随机数生成器，基于梅森旋转算法
     std::normal_distribution<> dist(mean, sigma); //用于生成符合正态分布的随机数
 
-    // 计算行大小和每个像素的字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
-
     // 遍历所有像素
     for (int y = 0; y < nHeight; ++y)
     {
         for (int x = 0; x < nWidth; ++x)
         {
             // 计算像素偏移量
-            int offset = (nHeight - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             // 获取当前像素颜色
             BYTE red = 0, green = 0, blue = 0;
-            switch (nBitCount)
-            {
-            case 1:
-                GetColor1bit(pixel, red, green, blue, x);
-                break;
-            case 4:
-                GetColor4bit(pixel, red, green, blue, x);
-                break;
-            case 8:
-                GetColor8bit(pixel, red, green, blue, x);
-                break;
-            case 16:
-                GetColor16bit(pixel, red, green, blue);
-                break;
-            case 24:
-                GetColor24bit(pixel, red, green, blue);
-                break;
-            case 32:
-                GetColor32bit(pixel, red, green, blue);
-                break;
-            default:
-                continue;
-            }
+            GetColor(x, y, red, green, blue);
 
             // 为每个颜色通道添加高斯噪声
             int newRed = red + static_cast<int>(dist(gen));
@@ -1352,39 +1173,9 @@ void CImageProc::AddGaussianNoise(double mean, double sigma)
             break;
 
             case 16: // 16位图像
-            {
-                WORD newPixel;
-                if (m_bIs565Format)
-                {
-                    // RGB565格式
-                    BYTE r = (newRed >> 3) & 0x1F;  // 5-bit red
-                    BYTE g = (newGreen >> 2) & 0x3F; // 6-bit green
-                    BYTE b = (newBlue >> 3) & 0x1F;  // 5-bit blue
-                    newPixel = (r << 11) | (g << 5) | b;
-                }
-                else
-                {
-                    // RGB555格式
-                    BYTE r = (newRed >> 3) & 0x1F;  // 5-bit red
-                    BYTE g = (newGreen >> 3) & 0x1F; // 5-bit green
-                    BYTE b = (newBlue >> 3) & 0x1F;  // 5-bit blue
-                    newPixel = (r << 10) | (g << 5) | b;
-                }
-                *reinterpret_cast<WORD*>(pixel) = newPixel;
-            }
-            break;
-
             case 24: // 24位真彩色
-                pixel[0] = static_cast<BYTE>(newBlue);
-                pixel[1] = static_cast<BYTE>(newGreen);
-                pixel[2] = static_cast<BYTE>(newRed);
-                break;
-
             case 32: // 32位图像
-                pixel[0] = static_cast<BYTE>(newBlue);
-                pixel[1] = static_cast<BYTE>(newGreen);
-                pixel[2] = static_cast<BYTE>(newRed);
-                // pixel[3]保持不变(Alpha)
+                SetColor(pixel, x, y, newRed, newGreen, newBlue);
                 break;
             }
         }
@@ -1406,18 +1197,13 @@ void CImageProc::AddGaussianWhiteNoise(double sigma)
     std::mt19937 gen(rd());
     std::normal_distribution<> dist(0.0, sigma);
 
-    // 计算行大小和每个像素的字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
-
     // 遍历所有像素
     for (int y = 0; y < nHeight; ++y)
     {
         for (int x = 0; x < nWidth; ++x)
         {
             // 计算像素偏移量
-            int offset = (nHeight - 1 - y) * rowSize + static_cast<int>(x * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             // 获取当前像素颜色
             BYTE red = 0, green = 0, blue = 0;
@@ -1541,123 +1327,131 @@ void CImageProc::AddGaussianWhiteNoise(double sigma)
     }
 }
 
-
-
-
-// 计算每行字节数
-int CImageProc::CalculatePitch(int width) {
-    return ((width * 3) + 3) & ~3;
-}
-
-// 处理内核
-BYTE CImageProc::ProcessKernel(int x, int y, int c, int radius, FilterType type) {
-    std::vector<BYTE> kernelValues;
-    const int kernelSize = 2 * radius + 1;
-    kernelValues.reserve(kernelSize * kernelSize);
-
-    const int pitch = CalculatePitch(nWidth);
-
-    for (int ky = -radius; ky <= radius; ++ky) {
-        for (int kx = -radius; kx <= radius; ++kx) {
-            int nx = x + kx;
-            int ny = y + ky;
-            if (nx >= 0 && nx < nWidth && ny >= 0 && ny < nHeight) {
-                kernelValues.push_back(pBits[ny * pitch + nx * 3 + c]);
-            }
-        }
+void CImageProc::SpatialFilter(int filterSize, FilterType type)
+{
+    if (nBitCount != 8 && nBitCount != 16 && nBitCount != 24 && nBitCount != 32) {
+        AfxMessageBox(_T("不支持的图像格式"));
+        return;
     }
-
-    switch (type) {
-    case FilterType::Mean: {
-        const int sum = std::accumulate(kernelValues.begin(), kernelValues.end(), 0);
-        const float average = static_cast<float>(sum) / kernelValues.size();
-        return static_cast<BYTE>(average + 0.5f); // 四舍五入后转换为BYTE
-    }
-
-    case FilterType::Median: {
-        std::sort(kernelValues.begin(), kernelValues.end());
-        size_t size = kernelValues.size();
-        if (size % 2 == 1) {
-            // 元素数量为奇数，直接返回中间元素
-            return kernelValues[size / 2];
-        }
-        else {
-            // 元素数量为偶数，返回中间两个元素的平均值
-            int mid1 = kernelValues[size / 2 - 1];
-            int mid2 = kernelValues[size / 2];
-            const float mid = static_cast<float>(mid1 + mid2) / 2.0f;
-            return static_cast<BYTE>(mid+0.5f);
-        }
-    }
-
-    case FilterType::Max:
-        return *std::max_element(kernelValues.begin(), kernelValues.end());
-
-    default:
-        return 0;
-    }
-}
-
-// 均值滤波
-void CImageProc::MeanFilter(int filterSize) {
-    if (nBitCount != 24 && nBitCount != 32) return;
-    const int radius = (filterSize - 1) / 2;
-    const int pitch = CalculatePitch(nWidth);
-    BYTE* tempBuffer = new BYTE[nHeight * pitch];
-    memcpy(tempBuffer, pBits, nHeight * pitch);
+    int channels = 1;
+    if (nBitCount == 16) channels = 3; // 16位转为RGB处理
+    if (nBitCount == 24) channels = 3;
+    if (nBitCount == 32) channels = 4;
+    int radius = filterSize / 2;
+    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+    BYTE* tempBuffer = new BYTE[nHeight * rowSize];
+    memcpy(tempBuffer, pBits, nHeight * rowSize);
 
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            for (int c = 0; c < 3; ++c) {
-                tempBuffer[y * pitch + x * 3 + c] =
-                    ProcessKernel(x, y, c, radius, FilterType::Mean);
+            // 8位灰度图特殊处理
+            if (nBitCount == 8) {
+                std::vector<BYTE> window;
+                int sum = 0;
+                BYTE maxVal = 0;
+                int count = 0;
+                for (int dy = -radius; dy <= radius; ++dy) {
+                    int ny = y + dy;
+                    if (ny < 0 || ny >= nHeight) continue;
+                    for (int dx = -radius; dx <= radius; ++dx) {
+                        int nx = x + dx;
+                        if (nx < 0 || nx >= nWidth) continue;
+                        BYTE* neighbor = tempBuffer + ny * rowSize + nx;
+                        BYTE val = neighbor[0];
+                        if (type == FilterType::Mean) { sum += val; count++; }
+                        if (type == FilterType::Median) window.push_back(val);
+                        if (type == FilterType::Max) if (val > maxVal) maxVal = val;
+                    }
+                }
+                BYTE* pixel = pBits + y * rowSize + x;
+                if (type == FilterType::Mean) {
+                    pixel[0] = static_cast<BYTE>(sum / count);
+                }
+                else if (type == FilterType::Median) {
+                    std::nth_element(window.begin(), window.begin() + window.size() / 2, window.end());
+                    pixel[0] = window[window.size() / 2];
+                }
+                else if (type == FilterType::Max) {
+                    pixel[0] = maxVal;
+                }
+            }
+            // 16位图像，转为RGB处理
+            else if (nBitCount == 16) {
+                std::vector<BYTE> winR, winG, winB;
+                int sumR = 0, sumG = 0, sumB = 0, count = 0;
+                BYTE maxR = 0, maxG = 0, maxB = 0;
+                for (int dy = -radius; dy <= radius; ++dy) {
+                    int ny = y + dy;
+                    if (ny < 0 || ny >= nHeight) continue;
+                    for (int dx = -radius; dx <= radius; ++dx) {
+                        int nx = x + dx;
+                        if (nx < 0 || nx >= nWidth) continue;
+                        BYTE* neighbor = tempBuffer + ny * rowSize + nx * 2;
+                        BYTE r, g, b;
+                        GetColor16bit(neighbor, r, g, b);
+                        if (type == FilterType::Mean) { sumR += r; sumG += g; sumB += b; count++; }
+                        if (type == FilterType::Median) { winR.push_back(r); winG.push_back(g); winB.push_back(b); }
+                        if (type == FilterType::Max) {
+                            if (r > maxR) maxR = r;
+                            if (g > maxG) maxG = g;
+                            if (b > maxB) maxB = b;
+                        }
+                    }
+                }
+                BYTE* pixel = pBits + y * rowSize + x * 2;
+                BYTE r, g, b;
+                if (type == FilterType::Mean) {
+                    r = static_cast<BYTE>(sumR / count);
+                    g = static_cast<BYTE>(sumG / count);
+                    b = static_cast<BYTE>(sumB / count);
+                }
+                else if (type == FilterType::Median) {
+                    std::nth_element(winR.begin(), winR.begin() + winR.size() / 2, winR.end());
+                    std::nth_element(winG.begin(), winG.begin() + winG.size() / 2, winG.end());
+                    std::nth_element(winB.begin(), winB.begin() + winB.size() / 2, winB.end());
+                    r = winR[winR.size() / 2];
+                    g = winG[winG.size() / 2];
+                    b = winB[winB.size() / 2];
+                }
+                else if (type == FilterType::Max) {
+                    r = maxR; g = maxG; b = maxB;
+                }
+                SetColor(pixel, x, y, r, g, b);
+            }
+            // 24/32位图像
+            else {
+                for (int c = 0; c < channels; ++c) {
+                    std::vector<BYTE> window;
+                    int sum = 0, count = 0;
+                    BYTE maxVal = 0;
+                    for (int dy = -radius; dy <= radius; ++dy) {
+                        int ny = y + dy;
+                        if (ny < 0 || ny >= nHeight) continue;
+                        for (int dx = -radius; dx <= radius; ++dx) {
+                            int nx = x + dx;
+                            if (nx < 0 || nx >= nWidth) continue;
+                            BYTE* neighbor = tempBuffer + ny * rowSize + nx * channels;
+                            BYTE val = neighbor[c];
+                            if (type == FilterType::Mean) { sum += val; count++; }
+                            if (type == FilterType::Median) window.push_back(val);
+                            if (type == FilterType::Max) if (val > maxVal) maxVal = val;
+                        }
+                    }
+                    BYTE* pixel = pBits + y * rowSize + x * channels;
+                    if (type == FilterType::Mean) {
+                        pixel[c] = static_cast<BYTE>(sum / count);
+                    }
+                    else if (type == FilterType::Median) {
+                        std::nth_element(window.begin(), window.begin() + window.size() / 2, window.end());
+                        pixel[c] = window[window.size() / 2];
+                    }
+                    else if (type == FilterType::Max) {
+                        pixel[c] = maxVal;
+                    }
+                }
             }
         }
     }
-
-    memcpy(pBits, tempBuffer, nHeight * pitch);
-    delete[] tempBuffer;
-}
-
-// 中值滤波
-void CImageProc::MedianFilter(int filterSize) {
-    if (nBitCount != 24 && nBitCount != 32) return;
-    const int radius = (filterSize - 1) / 2;
-    const int pitch = CalculatePitch(nWidth);
-    BYTE* tempBuffer = new BYTE[nHeight * pitch];
-    memcpy(tempBuffer, pBits, nHeight * pitch);
-
-    for (int y = 0; y < nHeight; ++y) {
-        for (int x = 0; x < nWidth; ++x) {
-            for (int c = 0; c < 3; ++c) {
-                tempBuffer[y * pitch + x * 3 + c] =
-                    ProcessKernel(x, y, c, radius, FilterType::Median);
-            }
-        }
-    }
-
-    memcpy(pBits, tempBuffer, nHeight * pitch);
-    delete[] tempBuffer;
-}
-
-// 最大值滤波
-void CImageProc::MaxFilter(int filterSize) {
-    if (nBitCount != 24 && nBitCount != 32) return;
-    const int radius = (filterSize - 1) / 2;
-    const int pitch = CalculatePitch(nWidth);
-    BYTE* tempBuffer = new BYTE[nHeight * pitch];
-    memcpy(tempBuffer, pBits, nHeight * pitch);
-
-    for (int y = 0; y < nHeight; ++y) {
-        for (int x = 0; x < nWidth; ++x) {
-            for (int c = 0; c < 3; ++c) {
-                tempBuffer[y * pitch + x * 3 + c] =
-                    ProcessKernel(x, y, c, radius, FilterType::Max);
-            }
-        }
-    }
-
-    memcpy(pBits, tempBuffer, nHeight * pitch);
     delete[] tempBuffer;
 }
 
@@ -1689,20 +1483,12 @@ void CImageProc::ApplyCannyEdgeDetection()
     }
     // 创建临时缓冲区存储灰度图像
     std::vector<BYTE> grayImage(nWidth * nHeight);
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
     // 转换为灰度图像
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
             BYTE red = 0, green = 0, blue = 0;
-            switch (nBitCount) {
-            case 8: GetColor8bit(pixel, red, green, blue, x); break;
-            case 16: GetColor16bit(pixel, red, green, blue); break;
-            case 24: GetColor24bit(pixel, red, green, blue); break;
-            case 32: GetColor32bit(pixel, red, green, blue); break;
-            }
+            GetColor(x, y, red, green, blue);
             grayImage[y * nWidth + x] = static_cast<BYTE>(0.299 * red + 0.587 * green + 0.114 * blue);
         }
     }
@@ -1866,8 +1652,7 @@ void CImageProc::ApplyCannyEdgeDetection()
     //更新图像数据
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
             BYTE value = edgeImage[y * nWidth + x];
             switch (nBitCount) {
             case 8:
@@ -1905,12 +1690,9 @@ void CImageProc::ApplyLoGEdgeDetection()
 
     // 1. 转灰度
     std::vector<BYTE> grayImage(nWidth * nHeight);
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
             BYTE red = 0, green = 0, blue = 0;
             switch (nBitCount) {
             case 8: GetColor8bit(pixel, red, green, blue, x); break;
@@ -2012,8 +1794,7 @@ void CImageProc::ApplyLoGEdgeDetection()
     // 6. 写回图像
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
             BYTE value = edgeImage[y * nWidth + x];
             switch (nBitCount) {
             case 8:
@@ -2051,14 +1832,11 @@ void CImageProc::ApplySobelEdgeDetection()
 
     // 创建临时缓冲区存储灰度图像
     std::vector<BYTE> grayImage(nWidth * nHeight);
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
 
     // 转换为灰度图像
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             BYTE red = 0, green = 0, blue = 0;
             switch (nBitCount) {
@@ -2095,8 +1873,7 @@ void CImageProc::ApplySobelEdgeDetection()
             magnitude = min(255, max(0, magnitude));// 防止溢出
 
             // 更新像素
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             switch (nBitCount) {
             case 8:
@@ -2135,14 +1912,11 @@ void CImageProc::ApplyPrewittEdgeDetection()
 
     // 创建临时缓冲区存储灰度图像
     std::vector<BYTE> grayImage(nWidth * nHeight);
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
 
     // 转换为灰度图像
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             BYTE red = 0, green = 0, blue = 0;
             switch (nBitCount) {
@@ -2178,9 +1952,8 @@ void CImageProc::ApplyPrewittEdgeDetection()
             int magnitude = static_cast<int>(sqrt(gx * gx + gy * gy));
             magnitude = min(255, max(0, magnitude));
 
-            // 更新像素
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            // 更新像素           
+            BYTE* pixel = GetPixelPtr(x, y);
 
             switch (nBitCount) {
             case 8:
@@ -2219,14 +1992,11 @@ void CImageProc::ApplyRobertEdgeDetection()
 
     // 创建临时缓冲区存储灰度图像
     std::vector<BYTE> grayImage(nWidth * nHeight);
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
 
     // 转换为灰度图像
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             BYTE red = 0, green = 0, blue = 0;
             switch (nBitCount) {
@@ -2235,7 +2005,6 @@ void CImageProc::ApplyRobertEdgeDetection()
             case 24: GetColor24bit(pixel, red, green, blue); break;
             case 32: GetColor32bit(pixel, red, green, blue); break;
             }
-
             grayImage[y * nWidth + x] = static_cast<BYTE>(0.299 * red + 0.587 * green + 0.114 * blue);
         }
     }
@@ -2252,8 +2021,7 @@ void CImageProc::ApplyRobertEdgeDetection()
             magnitude = min(255, max(0, magnitude));
 
             // 更新像素
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             switch (nBitCount) {
             case 8:
@@ -2293,14 +2061,11 @@ void CImageProc::ApplyLaplaceEdgeDetection()
 
     // 创建临时缓冲区存储灰度图像
     std::vector<BYTE> grayImage(nWidth * nHeight);
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
 
     // 转换为灰度图像
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             BYTE red = 0, green = 0, blue = 0;
             switch (nBitCount) {
@@ -2338,8 +2103,7 @@ void CImageProc::ApplyLaplaceEdgeDetection()
             magnitude = min(255, max(0, magnitude));
 
             // 更新像素
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             switch (nBitCount) {
             case 8:
@@ -2379,13 +2143,9 @@ void CImageProc::Add(CImageProc& img, double weight1, double weight2)
 
 
     // 逐像素相加
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
-
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(x * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             BYTE r1, g1, b1, r2, g2, b2;
             GetColor(x, y, r1, g1, b1);
@@ -2433,13 +2193,9 @@ void CImageProc::Multiply(CImageProc& img)
     }
 
     // 逐像素相乘
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
-
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(x * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             BYTE r1, g1, b1, r2, g2, b2;
             GetColor(x, y, r1, g1, b1);
@@ -2485,13 +2241,9 @@ void CImageProc::PowerTransform(double gamma)
         lut[i] = min(255, (int)(pow(i / 255.0, gamma) * 255 + 0.5));
     }
 
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
-
     for (int y = 0; y < nHeight; ++y) {
         for (int x = 0; x < nWidth; ++x) {
-            int offset = (nHeight - 1 - y) * rowSize + int(x * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             BYTE r, g, b;
             GetColor(x, y, r, g, b);
@@ -2565,8 +2317,7 @@ void CImageProc::ApplyMeanFilter()
             BYTE avgB = sumB / 9;
 
             // 更新当前像素
-            int offset = (nHeight - 1 - y) * rowSize + int(x * bytePerPixel);
-            BYTE* pixel = pBits + offset;
+            BYTE* pixel = GetPixelPtr(x, y);
 
             switch (nBitCount) {
             case 8: *pixel = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB; break;
