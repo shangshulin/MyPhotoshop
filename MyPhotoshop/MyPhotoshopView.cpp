@@ -13,12 +13,11 @@
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
 #include <algorithm>
-#include "FilterSizeDialog.h"  
+#include "CFilterSizeDialog.h"  
 #include "CINTENSITYDlg.h"
-#include "FFTLogDialog.h"
+
 #include <fftw3.h>
-#include "CHighPassFilterDlg.h"
-#include "CLOWFILTERDlg.h"
+#include "CFreqPassFilterDlg.h"
 #include "CSpectrumDlg.h"
 
 #ifdef _DEBUG
@@ -61,11 +60,10 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_FUNCTION_GAUSSIANWHITE, &CMyPhotoshopView::OnFunctionGaussianwhite)// 添加高斯白噪声
     //空域滤波
     ON_COMMAND(ID_FILTER_MEAN,OnFilterMean)// 均值滤波
-	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)//   中值滤波
+	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)// 中值滤波
 	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
     // 频域滤波
-    ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnHighPassFilter)     //高通滤波
-    ON_COMMAND(ID_LOWPASS_FILTER, &CMyPhotoshopView::OnBnClickedLowFilterButton)    //低通滤波
+    ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnFreqPassFilter)     //高通/低通滤波
     ON_COMMAND(ID_HOMOMORPHIC_FILTERING, &CMyPhotoshopView::OnHomomorphicFiltering)    //同态滤波
 	// 撤销操作
     ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
@@ -77,8 +75,6 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     //FFT与IFFT
     ON_COMMAND(ID_FREQ_FFT, &CMyPhotoshopView::OnFreqFFT)
     ON_COMMAND(ID_FREQ_IFFT, &CMyPhotoshopView::OnFreqIFFT)
-    ON_COMMAND(ID_FREQ_UNDO, &CMyPhotoshopView::OnFreqUndo)
-    ON_COMMAND(ID_FREQ_FFT_LOG, &CMyPhotoshopView::OnFreqFftLogTransform)
 
 END_MESSAGE_MAP()
 
@@ -167,11 +163,8 @@ void CMyPhotoshopView::OnDraw(CDC* pDC) {
     int totalWidth = destWidth;
     int imageCount = 1;
 
-    if (pDoc->pImage->IsFFTPerformed()) {
-        imageCount = 2; // 原图和FFT频谱图
-        if (pDoc->pImage->HasIFFTResult()) {
-            imageCount = 3; // 原图、FFT频谱图和IFFT结果
-        }
+    if (pDoc->pImage->HasIFFTResult()) {
+        imageCount = 2; // 原图和IFFT结果
     }
 
     // 计算总宽度（每张图之间留10像素间距）
@@ -192,54 +185,27 @@ void CMyPhotoshopView::OnDraw(CDC* pDC) {
         pDoc->pImage->ShowBMP(&memDC, 0, 0, destWidth, destHeight);
     }
 
-    // 2. 如果进行了FFT，显示频谱图
-    if (pDoc->pImage->IsFFTPerformed()) {
-        CImageProc* pImageProc = pDoc->pImage;
-        // FFT后自动弹出频谱对话框
-        CSpectrumDlg spectrumDlg(AfxGetMainWnd(), pImageProc);
-        spectrumDlg.DoModal();
+    // 2. 如果进行了IFFT，显示IFFT结果
+    if (pDoc->pImage->HasIFFTResult()) {
+        // 创建临时DC用于IFFT结果绘制
+        CDC ifftDC;
+        ifftDC.CreateCompatibleDC(&memDC);
 
-        // 创建临时DC用于频谱绘制
-        CDC specDC;
-        specDC.CreateCompatibleDC(&memDC);
+        CBitmap ifftBmp;
+        ifftBmp.CreateCompatibleBitmap(&memDC, destWidth, destHeight);
+        CBitmap* pOldIfftBmp = ifftDC.SelectObject(&ifftBmp);
 
-        CBitmap specBmp;
-        specBmp.CreateCompatibleBitmap(&memDC, destWidth, destHeight);
-        CBitmap* pOldSpecBmp = specDC.SelectObject(&specBmp);
+        // 填充IFFT结果背景
+        ifftDC.FillSolidRect(0, 0, destWidth, destHeight, RGB(255, 255, 255));
 
-        // 填充频谱图背景
-        specDC.FillSolidRect(0, 0, destWidth, destHeight, RGB(255, 255, 255));
+        // 绘制IFFT结果
+        pDoc->pImage->DisplayIFFTResult(&ifftDC, 0, 0, destWidth, destHeight);
 
-        // 绘制频谱图
-        pDoc->pImage->DisplayFullSpectrum(&specDC, 0, 0, destWidth, destHeight);
-        // 将频谱图拷贝到内存DC
+        // 将IFFT结果拷贝到内存DC
         memDC.BitBlt(destWidth + 10, 0, destWidth, destHeight,
-            &specDC, 0, 0, SRCCOPY);
+            &ifftDC, 0, 0, SRCCOPY);
 
-        specDC.SelectObject(pOldSpecBmp);
-
-        // 3. 如果进行了IFFT，显示IFFT结果
-        if (pDoc->pImage->HasIFFTResult()) {
-            // 创建临时DC用于IFFT结果绘制
-            CDC ifftDC;
-            ifftDC.CreateCompatibleDC(&memDC);
-
-            CBitmap ifftBmp;
-            ifftBmp.CreateCompatibleBitmap(&memDC, destWidth, destHeight);
-            CBitmap* pOldIfftBmp = ifftDC.SelectObject(&ifftBmp);
-
-            // 填充IFFT结果背景
-            ifftDC.FillSolidRect(0, 0, destWidth, destHeight, RGB(255, 255, 255));
-
-            // 绘制IFFT结果
-            pDoc->pImage->DisplayIFFTResult(&ifftDC, 0, 0, destWidth, destHeight);
-
-            // 将IFFT结果拷贝到内存DC
-            memDC.BitBlt(destWidth * 2 + 20, 0, destWidth, destHeight,
-                &ifftDC, 0, 0, SRCCOPY);
-
-            ifftDC.SelectObject(pOldIfftBmp);
-        }
+        ifftDC.SelectObject(pOldIfftBmp);
     }
 
     // 从内存DC拷贝到屏幕DC，考虑滚动位置
@@ -556,13 +522,9 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
 
         AddCommand(
             [pDoc, pTargetImage]() {
-                if (pDoc->pImage->HistogramMatching(*pTargetImage))
-                {
-                    pDoc->SetModifiedFlag(TRUE);
-                    pDoc->UpdateAllViews(nullptr);
-                    AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
-                }
+                pDoc->pImage->HistogramMatching(*pTargetImage);
                 delete pTargetImage; // 执行完成后释放目标图像
+                pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
                 *pDoc->pImage = *pOldImage;
@@ -859,7 +821,7 @@ void CMyPhotoshopView::OnFilterMean()
 
         AddCommand(
             [pDoc, filterSize]() {
-                pDoc->pImage->MeanFilter(filterSize);
+                pDoc->pImage->SpatialFilter(filterSize, FilterType::Mean);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -898,7 +860,7 @@ void CMyPhotoshopView::OnFilterMedian()
 
         AddCommand(
             [pDoc, filterSize]() {
-                pDoc->pImage->MedianFilter(filterSize);
+                pDoc->pImage->SpatialFilter(filterSize, FilterType::Mean);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -928,7 +890,7 @@ void CMyPhotoshopView::OnFilterMax()
 
         AddCommand(
             [pDoc, filterSize]() {
-                pDoc->pImage->MaxFilter(filterSize);
+                pDoc->pImage->SpatialFilter(filterSize, FilterType::Max);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -1143,6 +1105,7 @@ void CMyPhotoshopView::OnEditUndo()
     }
 }
 
+
 void CMyPhotoshopView::OnFreqFFT() {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage) {
@@ -1156,31 +1119,26 @@ void CMyPhotoshopView::OnFreqFFT() {
         if (!pOldImage) AfxThrowMemoryException();
         *pOldImage = *pDoc->pImage;
 
-        // 检查是否需要调整尺寸
-        if (!pDoc->pImage->isPowerOfTwo(pDoc->pImage->nWidth) ||
-            !pDoc->pImage->isPowerOfTwo(pDoc->pImage->nHeight)) {
-            int newWidth = pDoc->pImage->nextPowerOfTwo(pDoc->pImage->nWidth);
-            int newHeight = pDoc->pImage->nextPowerOfTwo(pDoc->pImage->nHeight);
-            CString msg;
-            msg.Format(_T("图像尺寸(%dx%d)不是2的幂次，将自动补零到(%dx%d)"),
-                pDoc->pImage->nWidth, pDoc->pImage->nHeight,
-                newWidth, newHeight);
-            AfxMessageBox(msg);
-        }
-
         // 添加到命令栈
         AddCommand(
             [pDoc]() {
-                if (!pDoc->pImage->FFT2D(true)) {
-                    AfxMessageBox(_T("FFT变换失败"));
-                }
-                else {
+                // 执行FFT
+                if (pDoc->pImage->FFT2D(true)) {
+                    // 显示频谱对话框
+                    CSpectrumDlg dlg(AfxGetMainWnd(), pDoc->pImage);
+                    dlg.DoModal();
+
                     pDoc->UpdateAllViews(nullptr);
                 }
+                else if (!pDoc->pImage->FFT2D(true)) {
+                    AfxMessageBox(_T("FFT变换失败"));
+                }
+                pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
                 *pDoc->pImage = *pOldImage;
                 delete pOldImage;
+                pDoc->pImage->ResetFFTState();
                 pDoc->UpdateAllViews(nullptr);
             }
         );
@@ -1215,6 +1173,7 @@ void CMyPhotoshopView::OnFreqIFFT() {
             },
             [pDoc, pOldImage]() {
                 *pDoc->pImage = *pOldImage;
+                pDoc->pImage->ResetFFTState();
                 delete pOldImage;
                 pDoc->UpdateAllViews(nullptr);
             }
@@ -1225,78 +1184,7 @@ void CMyPhotoshopView::OnFreqIFFT() {
     }
 }
 
-void CMyPhotoshopView::OnFreqUndo() {
-    CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage) {
-        AfxMessageBox(_T("没有可撤销的操作"));
-        return;
-    }
-
-    if (!pDoc->pImage->HasFFTData()) {
-        AfxMessageBox(_T("当前没有FFT变换可撤销"));
-        return;
-    }
-
-    try {
-        // 保存当前状态（允许重做）
-        CImageProc* pCurrentImage = new CImageProc();
-        if (!pCurrentImage) AfxThrowMemoryException();
-        *pCurrentImage = *pDoc->pImage;
-
-        // 添加到命令栈
-        AddCommand(
-            [pDoc]() {
-                pDoc->pImage->RestoreState();
-                pDoc->UpdateAllViews(nullptr);
-            },
-            [pDoc, pCurrentImage]() {
-                *pDoc->pImage = *pCurrentImage;
-                delete pCurrentImage;
-                pDoc->UpdateAllViews(nullptr);
-            }
-        );
-    }
-    catch (CMemoryException* e) {
-        e->Delete();
-        AfxMessageBox(_T("内存不足，无法执行撤销操作"));
-    }
-    catch (...) {
-        AfxMessageBox(_T("撤销操作失败"));
-    }
-}
-
-void CMyPhotoshopView::OnFreqFftLogTransform() {
-    CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsFFTPerformed()) {
-        AfxMessageBox(_T("请先执行FFT变换"));
-        return;
-    }
-
-    CFFTLogDialog dlg;
-    if (dlg.DoModal() == IDOK) {
-        // 保存对话框参数到局部变量
-        double logBase = dlg.m_dLogBase;
-        double scaleFactor = dlg.m_dScaleFactor;
-
-        // 保存当前状态用于撤销
-        CImageProc* pOldImage = new CImageProc();
-        *pOldImage = *pDoc->pImage;
-
-        AddCommand(
-            [pDoc, logBase, scaleFactor]() {  // 捕获基本类型参数而非对话框对象
-                pDoc->pImage->ApplyFFTLogTransform(logBase, scaleFactor);
-                pDoc->UpdateAllViews(nullptr);
-            },
-            [pDoc, pOldImage]() {
-                *pDoc->pImage = *pOldImage;
-                delete pOldImage;
-                pDoc->UpdateAllViews(nullptr);
-            }
-        );
-    }
-}
-
-void CMyPhotoshopView::OnHighPassFilter()
+void CMyPhotoshopView::OnFreqPassFilter()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
@@ -1304,20 +1192,17 @@ void CMyPhotoshopView::OnHighPassFilter()
         return;
     }
 
-    CHighPassFilterDlg dlg;
+    CFreqPassFilterDlg dlg;
     dlg.SetImageData(pDoc->pImage);
     if (dlg.DoModal() == IDOK) {
-        double D0 = dlg.GetD0();
-        int filterType = dlg.GetFilterType();
-        int step = dlg.GetStep();
+        double D0 = dlg.m_D0;
+        int filterType = dlg.m_high_filter_type;
+        int step = dlg.m_step;
         CImageProc* pOldImage = new CImageProc();
         *pOldImage = *pDoc->pImage;
         AddCommand(
             [pDoc, D0, filterType, step]() {
-                if (filterType == 0)
-                    pDoc->pImage->IdealHighPassFilter(D0);
-                else
-                    pDoc->pImage->ButterworthHighPassFilter(D0, step);
+                pDoc->pImage->FreqPassFilter(D0, step, filterType);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -1329,54 +1214,8 @@ void CMyPhotoshopView::OnHighPassFilter()
     }
 }
 
-void CMyPhotoshopView::OnBnClickedLowFilterButton()
-{
-    CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
 
-    try {
-        CImageProc* pOldImage = new CImageProc();
-        *pOldImage = *pDoc->pImage;
-
-        CLOWFILTERDlg dlg;
-        dlg.SetImageData(pDoc->pImage);
-        if (dlg.DoModal() != IDOK) {
-            delete pOldImage;
-            return;
-        }
-
-        double D0 = dlg.GetD0();
-        int filterType = dlg.GetFilterType();
-        int step = dlg.GetStep();
-
-        AddCommand(
-            [pDoc, D0, filterType, step]() {
-                if (filterType == 0) {
-                    pDoc->pImage->IdealLowPassFilter(D0);
-                }
-                else {
-                    pDoc->pImage->ButterworthLowPassFilter(D0, step);
-                }
-                pDoc->UpdateAllViews(nullptr);
-            },
-            [pDoc, pOldImage]() {
-                *pDoc->pImage = *pOldImage;
-                delete pOldImage;
-                pDoc->UpdateAllViews(nullptr);
-            }
-        );
-    }
-    catch (CMemoryException* e) {
-        e->Delete();
-        AfxMessageBox(_T("内存不足，无法完成操作"));
-    }
-    catch (...) {
-        AfxMessageBox(_T("低通滤波操作失败"));
-    }
-}// 同态滤波
+// 同态滤波
 void CMyPhotoshopView::OnHomomorphicFiltering() {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {

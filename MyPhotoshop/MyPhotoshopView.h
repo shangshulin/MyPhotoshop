@@ -93,9 +93,7 @@ public:
 	//图像增强
 	afx_msg void OnEnhancement();// 图像增强菜单项的处理函数
 	// 频域滤波
-	afx_msg void OnLowFilter();// 低通滤波菜单项的处理函数
-	afx_msg void OnBnClickedLowFilterButton(); // 低通滤波按钮的处理函数
-	afx_msg void OnHighPassFilter();// 高通滤波菜单项的处理函数
+	afx_msg void OnFreqPassFilter();// 高通滤波菜单项的处理函数
 	//滚动条
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
@@ -117,9 +115,6 @@ public:
 	afx_msg void OnEditUndo();
 	afx_msg void OnFreqIFFT();
 	afx_msg void OnFreqFFT();
-	afx_msg void OnFreqUndo();
-	
-	afx_msg void OnFreqFftLogTransform();
 };
 
 #ifndef _DEBUG  // MyPhotoshopView.cpp 中的调试版本

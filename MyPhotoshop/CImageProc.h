@@ -32,14 +32,16 @@ public:
     void OpenFile();
     void LoadBmp(CString stFileName);
     void ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight);
+    BYTE* GetPixelPtr(int x, int y);
     void DisplayColor(CClientDC* pDC,int imgX, int imgY, int x, int y);
     void GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue);
+    void SetColor(BYTE* pixel, int x, int y, BYTE r, BYTE g, BYTE b);
     void ResetFFTState();  // 新增方法声明
     //灰度处理
 	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
     std::vector<std::vector<int>> CalculateHistogramRGB();// 计算RGB直方图
 	std::vector<std::vector<int>> Balance_Transformations();    // 直方图均衡化
-    bool HistogramMatching(CImageProc& targetImageProc); // 直方图规格化
+    void HistogramMatching(CImageProc& targetImageProc); // 直方图规格化
 
     //风格变换
     void ApplyBlackAndWhiteStyle();// 黑白风格
@@ -52,12 +54,7 @@ public:
     void AddGaussianWhiteNoise(double sigma = 30.0); // 添加高斯白噪声
 
 	//空域滤波
-    BYTE ProcessKernel(int x, int y, int c, int radius, FilterType type);
-    void MeanFilter(int filterSize);
-    void MedianFilter(int filterSize);
-    void MaxFilter(int filterSize);
-    int CalculatePitch(int width);
-    void ApplyMeanFilter(); // 均值滤波
+    void SpatialFilter(int filterSize, FilterType type);
 
     //边缘检测
     void ApplySobelEdgeDetection();// Sobel算子边缘检测
@@ -74,28 +71,30 @@ public:
 
 
 	// 频域滤波
-    void IdealLowPassFilter(double D0); // 理想低通滤波器
-    void ButterworthLowPassFilter(double D0, int n); // 巴特沃斯低通滤波器
-    void IdealHighPassFilter(double D0); // 理想高通滤波器
-    void ButterworthHighPassFilter(double D0, int n); // 巴特沃斯高通滤波器
+    void FreqPassFilter(double D0, int step, int filterType);  //高通/低通滤波
     void HomomorphicFiltering();    //同态滤波
 
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
-    bool FFT2D(bool bSaveState = true);
+    bool FFT2D(bool bForward = true, bool bSaveState = true); // true=FFT, false=IFFT
     bool IFFT2D(bool bSaveState = true);
+
+	// FFT与IFFT显示
+    void ShowSpectrumDialog(CWnd* pParent);
+    void DisplayFullSpectrum(CDC* pDC, int xOffset = 0, int yOffset = 0,
+        int destWidth = -1, int destHeight = -1);
     void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset, int destWidth, int destHeight);
+
     // 新增方法：获取/设置复数频谱数据
     const std::vector<std::complex<double>>& GetFFTData() const { return m_fftData; }
     void SetFFTData(const std::vector<std::complex<double>>& data, int w, int h);
     void CImageProc::FFT1D(std::complex<double>* data, int n, int direction); //一维FFT
 	void CImageProc::BitReverse(std::complex<double>* data, int n); // 位反转重排
-    int CImageProc::FindTargetBit(int i, int n); //位翻转重排辅助函数
+	int CImageProc::FindTargetBit(int i, int n); // 查找目标位
     void SaveCurrentState();  // 保存当前状态
-    //void RestoreState();      // 恢复保存的状态
     bool HasFFTData() const { return m_bFFTPerformed; }
 	bool RestoreState(); // 恢复保存的状态
-	void ApplyFFTLogTransform(double logBase = 10.0, double scaleFactor = 1.0); // FFT对数变换
+
 private:
     std::vector<std::complex<double>> m_fftData; // 存储频域数据
     std::vector<std::complex<double>> m_fftDataCopy; // 存储FFT结果的副本
@@ -104,7 +103,6 @@ private:
     bool m_bStateSaved;                  // 状态保存标志
     std::vector<std::complex<double>> m_originalFFTData; // 保存原始FFT数据
     void FFTShift(std::complex<double>* data, int w, int h); // 频谱移中
-    
 
 public:
     
@@ -120,8 +118,9 @@ public:
     bool isPaletteDarkToLight;
     bool m_bIFFTPerformed;
     HANDLE m_hDib;
-
-    void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC);
+    
+    //获取像素颜色
+    void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
@@ -131,6 +130,8 @@ public:
 public:
     // 深拷贝赋值运算符
     CImageProc& operator=(const CImageProc& other);
+
+    // 新增成员变量
     std::vector<BYTE> m_originalImageData;  // 保存原始图像数据
     std::vector<std::complex<double>> m_fftDisplayData; // 保存FFT显示数据
     std::vector<BYTE> m_ifftResult;        // 保存IFFT结果
@@ -157,9 +158,6 @@ public:
         return (n & (n - 1)) == 0;
     }
 
-    void ShowSpectrumDialog(CWnd* pParent);
-    void DisplayFullSpectrum(CDC* pDC, int xOffset = 0, int yOffset = 0,
-        int destWidth = -1, int destHeight = -1);
 public:
     int m_fftWidth = 0;
     int m_fftHeight = 0;
