@@ -3351,6 +3351,16 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
         buf <<= (8 - cnt);
         ofs.write((char*)&buf, 1);
     }
+    //写调色盘数据
+    if (nBitCount <= 8 && pQUAD) {
+        ofs.write((char*)pQUAD, (1 << nBitCount) * sizeof(RGBQUAD));
+        // 保存顺序标记
+        BYTE gray0 = 0.299 * pQUAD[0].rgbRed + 0.587 * pQUAD[0].rgbGreen + 0.114 * pQUAD[0].rgbBlue;
+        BYTE gray255 = 0.299 * pQUAD[255].rgbRed + 0.587 * pQUAD[255].rgbGreen + 0.114 * pQUAD[255].rgbBlue;
+        BYTE paletteOrder = (gray0 < gray255) ? 0 : 1; // 0:黑到白, 1:白到黑
+        ofs.write((char*)&paletteOrder, 1);
+    }
+
     ofs.close();
     FreeHuffmanTree(root);
     return true;
@@ -3488,6 +3498,8 @@ bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
     // 填写调色板
     if (bitCount <= 8) {
         pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        ifs.read((char*)pQUAD, (1 << bitCount) * sizeof(RGBQUAD));
+
         for (int i = 0; i < (1 << bitCount); ++i) {
             pQUAD[i].rgbRed = pQUAD[i].rgbGreen = pQUAD[i].rgbBlue = i;
             pQUAD[i].rgbReserved = 0;
@@ -3495,6 +3507,18 @@ bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
     }
     else {
         pQUAD = nullptr;
+    }
+
+    if (bitCount == 8 && pQUAD) {
+        // 判断调色板顺序
+        BYTE paletteOrder = 0;
+        ifs.read((char*)&paletteOrder, 1);
+        // 如果原始是白到黑，现在是黑到白，则反转调色板
+        if (paletteOrder == 1) {
+            for (int i = 0; i < 128; ++i) {
+                std::swap(pQUAD[i], pQUAD[255 - i]);
+            }
+        }
     }
 
     // 填写像素数据
