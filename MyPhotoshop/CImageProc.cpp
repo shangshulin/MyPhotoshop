@@ -342,7 +342,7 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     switch (nBitCount)
     {
     case 1:
-        CImageProc::GetColor1bit(pixel, red, green, blue, imgX, imgY, pDC);
+        CImageProc::GetColor1bit(pixel, red, green, blue, imgX);
         break;
     case 4:
         CImageProc::GetColor4bit(pixel, red, green, blue, imgX);
@@ -389,7 +389,7 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     pDC->TextOutW(winX, winY + textSize.cy * 2, location);//显示像素位置
 }
 
-void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC)
+void CImageProc::GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x)
 {
     BYTE index = (*pixel >> (7 - x % 8)) & 0x01;
     red = pQUAD[index].rgbRed;
@@ -478,7 +478,7 @@ std::vector<int> CImageProc::CalculateHistogramMix()
             switch (nBitCount)
             {
             case 1:
-                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                GetColor1bit(pixel, red, green, blue, x);
                 break;
             case 4:
                 GetColor4bit(pixel, red, green, blue, x);
@@ -534,7 +534,7 @@ std::vector<std::vector<int>> CImageProc::CalculateHistogramRGB()
             switch (nBitCount)
             {
             case 1:
-                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                GetColor1bit(pixel, red, green, blue, x);
                 break;
             case 4:
                 GetColor4bit(pixel, red, green, blue, x);
@@ -753,7 +753,7 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations()
             // 根据位深度调用不同的颜色解析方法
             switch (nBitCount) {
             case 1:  // 1位色：调色板索引模式
-                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                GetColor1bit(pixel, red, green, blue, x);
                 break;
             case 4:  // 4位色：16色模式
                 GetColor4bit(pixel, red, green, blue, x);
@@ -950,7 +950,7 @@ void CImageProc::ApplyBlackAndWhiteStyle()
             switch (nBitCount)
             {
             case 1:
-                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                GetColor1bit(pixel, red, green, blue, x);
                 break;
             case 8:
                 GetColor8bit(pixel, red, green, blue, x);
@@ -1054,7 +1054,7 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                 switch (nBitCount)
                 {
                 case 1:
-                    GetColor1bit(&pSource[x / 8], red, green, blue, x % 8, y, nullptr);
+                    GetColor1bit(&pSource[x / 8], red, green, blue, x % 8);
                     break;
                 case 4:
                     GetColor4bit(&pSource[x / 2], red, green, blue, x % 2);
@@ -1090,7 +1090,7 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                 switch (targetImageProc.nBitCount)
                 {
                 case 1:
-                    GetColor1bit(&pTarget[x / 8], red, green, blue, x % 8, y, nullptr);
+                    GetColor1bit(&pTarget[x / 8], red, green, blue, x % 8);
                     break;
                 case 4:
                     GetColor4bit(&pTarget[x / 2], red, green, blue, x % 2);
@@ -1172,7 +1172,7 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                 switch (nBitCount)
                 {
                 case 1:
-                    GetColor1bit(&pSource[x / 8], red, green, blue, x % 8, y, nullptr);
+                    GetColor1bit(&pSource[x / 8], red, green, blue, x % 8);
                     break;
                 case 4:
                     GetColor4bit(&pSource[x / 2], red, green, blue, x % 2);
@@ -1589,7 +1589,7 @@ void CImageProc::AddGaussianNoise(double mean, double sigma)
             switch (nBitCount)
             {
             case 1:
-                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                GetColor1bit(pixel, red, green, blue, x);
                 break;
             case 4:
                 GetColor4bit(pixel, red, green, blue, x);
@@ -1739,7 +1739,7 @@ void CImageProc::AddGaussianWhiteNoise(double sigma)
             switch (nBitCount)
             {
             case 1:
-                GetColor1bit(pixel, red, green, blue, x, y, nullptr);
+                GetColor1bit(pixel, red, green, blue, x);
                 break;
             case 4:
                 GetColor4bit(pixel, red, green, blue, x);

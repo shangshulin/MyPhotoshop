@@ -120,7 +120,7 @@ public:
     bool m_bIFFTPerformed;
     HANDLE m_hDib;
 
-    void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x, int y, CDC* pDC);
+    void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor16bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue);
