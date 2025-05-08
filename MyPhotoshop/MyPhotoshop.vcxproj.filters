@@ -66,10 +66,10 @@
     <ClInclude Include="CFreqPassFilterDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="CLOWFILTERDlg.h">
+    <ClInclude Include="CSpectrumDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="CSpectrumDlg.h">
+    <ClInclude Include="CFilterSizeDialog.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -110,19 +110,13 @@
     <ClCompile Include="GaussianWhiteNoiseDialog.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="FilterSizeDialog.h">
-      <Filter>头文件</Filter>
-    </ClCompile>
-    <ClCompile Include="FilterSizeDialog.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="CFreqPassFilterDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CLOWFILTERDlg.cpp">
+    <ClCompile Include="CSpectrumDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CSpectrumDlg.cpp">
+    <ClCompile Include="CFilterSizeDialog.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

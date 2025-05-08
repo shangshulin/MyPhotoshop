@@ -190,11 +190,11 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CFilterSizeDialog.h" />
     <ClInclude Include="CFreqPassFilterDlg.h" />
     <ClInclude Include="CHistogramDlg.h" />
     <ClInclude Include="CImageProc.h" />
     <ClInclude Include="CINTENSITYDlg.h" />
-    <ClInclude Include="CLOWFILTERDlg.h" />
     <ClInclude Include="Command.h" />
     <ClInclude Include="CSpectrumDlg.h" />
     <ClInclude Include="framework.h" />
@@ -209,10 +209,9 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
+    <ClCompile Include="CFilterSizeDialog.cpp" />
     <ClCompile Include="CFreqPassFilterDlg.cpp" />
-    <ClCompile Include="CLOWFILTERDlg.cpp" />
     <ClCompile Include="CSpectrumDlg.cpp" />
-    <ClCompile Include="FilterSizeDialog.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CHistogramDlg.cpp" />
@@ -226,7 +225,6 @@
     <ClCompile Include="MyPhotoshopDoc.cpp" />
     <ClCompile Include="MyPhotoshopView.cpp" />
     <ClCompile Include="NoiseRatioDialog.cpp" />
-    <ClCompile Include="FilterSizeDialog.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

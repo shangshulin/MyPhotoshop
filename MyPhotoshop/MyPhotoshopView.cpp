@@ -13,7 +13,7 @@
 #include "MyPhotoshopDoc.h"
 #include "MyPhotoshopView.h"
 #include <algorithm>
-#include "FilterSizeDialog.h"  
+#include "CFilterSizeDialog.h"  
 #include "CINTENSITYDlg.h"
 
 #include <fftw3.h>
@@ -522,12 +522,8 @@ void CMyPhotoshopView::OnFunctionHistogramMatching()
 
         AddCommand(
             [pDoc, pTargetImage]() {
-                if (pDoc->pImage->HistogramMatching(*pTargetImage))
-                {
-                    pDoc->SetModifiedFlag(TRUE);
-                    pDoc->UpdateAllViews(nullptr);
-                    AfxMessageBox(_T("直方图规格化完成"), MB_OK | MB_ICONINFORMATION);
-                }
+                pDoc->pImage->HistogramMatching(*pTargetImage);
+                pDoc->UpdateAllViews(nullptr);
                 delete pTargetImage; // 执行完成后释放目标图像
             },
             [pDoc, pOldImage]() {
