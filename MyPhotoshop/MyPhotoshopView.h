@@ -100,6 +100,9 @@ public:
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	//同态滤波
 	afx_msg void OnHomomorphicFiltering();
+	//图像编码
+	afx_msg void OnHuffmanEncode();
+	afx_msg void OnHuffmanDecode();
 public:
 	template <typename TExecute, typename TUndo>
 	void AddCommand(TExecute&& executeFunc, TUndo&& undoFunc)
