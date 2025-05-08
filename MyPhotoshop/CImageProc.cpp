@@ -3384,12 +3384,13 @@ void CImageProc::ResetFFTState() {
     m_bStateSaved = false;
 }
 
-void CImageProc::IdealHighPassFilter(double D0)
+void CImageProc::FreqPassFilter(double D0, int n, int filterType)
 {
     if (!IsValid() || (nBitCount != 8 && nBitCount != 16 && nBitCount != 24 && nBitCount != 32)) {
         AfxMessageBox(_T("仅支持8/16/24/32位图像!"));
         return;
     }
+
     int w = nWidth, h = nHeight, N = w * h;//  图像尺寸
 
     if (nBitCount == 8) {
@@ -3412,17 +3413,56 @@ void CImageProc::IdealHighPassFilter(double D0)
         fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);//创建正变换计划
         fftw_execute(plan);//执行正变换
 
-        // 理想高通滤波
         int cx = w / 2, cy = h / 2;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));//计算与中心点的距离
-                //应用理想高通滤波
-                if (D < D0) {
-                    out[y * w + x][0] = 0;
-                    out[y * w + x][1] = 0;
+
+        switch (filterType) {
+        case 0:
+            // 理想高通滤波
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));//计算与中心点的距离
+                    //应用理想高通滤波
+                    if (D < D0) {
+                        out[y * w + x][0] = 0;
+                        out[y * w + x][1] = 0;
+                    }
                 }
             }
+            break;
+        case 1:
+            // Butterworth高通滤波
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                    double H = 1.0 / (1.0 + pow(D0 / D, 2 * n));
+                    out[y * w + x][0] *= H;
+                    out[y * w + x][1] *= H;
+                }
+            }
+            break;
+        case 2:
+            // 理想低通滤波
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                    if (D > D0) {
+                        out[y * w + x][0] = 0;
+                        out[y * w + x][1] = 0;
+                    }
+                }
+            }
+            break;
+        case 3:
+            //butterworth低通滤波
+			for (int y = 0; y < h; ++y) {
+				for (int x = 0; x < w; ++x) {
+					double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+					double H = 1.0 / (1.0 + pow(D / D0, 2 * n));
+					out[y * w + x][0] *= H;
+					out[y * w + x][1] *= H;
+				}
+			}
+            break;
         }
 
         // 逆变换
@@ -3502,17 +3542,56 @@ void CImageProc::IdealHighPassFilter(double D0)
 
         fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
         fftw_execute(plan);
-
+        
         int cx = w / 2, cy = h / 2;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-                if (D < D0) {
-                    out[y * w + x][0] = 0;
-                    out[y * w + x][1] = 0;
+
+        switch (filterType) {
+        case 0:
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                    if (D < D0) {
+                        out[y * w + x][0] = 0;
+                        out[y * w + x][1] = 0;
+                    }
                 }
             }
+            break;
+        case 1:
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                    double H = 1.0 / (1.0 + pow(D0 / D, 2 * n));
+                    out[y * w + x][0] *= H;
+                    out[y * w + x][1] *= H;
+                }
+            }
+            break;
+        case 2:
+            // 理想低通滤波
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                    if (D > D0) {
+                        out[y * w + x][0] = 0;
+                        out[y * w + x][1] = 0;
+                    }
+                }
+            }
+            break;
+        case 3:
+            //butterworth低通滤波
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+                    double H = 1.0 / (1.0 + pow(D / D0, 2 * n));
+                    out[y * w + x][0] *= H;
+                    out[y * w + x][1] *= H;
+                }
+            }
+            break;
         }
+
 
         fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
         fftw_execute(iplan);
@@ -3562,514 +3641,9 @@ void CImageProc::IdealHighPassFilter(double D0)
         fftw_free(in);
         fftw_free(out);
     }
+
 }
 
-void CImageProc::ButterworthHighPassFilter(double D0, int n)
-{
-    if (!IsValid() || (nBitCount != 8 && nBitCount != 16 && nBitCount != 24 && nBitCount != 32)) {
-        AfxMessageBox(_T("仅支持8/16/24/32位图像!"));
-        return;
-    }
-    int w = nWidth, h = nHeight, N = w * h;
-
-    // 灰度图
-    if (nBitCount == 8) {
-
-        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-
-        // 填充输入数据并应用(-1)^(x+y)进行频谱中心化
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                in[y * w + x][0] = pBits[offset] * factor;
-                in[y * w + x][1] = 0.0;
-            }
-        }
-
-        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
-
-        int cx = w / 2, cy = h / 2;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-                double H = 1.0 / (1.0 + pow(D0 / D, 2 * n));
-                out[y * w + x][0] *= H;
-                out[y * w + x][1] *= H;
-            }
-        }
-
-        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
-        fftw_execute(iplan);
-
-        // 写回图像时再次应用(-1)^(x+y)恢复原始位置
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[y * w + x][0] / N * factor;
-                val = min(255.0, max(0.0, val));
-                pBits[offset] = static_cast<BYTE>(val);
-            }
-        }
-
-        fftw_destroy_plan(plan);
-        fftw_destroy_plan(iplan);
-        fftw_free(in);
-        fftw_free(out);
-        return;
-    }
-
-    // 16位、24位、32位彩色图像
-    int bytesPerPixel = nBitCount / 8;
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-
-    // 处理每个通道
-    for (int channel = 0; channel < 3; ++channel) { // 0:B, 1:G, 2:R
-        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-
-        for (int y = 0; y < h; ++y) {
-            BYTE* pPixel = pBits + (h - 1 - y) * rowSize;
-            for (int x = 0; x < w; ++x) {
-                int idx = y * w + x;//
-                int val = 0;
-                if (nBitCount == 16) {
-                    WORD* pixel = (WORD*)(pPixel + x * 2);
-                    WORD color = *pixel;
-                    if (m_bIs565Format) {
-                        if (channel == 2) val = ((color >> 11) & 0x1F) << 3; // R
-                        else if (channel == 1) val = ((color >> 5) & 0x3F) << 2; // G
-                        else val = (color & 0x1F) << 3; // B
-                    }
-                    else {
-                        if (channel == 2) val = ((color >> 10) & 0x1F) << 3; // R
-                        else if (channel == 1) val = ((color >> 5) & 0x1F) << 3; // G
-                        else val = (color & 0x1F) << 3; // B
-                    }
-                }
-                else if (nBitCount == 24 || nBitCount == 32) {
-                    BYTE* pixel = pPixel + x * bytesPerPixel;
-                    val = pixel[channel];
-                }
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                in[idx][0] = val * factor;
-                in[idx][1] = 0.0;
-            }
-        }
-
-        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
-
-        int cx = w / 2, cy = h / 2;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-                double H = 1.0 / (1.0 + pow(D0 / D, 2 * n));
-                out[y * w + x][0] *= H;
-                out[y * w + x][1] *= H;
-            }
-        }
-
-        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
-        fftw_execute(iplan);
-
-        // 归一化
-        double minVal = 1e20, maxVal = -1e20;
-        for (int i = 0; i < N; ++i) {
-            double val = in[i][0] / N;
-            if (val < minVal) minVal = val;
-            if (val > maxVal) maxVal = val;
-        }
-        double range = maxVal - minVal;
-        if (range < 1e-6) range = 1.0;
-
-        for (int y = 0; y < h; ++y) {
-            BYTE* pPixel = pBits + (h - 1 - y) * rowSize;
-            for (int x = 0; x < w; ++x) {
-                int idx = y * w + x;
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[idx][0] / N * factor;
-                val = (val - minVal) * 255.0 / range;
-                val = min(255.0, max(0.0, val));
-                if (nBitCount == 16) {
-                    WORD* pixel = (WORD*)(pPixel + x * 2);
-                    WORD color = *pixel;
-                    if (m_bIs565Format) {
-                        if (channel == 2) color = (color & 0x07FF) | (((int(val) >> 3) & 0x1F) << 11); // R
-                        else if (channel == 1) color = (color & 0xF81F) | (((int(val) >> 2) & 0x3F) << 5); // G
-                        else color = (color & 0xFFE0) | ((int(val) >> 3) & 0x1F); // B
-                    }
-                    else {
-                        if (channel == 2) color = (color & 0x03FF) | (((int(val) >> 3) & 0x1F) << 10); // R
-                        else if (channel == 1) color = (color & 0x7C1F) | (((int(val) >> 3) & 0x1F) << 5); // G
-                        else color = (color & 0xFFE0) | ((int(val) >> 3) & 0x1F); // B
-                    }
-                    *pixel = color;
-                }
-                else if (nBitCount == 24 || nBitCount == 32) {
-                    BYTE* pixel = pPixel + x * bytesPerPixel;
-                    pixel[channel] = static_cast<BYTE>(val);
-                }
-            }
-        }
-
-        fftw_destroy_plan(plan);
-        fftw_destroy_plan(iplan);
-        fftw_free(in);
-        fftw_free(out);
-    }
-}
-
-void CImageProc::IdealLowPassFilter(double D0)
-{
-    if (!IsValid() || (nBitCount != 8 && nBitCount != 16 && nBitCount != 24 && nBitCount != 32)) {
-        AfxMessageBox(_T("仅支持8/16/24/32位图像!"));
-        return;
-    }
-    int w = nWidth, h = nHeight, N = w * h;
-
-    if (nBitCount == 8) {
-        // 分配输入输出数组
-        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-
-        // 填充输入数据并应用(-1)^(x+y)进行频谱中心化
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
-                // 应用(-1)^(x+y)进行频谱中心化
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                in[y * w + x][0] = pBits[offset] * factor;
-                in[y * w + x][1] = 0.0;
-            }
-        }
-
-        // 正变换
-        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
-
-        // 理想低通滤波
-        int cx = w / 2, cy = h / 2;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-                if (D > D0) {
-                    out[y * w + x][0] = 0;
-                    out[y * w + x][1] = 0;
-                }
-            }
-        }
-
-        // 逆变换
-        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
-        fftw_execute(iplan);
-
-        // 归一化（防止全黑/全白），并做中心化恢复
-        double minVal = 1e20, maxVal = -1e20;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[y * w + x][0] / N * factor;
-                if (val < minVal) minVal = val;
-                if (val > maxVal) maxVal = val;
-            }
-        }
-        double range = maxVal - minVal;
-        if (range < 1e-6) range = 1.0;
-
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[y * w + x][0] / N * factor;
-                val = (val - minVal) * 255.0 / range;
-                val = min(255.0, max(0.0, val));
-                pBits[offset] = static_cast<BYTE>(val);
-            }
-        }
-
-        fftw_destroy_plan(plan);
-        fftw_destroy_plan(iplan);
-        fftw_free(in);
-        fftw_free(out);
-        return;
-    }
-
-    // 16位、24位、32位彩色图像处理
-    int bytesPerPixel = nBitCount / 8;
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-
-    // 处理每个通道
-    for (int channel = 0; channel < 3; ++channel) { // 0:B, 1:G, 2:R
-        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-
-        for (int y = 0; y < h; ++y) {
-            BYTE* pPixel = pBits + (h - 1 - y) * rowSize;
-            for (int x = 0; x < w; ++x) {
-                int idx = y * w + x;
-                int val = 0;
-                if (nBitCount == 16) {
-                    WORD* pixel = (WORD*)(pPixel + x * 2);
-                    WORD color = *pixel;
-                    if (m_bIs565Format) {
-                        if (channel == 2) val = ((color >> 11) & 0x1F) << 3; // R
-                        else if (channel == 1) val = ((color >> 5) & 0x3F) << 2; // G
-                        else val = (color & 0x1F) << 3; // B
-                    }
-                    else {
-                        if (channel == 2) val = ((color >> 10) & 0x1F) << 3; // R
-                        else if (channel == 1) val = ((color >> 5) & 0x1F) << 3; // G
-                        else val = (color & 0x1F) << 3; // B
-                    }
-                }
-                else if (nBitCount == 24 || nBitCount == 32) {
-                    BYTE* pixel = pPixel + x * bytesPerPixel;
-                    val = pixel[channel];
-                }
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                in[idx][0] = val * factor;
-                in[idx][1] = 0.0;
-            }
-        }
-
-        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
-
-        int cx = w / 2, cy = h / 2;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-                if (D > D0) {
-                    out[y * w + x][0] = 0;
-                    out[y * w + x][1] = 0;
-                }
-            }
-        }
-
-        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
-        fftw_execute(iplan);
-
-        // 归一化
-        double minVal = 1e20, maxVal = -1e20;
-        for (int i = 0; i < N; ++i) {
-            double val = in[i][0] / N;
-            if (val < minVal) minVal = val;
-            if (val > maxVal) maxVal = val;
-        }
-        double range = maxVal - minVal;
-        if (range < 1e-6) range = 1.0;
-
-        for (int y = 0; y < h; ++y) {
-            BYTE* pPixel = pBits + (h - 1 - y) * rowSize;
-            for (int x = 0; x < w; ++x) {
-                int idx = y * w + x;
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[idx][0] / N * factor;
-                val = (val - minVal) * 255.0 / range;
-                val = min(255.0, max(0.0, val));
-                if (nBitCount == 16) {
-                    WORD* pixel = (WORD*)(pPixel + x * 2);
-                    WORD color = *pixel;
-                    if (m_bIs565Format) {
-                        if (channel == 2) color = (color & 0x07FF) | (((int(val) >> 3) & 0x1F) << 11); // R
-                        else if (channel == 1) color = (color & 0xF81F) | (((int(val) >> 2) & 0x3F) << 5); // G
-                        else color = (color & 0xFFE0) | ((int(val) >> 3) & 0x1F); // B
-                    }
-                    else {
-                        if (channel == 2) color = (color & 0x03FF) | (((int(val) >> 3) & 0x1F) << 10); // R
-                        else if (channel == 1) color = (color & 0x7C1F) | (((int(val) >> 3) & 0x1F) << 5); // G
-                        else color = (color & 0xFFE0) | ((int(val) >> 3) & 0x1F); // B
-                    }
-                    *pixel = color;
-                }
-                else if (nBitCount == 24 || nBitCount == 32) {
-                    BYTE* pixel = pPixel + x * bytesPerPixel;
-                    pixel[channel] = static_cast<BYTE>(val);
-                }
-            }
-        }
-
-        fftw_destroy_plan(plan);
-        fftw_destroy_plan(iplan);
-        fftw_free(in);
-        fftw_free(out);
-    }
-}
-
-void CImageProc::ButterworthLowPassFilter(double D0, int n)
-{
-    if (!IsValid() || (nBitCount != 8 && nBitCount != 16 && nBitCount != 24 && nBitCount != 32)) {
-        AfxMessageBox(_T("仅支持8/16/24/32位图像!"));
-        return;
-    }
-    int w = nWidth, h = nHeight, N = w * h;
-
-    // 灰度图
-    if (nBitCount == 8) {
-        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-
-        // 填充输入数据并应用(-1)^(x+y)进行频谱中心化
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                in[y * w + x][0] = pBits[offset] * factor;
-                in[y * w + x][1] = 0.0;
-            }
-        }
-
-        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
-
-        int cx = w / 2, cy = h / 2;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-                double H = 1.0 / (1.0 + pow(D / D0, 2 * n));
-                out[y * w + x][0] *= H;
-                out[y * w + x][1] *= H;
-            }
-        }
-
-        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
-        fftw_execute(iplan);
-
-        // 归一化（防止全黑/全白），并做中心化恢复
-        double minVal = 1e20, maxVal = -1e20;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[y * w + x][0] / N * factor;
-                if (val < minVal) minVal = val;
-                if (val > maxVal) maxVal = val;
-            }
-        }
-        double range = maxVal - minVal;
-        if (range < 1e-6) range = 1.0;
-
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                int offset = (h - 1 - y) * GetAlignedWidthBytes() + x;
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[y * w + x][0] / N * factor;
-                val = (val - minVal) * 255.0 / range;
-                val = min(255.0, max(0.0, val));
-                pBits[offset] = static_cast<BYTE>(val);
-            }
-        }
-
-        fftw_destroy_plan(plan);
-        fftw_destroy_plan(iplan);
-        fftw_free(in);
-        fftw_free(out);
-        return;
-    }
-
-    // 16位、24位、32位彩色图像处理
-    int bytesPerPixel = nBitCount / 8;
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-
-    // 处理每个通道
-    for (int channel = 0; channel < 3; ++channel) { // 0:B, 1:G, 2:R
-        fftw_complex* in = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-        fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * N);
-
-        for (int y = 0; y < h; ++y) {
-            BYTE* pPixel = pBits + (h - 1 - y) * rowSize;
-            for (int x = 0; x < w; ++x) {
-                int idx = y * w + x;
-                int val = 0;
-                if (nBitCount == 16) {
-                    WORD* pixel = (WORD*)(pPixel + x * 2);
-                    WORD color = *pixel;
-                    if (m_bIs565Format) {
-                        if (channel == 2) val = ((color >> 11) & 0x1F) << 3; // R
-                        else if (channel == 1) val = ((color >> 5) & 0x3F) << 2; // G
-                        else val = (color & 0x1F) << 3; // B
-                    }
-                    else {
-                        if (channel == 2) val = ((color >> 10) & 0x1F) << 3; // R
-                        else if (channel == 1) val = ((color >> 5) & 0x1F) << 3; // G
-                        else val = (color & 0x1F) << 3; // B
-                    }
-                }
-                else if (nBitCount == 24 || nBitCount == 32) {
-                    BYTE* pixel = pPixel + x * bytesPerPixel;
-                    val = pixel[channel];
-                }
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                in[idx][0] = val * factor;
-                in[idx][1] = 0.0;
-            }
-        }
-
-        fftw_plan plan = fftw_plan_dft_2d(h, w, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
-
-        int cx = w / 2, cy = h / 2;
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                double D = sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-                double H = 1.0 / (1.0 + pow(D / D0, 2 * n));
-                out[y * w + x][0] *= H;
-                out[y * w + x][1] *= H;
-            }
-        }
-
-        fftw_plan iplan = fftw_plan_dft_2d(h, w, out, in, FFTW_BACKWARD, FFTW_ESTIMATE);
-        fftw_execute(iplan);
-
-        // 归一化
-        double minVal = 1e20, maxVal = -1e20;
-        for (int i = 0; i < N; ++i) {
-            double val = in[i][0] / N;
-            if (val < minVal) minVal = val;
-            if (val > maxVal) maxVal = val;
-        }
-        double range = maxVal - minVal;
-        if (range < 1e-6) range = 1.0;
-
-        for (int y = 0; y < h; ++y) {
-            BYTE* pPixel = pBits + (h - 1 - y) * rowSize;
-            for (int x = 0; x < w; ++x) {
-                int idx = y * w + x;
-                double factor = ((x + y) % 2 == 0) ? 1.0 : -1.0;
-                double val = in[idx][0] / N * factor;
-                val = (val - minVal) * 255.0 / range;
-                val = min(255.0, max(0.0, val));
-                if (nBitCount == 16) {
-                    WORD* pixel = (WORD*)(pPixel + x * 2);
-                    WORD color = *pixel;
-                    if (m_bIs565Format) {
-                        if (channel == 2) color = (color & 0x07FF) | (((int(val) >> 3) & 0x1F) << 11); // R
-                        else if (channel == 1) color = (color & 0xF81F) | (((int(val) >> 2) & 0x3F) << 5); // G
-                        else color = (color & 0xFFE0) | ((int(val) >> 3) & 0x1F); // B
-                    }
-                    else {
-                        if (channel == 2) color = (color & 0x03FF) | (((int(val) >> 3) & 0x1F) << 10); // R
-                        else if (channel == 1) color = (color & 0x7C1F) | (((int(val) >> 3) & 0x1F) << 5); // G
-                        else color = (color & 0xFFE0) | ((int(val) >> 3) & 0x1F); // B
-                    }
-                    *pixel = color;
-                }
-                else if (nBitCount == 24 || nBitCount == 32) {
-                    BYTE* pixel = pPixel + x * bytesPerPixel;
-                    pixel[channel] = static_cast<BYTE>(val);
-                }
-            }
-        }
-
-        fftw_destroy_plan(plan);
-        fftw_destroy_plan(iplan);
-        fftw_free(in);
-        fftw_free(out);
-    }
-}
 // 同态滤波
 void CImageProc::HomomorphicFiltering() {
     if (!IsValid()) {

@@ -17,8 +17,7 @@
 #include "CINTENSITYDlg.h"
 
 #include <fftw3.h>
-#include "CHighPassFilterDlg.h"
-#include "CLOWFILTERDlg.h"
+#include "CFreqPassFilterDlg.h"
 #include "CSpectrumDlg.h"
 
 #ifdef _DEBUG
@@ -64,8 +63,7 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
 	ON_COMMAND(ID_FILTER_MEDIAN, OnFilterMedian)// 中值滤波
 	ON_COMMAND(ID_FILTER_MAX, OnFilterMax)// 最大值滤波
     // 频域滤波
-    ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnHighPassFilter)     //高通滤波
-    ON_COMMAND(ID_LOWPASS_FILTER, &CMyPhotoshopView::OnBnClickedLowFilterButton)    //低通滤波
+    ON_COMMAND(ID_HIGHPASS_FILTER, &CMyPhotoshopView::OnFreqPassFilter)     //高通/低通滤波
     ON_COMMAND(ID_HOMOMORPHIC_FILTERING, &CMyPhotoshopView::OnHomomorphicFiltering)    //同态滤波
 	// 撤销操作
     ON_COMMAND(ID_EDIT_UNDO, &CMyPhotoshopView::OnEditUndo)
@@ -1190,7 +1188,7 @@ void CMyPhotoshopView::OnFreqIFFT() {
     }
 }
 
-void CMyPhotoshopView::OnHighPassFilter()
+void CMyPhotoshopView::OnFreqPassFilter()
 {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
@@ -1198,7 +1196,7 @@ void CMyPhotoshopView::OnHighPassFilter()
         return;
     }
 
-    CHighPassFilterDlg dlg;
+    CFreqPassFilterDlg dlg;
     dlg.SetImageData(pDoc->pImage);
     if (dlg.DoModal() == IDOK) {
         double D0 = dlg.m_D0;
@@ -1208,7 +1206,7 @@ void CMyPhotoshopView::OnHighPassFilter()
         *pOldImage = *pDoc->pImage;
         AddCommand(
             [pDoc, D0, filterType, step]() {
-                pDoc->pImage->HighPassFilter(D0, step, filterType);
+                pDoc->pImage->FreqPassFilter(D0, step, filterType);
                 pDoc->UpdateAllViews(nullptr);
             },
             [pDoc, pOldImage]() {
@@ -1220,54 +1218,8 @@ void CMyPhotoshopView::OnHighPassFilter()
     }
 }
 
-void CMyPhotoshopView::OnBnClickedLowFilterButton()
-{
-    CMyPhotoshopDoc* pDoc = GetDocument();
-    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
-        AfxMessageBox(_T("请先打开有效的图像文件"));
-        return;
-    }
 
-    try {
-        CImageProc* pOldImage = new CImageProc();
-        *pOldImage = *pDoc->pImage;
-
-        CLOWFILTERDlg dlg;
-        dlg.SetImageData(pDoc->pImage);
-        if (dlg.DoModal() != IDOK) {
-            delete pOldImage;
-            return;
-        }
-
-        double D0 = dlg.GetD0();
-        int filterType = dlg.GetFilterType();
-        int step = dlg.GetStep();
-
-        AddCommand(
-            [pDoc, D0, filterType, step]() {
-                if (filterType == 0) {
-                    pDoc->pImage->IdealLowPassFilter(D0);
-                }
-                else {
-                    pDoc->pImage->ButterworthLowPassFilter(D0, step);
-                }
-                pDoc->UpdateAllViews(nullptr);
-            },
-            [pDoc, pOldImage]() {
-                *pDoc->pImage = *pOldImage;
-                delete pOldImage;
-                pDoc->UpdateAllViews(nullptr);
-            }
-        );
-    }
-    catch (CMemoryException* e) {
-        e->Delete();
-        AfxMessageBox(_T("内存不足，无法完成操作"));
-    }
-    catch (...) {
-        AfxMessageBox(_T("低通滤波操作失败"));
-    }
-}// 同态滤波
+// 同态滤波
 void CMyPhotoshopView::OnHomomorphicFiltering() {
     CMyPhotoshopDoc* pDoc = GetDocument();
     if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {

@@ -2,15 +2,15 @@
 #include "afxdialogex.h"
 #include "CImageProc.h"
 
-// CHighPassFilterDlg 对话框
+// CFreqPassFilterDlg 对话框
 
-class CHighPassFilterDlg : public CDialogEx
+class CFreqPassFilterDlg : public CDialogEx
 {
-	DECLARE_DYNAMIC(CHighPassFilterDlg)
+	DECLARE_DYNAMIC(CFreqPassFilterDlg)
 
 public:
-	CHighPassFilterDlg(CWnd* pParent = nullptr);   // 标准构造函数
-	virtual ~CHighPassFilterDlg();
+	CFreqPassFilterDlg(CWnd* pParent = nullptr);   // 标准构造函数
+	virtual ~CFreqPassFilterDlg();
 
 	// 对话框数据
 #ifdef AFX_DESIGN_TIME
@@ -28,4 +28,5 @@ public:
 	void SetImageData(CImageProc* pImage); // 设置图像数据
 	int m_high_filter_type;
 	afx_msg void OnBnClickedHighFilterButtonApply(); // 应用按钮点击事件
+	virtual BOOL OnInitDialog();
 };

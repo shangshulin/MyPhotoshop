@@ -63,7 +63,7 @@
     <ClInclude Include="Command.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="CHighPassFilterDlg.h">
+    <ClInclude Include="CFreqPassFilterDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="CLOWFILTERDlg.h">
@@ -116,7 +116,7 @@
     <ClCompile Include="FilterSizeDialog.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CHighPassFilterDlg.cpp">
+    <ClCompile Include="CFreqPassFilterDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="CLOWFILTERDlg.cpp">

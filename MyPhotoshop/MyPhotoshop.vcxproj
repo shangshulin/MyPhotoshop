@@ -190,7 +190,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="CHighPassFilterDlg.h" />
+    <ClInclude Include="CFreqPassFilterDlg.h" />
     <ClInclude Include="CHistogramDlg.h" />
     <ClInclude Include="CImageProc.h" />
     <ClInclude Include="CINTENSITYDlg.h" />
@@ -209,7 +209,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
-    <ClCompile Include="CHighPassFilterDlg.cpp" />
+    <ClCompile Include="CFreqPassFilterDlg.cpp" />
     <ClCompile Include="CLOWFILTERDlg.cpp" />
     <ClCompile Include="CSpectrumDlg.cpp" />
     <ClCompile Include="FilterSizeDialog.h" />

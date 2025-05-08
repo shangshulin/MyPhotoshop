@@ -58,8 +58,8 @@
 #define IDC_LOW_FILTER                  1033
 #define IDC_LOW_FILTER_BUTTON           1034
 #define IDC_SPECTRUM_VIEW               1035
-#define IDC_LIST1                       1036
 #define IDC_HIGH_FILTER_TYPE            1037
+#define IDC_LOW_FILTER_TYPE             1038
 #define ID_32771                        32771
 #define ID_PIXEL_INFO                   32772
 #define ID_VIEW_PIXELINFO               32773
@@ -121,7 +121,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        330
 #define _APS_NEXT_COMMAND_VALUE         32831
-#define _APS_NEXT_CONTROL_VALUE         1038
+#define _APS_NEXT_CONTROL_VALUE         1039
 #define _APS_NEXT_SYMED_VALUE           320
 #endif
 #endif
