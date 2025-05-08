@@ -177,7 +177,7 @@ void CMyPhotoshopDoc::ApplyImageEnhancement()
 	pImage->ApplySobelEdgeDetection();
 
 	// 5. 对Sobel结果均值滤波
-	pImage->ApplyMeanFilter();
+	pImage->SpatialFilter(3, FilterType::Mean);
 
 	// 6. 锐化图像和滤波后梯度相乘形成掩蔽
 	pImage->Multiply(*pTemp2); // 掩蔽 = 锐化图像 × 滤波梯度

@@ -55,7 +55,6 @@ public:
 
 	//空域滤波
     void SpatialFilter(int filterSize, FilterType type);
-    void ApplyMeanFilter(); // 均值滤波
 
     //边缘检测
     void ApplySobelEdgeDetection();// Sobel算子边缘检测
@@ -79,11 +78,13 @@ public:
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
     bool FFT2D(bool bForward = true, bool bSaveState = true); // true=FFT, false=IFFT
     bool IFFT2D(bool bSaveState = true);
+
 	// FFT与IFFT显示
     void ShowSpectrumDialog(CWnd* pParent);
     void DisplayFullSpectrum(CDC* pDC, int xOffset = 0, int yOffset = 0,
         int destWidth = -1, int destHeight = -1);
     void CImageProc::DisplayIFFTResult(CDC* pDC, int xOffset, int yOffset, int destWidth, int destHeight);
+
     // 新增方法：获取/设置复数频谱数据
     const std::vector<std::complex<double>>& GetFFTData() const { return m_fftData; }
     void SetFFTData(const std::vector<std::complex<double>>& data, int w, int h);
@@ -117,7 +118,8 @@ public:
     bool isPaletteDarkToLight;
     bool m_bIFFTPerformed;
     HANDLE m_hDib;
-
+    
+    //获取像素颜色
     void GetColor1bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor4bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);
     void GetColor8bit(BYTE* pixel, BYTE& red, BYTE& green, BYTE& blue, int x);

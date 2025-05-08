@@ -2277,72 +2277,8 @@ void CImageProc::PowerTransform(double gamma)
         }
     }
 }
-void CImageProc::ApplyMeanFilter()
-{
-    if (!IsValid() || nBitCount < 8) {
-        AfxMessageBox(_T("不支持此图像格式"));
-        return;
-    }
 
-    // 创建临时缓冲区
-    std::vector<BYTE> tempBuffer(pBIH->biSizeImage);
-    memcpy(tempBuffer.data(), pBits, pBIH->biSizeImage);
-
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    float bytePerPixel = float(nBitCount) / 8;
-
-    // 3x3均值滤波
-    for (int y = 1; y < nHeight - 1; ++y) {
-        for (int x = 1; x < nWidth - 1; ++x) {
-            int sumR = 0, sumG = 0, sumB = 0;
-
-            // 计算3x3邻域和
-            for (int ky = -1; ky <= 1; ++ky) {
-                for (int kx = -1; kx <= 1; ++kx) {
-                    int offset = (nHeight - 1 - (y + ky)) * rowSize + int((x + kx) * bytePerPixel);
-                    BYTE* pixel = tempBuffer.data() + offset;
-
-                    BYTE r, g, b;
-                    GetColor(x + kx, y + ky, r, g, b);
-
-                    sumR += r;
-                    sumG += g;
-                    sumB += b;
-                }
-            }
-
-            // 计算平均值
-            BYTE avgR = sumR / 9;
-            BYTE avgG = sumG / 9;
-            BYTE avgB = sumB / 9;
-
-            // 更新当前像素
-            BYTE* pixel = GetPixelPtr(x, y);
-
-            switch (nBitCount) {
-            case 8: *pixel = 0.299 * avgR + 0.587 * avgG + 0.114 * avgB; break;
-            case 16: {
-                WORD newPixel;
-                if (m_bIs565Format) {
-                    newPixel = ((avgR >> 3) << 11) | ((avgG >> 2) << 5) | (avgB >> 3);
-                }
-                else {
-                    newPixel = ((avgR >> 3) << 10) | ((avgG >> 3) << 5) | (avgB >> 3);
-                }
-                *((WORD*)pixel) = newPixel;
-                break;
-            }
-            case 24:
-            case 32:
-                pixel[0] = avgB;
-                pixel[1] = avgG;
-                pixel[2] = avgR;
-                break;
-            }
-        }
-    }
-}
-
+// 二维FFT
 bool CImageProc::FFT2D(bool bForward, bool bSaveState) {
     if (!IsValid()) return false;
 
