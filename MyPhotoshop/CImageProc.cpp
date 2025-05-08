@@ -317,7 +317,35 @@ void CImageProc::GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue)
         CImageProc::GetColor32bit(pixel, red, green, blue);
         break;
     default:
+        AfxMessageBox(_T("不支持的图像位深"));
         return;
+    }
+}
+
+void CImageProc::SetColor(BYTE* pixel, int x, int y, BYTE r, BYTE g, BYTE b)
+{
+    switch (nBitCount)
+    {
+    case 16:
+        if (m_bIs565Format)
+            *((WORD*)pixel) = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+        else
+            *((WORD*)pixel) = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+        break;
+    case 24:
+        pixel[0] = b;
+        pixel[1] = g;
+        pixel[2] = r;
+        break;
+    case 32:
+        pixel[0] = b;
+        pixel[1] = g;
+        pixel[2] = r;
+        // pixel[3] 保持alpha不变
+        break;
+    default:
+        AfxMessageBox(_T("不支持的图像位深"));
+        break;
     }
 }
 
@@ -339,29 +367,7 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     // 获取像素颜色
     BYTE red = 0, green = 0, blue = 0;
     // 根据位深获取像素颜色
-    switch (nBitCount)
-    {
-    case 1:
-        CImageProc::GetColor1bit(pixel, red, green, blue, imgX);
-        break;
-    case 4:
-        CImageProc::GetColor4bit(pixel, red, green, blue, imgX);
-        break;
-    case 8:
-        CImageProc::GetColor8bit(pixel, red, green, blue, imgX);
-        break;
-    case 16:
-        CImageProc::GetColor16bit(pixel, red, green, blue);
-        break;
-    case 24:
-        CImageProc::GetColor24bit(pixel, red, green, blue);
-        break;
-    case 32:
-        CImageProc::GetColor32bit(pixel, red, green, blue);
-        break;
-    default:
-        return;
-    }
+    GetColor(imgX, imgY, red, green, blue);
 
     COLORREF pixelColor = pDC->GetPixel(winX, winY);
     BYTE getPixelRed = GetRValue(pixelColor);
@@ -475,30 +481,7 @@ std::vector<int> CImageProc::CalculateHistogramMix()
             BYTE* pixel = pBits + offset;
             BYTE red = 0, green = 0, blue = 0;
 
-            switch (nBitCount)
-            {
-            case 1:
-                GetColor1bit(pixel, red, green, blue, x);
-                break;
-            case 4:
-                GetColor4bit(pixel, red, green, blue, x);
-                break;
-            case 8:
-                GetColor8bit(pixel, red, green, blue, x);
-                break;
-            case 16:
-                GetColor16bit(pixel, red, green, blue);
-                break;
-            case 24:
-                GetColor24bit(pixel, red, green, blue);
-                break;
-            case 32:
-                GetColor32bit(pixel, red, green, blue);
-                break;
-            default:
-                continue;
-            }
-
+            GetColor(x, y, red, green, blue);
 
             int gray = static_cast<int>(0.299 * red + 0.587 * green + 0.114 * blue);//计算灰度值
 			histogram[gray]++;//将灰度值对应的像素数量加1
@@ -531,29 +514,7 @@ std::vector<std::vector<int>> CImageProc::CalculateHistogramRGB()
 
             BYTE red = 0, green = 0, blue = 0;
 
-            switch (nBitCount)
-            {
-            case 1:
-                GetColor1bit(pixel, red, green, blue, x);
-                break;
-            case 4:
-                GetColor4bit(pixel, red, green, blue, x);
-                break;
-            case 8:
-                GetColor8bit(pixel, red, green, blue, x);
-                break;
-            case 16:
-                GetColor16bit(pixel, red, green, blue);
-                break;
-            case 24:
-                GetColor24bit(pixel, red, green, blue);
-                break;
-            case 32:
-                GetColor32bit(pixel, red, green, blue);
-                break;
-            default:
-                continue;
-            }
+            GetColor(x, y, red, green, blue);
 
             //将每个通道的灰度值对应的像素数量加1
             histograms[0][red]++;
@@ -575,24 +536,17 @@ void CImageProc::ApplyVintageStyle()
         if (!pQUAD) return;
        
         int paletteSize = 1 << nBitCount;
-        RGBQUAD* newPalette = new RGBQUAD[paletteSize];
-
 
         for (int i = 0; i < paletteSize; i++) {
             BYTE r = pQUAD[i].rgbRed;
             BYTE g = pQUAD[i].rgbGreen;
             BYTE b = pQUAD[i].rgbBlue;
 
-            newPalette[i].rgbRed = min(255, static_cast<int>(r * 1.1 + 15));
-            newPalette[i].rgbGreen = min(255, static_cast<int>(g * 0.9 + 10));
-            newPalette[i].rgbBlue = min(255, static_cast<int>(b * 0.8));
-            newPalette[i].rgbReserved = 0;
+            pQUAD[i].rgbRed = min(255, static_cast<int>(r * 1.1 + 15));
+            pQUAD[i].rgbGreen = min(255, static_cast<int>(g * 0.9 + 10));
+            pQUAD[i].rgbBlue = min(255, static_cast<int>(b * 0.8));
+            pQUAD[i].rgbReserved = 0;
         }
-
-
-        memcpy(pQUAD, newPalette, paletteSize * sizeof(RGBQUAD));
-        delete[] newPalette;
-
 
         if (nBitCount == 1) {
 
@@ -608,86 +562,28 @@ void CImageProc::ApplyVintageStyle()
             }
         }
     }
-    else if (nBitCount == 16) {  
-        if (!IsValid() || nBitCount != 16) return;
-
-        int rowSize = ((nWidth * 16 + 31) / 32) * 4;
-
+    else{  
+        // 统一处理16/24/32位图像
+        int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+        int bytesPerPixel = nBitCount / 8;
         for (int y = 0; y < nHeight; y++) {
-            BYTE* pPixel = pBits + (nHeight - 1 - y) * rowSize;
-
             for (int x = 0; x < nWidth; x++) {
-                WORD* pixel = reinterpret_cast<WORD*>(&pPixel[x * 2]);
-                WORD oldPixel = *pixel;
-
                 BYTE r, g, b;
-                GetColor16bit(reinterpret_cast<BYTE*>(&oldPixel), r, g, b);
-
+                GetColor(x, y, r, g, b);
                 int newR = min(255, static_cast<int>(r * 1.15 + 15));
                 int newG = min(255, static_cast<int>(g * 0.85 + 5));
                 int newB = min(255, static_cast<int>(b * 0.7));
-
-
-                int noise = (rand() % 7) - 3;
+                int noise = (rand() % 11) - 5;
                 newR = max(0, min(255, newR + noise));
                 newG = max(0, min(255, newG + noise));
                 newB = max(0, min(255, newB + noise));
-
-
-                if (m_bIs565Format) {
-
-                    *pixel = ((newR >> 3) << 11) |
-                        ((newG >> 2) << 5) |
-                        (newB >> 3);
-                }
-                else {
-
-                    *pixel = ((newR >> 3) << 10) |
-                        ((newG >> 3) << 5) |
-                        (newB >> 3);
-                }
-            }
-        }
-    }
-    else {                     
-        if (!IsValid() || (nBitCount != 24 && nBitCount != 32)) return;
-
-        int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-        int bytesPerPixel = nBitCount / 8;
-
-        for (int y = 0; y < nHeight; y++) {
-            BYTE* pPixel = pBits + (nHeight - 1 - y) * rowSize;
-
-            for (int x = 0; x < nWidth; x++) {
-
-                BYTE* pixel = &pPixel[x * bytesPerPixel];
-
-
-                BYTE& blue = pixel[0];
-                BYTE& green = pixel[1];
-                BYTE& red = pixel[2];
-
-                int newRed = min(255, static_cast<int>(red * 1.15));
-                int newGreen = min(255, static_cast<int>(green * 0.85));
-                int newBlue = min(255, static_cast<int>(blue * 0.7));
-
-                newRed = min(255, newRed + 25);
-                newGreen = min(255, newGreen + 15);
-
-                int noise = (rand() % 11) - 5;
-                newRed = max(0, min(255, newRed + noise));
-                newGreen = max(0, min(255, newGreen + noise));
-                newBlue = max(0, min(255, newBlue + noise));
-
-                newRed = static_cast<int>(newRed * 0.95 + 10);
-                newGreen = static_cast<int>(newGreen * 0.95 + 5);
-                newBlue = static_cast<int>(newBlue * 0.95);
-
-
-                red = static_cast<BYTE>(newRed);
-                green = static_cast<BYTE>(newGreen);
-                blue = static_cast<BYTE>(newBlue);
-
+                newR = static_cast<int>(newR * 0.95 + 10);
+                newG = static_cast<int>(newG * 0.95 + 5);
+                newB = static_cast<int>(newB * 0.95);
+                // 计算像素指针
+                int offset = (nHeight - 1 - y) * rowSize + x * bytesPerPixel;
+                BYTE* pixel = pBits + offset;
+                SetColor(pixel, x, y, (BYTE)newR, (BYTE)newG, (BYTE)newB);
             }
         }
     }
@@ -751,28 +647,7 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations()
             BYTE red, green, blue;
 
             // 根据位深度调用不同的颜色解析方法
-            switch (nBitCount) {
-            case 1:  // 1位色：调色板索引模式
-                GetColor1bit(pixel, red, green, blue, x);
-                break;
-            case 4:  // 4位色：16色模式
-                GetColor4bit(pixel, red, green, blue, x);
-                break;
-            case 8:  // 8位色：256色模式
-                GetColor8bit(pixel, red, green, blue, x);
-                break;
-            case 16: // 16位高彩色（可能含透明度）
-                GetColor16bit(pixel, red, green, blue);
-                break;
-            case 24: // 24位真彩色（RGB各8位）
-                GetColor24bit(pixel, red, green, blue);
-                break;
-            case 32: // 32位色（含Alpha通道）
-                GetColor32bit(pixel, red, green, blue);
-                break;
-            default: // 不支持其他位深度
-                continue;
-            }
+            GetColor(x, y, red, green, blue);
 
             // 根据人眼对颜色的敏感度（绿 > 红 > 蓝），使用加权系数计算亮度（ITU-R BT.601标准加权：Y=0.299R+0.587G+0.114B）
             int Y = static_cast<int>(0.3f * red + 0.59f * green + 0.11f * blue + 0.5f);
@@ -781,23 +656,15 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations()
             // 特殊处理纯黑像素,直接跳过缩放计算，​​保持像素为黑色
             if (Y == 0) {
                 // 直接写入黑色
-                switch (nBitCount) {
-                case 8:
+                if (nBitCount <= 8)
+                {
                     pixel[0] = 0;
-                    break;
-                case 16:
-                    if (m_bIs565Format)
-                        *((WORD*)pixel) = 0;
-                    else
-                        *((WORD*)pixel) = 0;
-                    break;
-                case 24:
-                    pixel[0] = 0; pixel[1] = 0; pixel[2] = 0;
-                    break;
-                case 32:
-                    pixel[0] = 0; pixel[1] = 0; pixel[2] = 0;
-                    break;
                 }
+                else
+                {
+                    SetColor(pixel, x, y, 0, 0, 0);
+                }
+               
                 balancedRgbHistograms[0][0]++;      // 记录R通道直方图
                 balancedRgbHistograms[1][0]++;      // 记录G通道直方图
                 balancedRgbHistograms[2][0]++;      // 记录B通道直方图
@@ -821,30 +688,13 @@ std::vector<std::vector<int>> CImageProc::Balance_Transformations()
             balancedRgbHistograms[2][new_b]++;
 
             // 写入均衡化后的像素值
-            switch (nBitCount) {
-            case 8:
-                // 8位图像通常是调色板索引，灰度图可直接赋值
+            if (nBitCount <= 8)
+            {
                 pixel[0] = static_cast<BYTE>(F[Y]);
-                break;
-            case 16:
-                if (m_bIs565Format) {
-                    *((WORD*)pixel) = ((new_r >> 3) << 11) | ((new_g >> 2) << 5) | (new_b >> 3);
-                }
-                else {
-                    *((WORD*)pixel) = ((new_r >> 3) << 10) | ((new_g >> 3) << 5) | (new_b >> 3);
-                }
-                break;
-            case 24:
-                pixel[0] = static_cast<BYTE>(new_b);
-                pixel[1] = static_cast<BYTE>(new_g);
-                pixel[2] = static_cast<BYTE>(new_r);
-                break;
-            case 32:
-                pixel[0] = static_cast<BYTE>(new_b);
-                pixel[1] = static_cast<BYTE>(new_g);
-                pixel[2] = static_cast<BYTE>(new_r);
-                // pixel[3] 保持alpha不变
-                break;
+            }
+            else
+            {
+                SetColor(pixel, x, y, new_r, new_g, new_b);
             }
         }
     }
@@ -861,156 +711,48 @@ void CImageProc::ApplyBlackAndWhiteStyle()
         AfxMessageBox(_T("No valid image is loaded."));
         return;
     }
-    if (nBitCount == 1)
-    {
-        // 判断原调色板的明暗顺序
-        if (pQUAD[0].rgbRed < pQUAD[1].rgbRed)
-        {
-            isPaletteDarkToLight = true;
-        }
-        else
-        {
-            isPaletteDarkToLight = false;
-        }
+    if (nBitCount <= 8) {
+        if (!pQUAD) return;
 
-        std::vector<RGBQUAD> grayPalette1bit(2); // 创建1位灰度调色板
-        if (isPaletteDarkToLight)
-        {
-            for (int i = 0; i < 2; i++)
-            {
-                grayPalette1bit[i].rgbRed = static_cast<BYTE>(i * 255);
-                grayPalette1bit[i].rgbGreen = static_cast<BYTE>(i * 255);
-                grayPalette1bit[i].rgbBlue = static_cast<BYTE>(i * 255);
-                grayPalette1bit[i].rgbReserved = 0;
-            }
+        int paletteSize = 1 << nBitCount;
+
+        for (int i = 0; i < paletteSize; i++) {
+            BYTE r = pQUAD[i].rgbRed;
+            BYTE g = pQUAD[i].rgbGreen;
+            BYTE b = pQUAD[i].rgbBlue;
+
+            BYTE gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+            pQUAD[i].rgbRed = gray;
+            pQUAD[i].rgbGreen = gray;
+            pQUAD[i].rgbBlue = gray;
+            pQUAD[i].rgbReserved = 0;
         }
-        else
-        {
-            for (int i = 0; i < 2; i++)
-            {
-                grayPalette1bit[i].rgbRed = static_cast<BYTE>((2 - i) * 255);
-                grayPalette1bit[i].rgbGreen = static_cast<BYTE>((2 - i) * 255);
-                grayPalette1bit[i].rgbBlue = static_cast<BYTE>((2 - i) * 255);
-                grayPalette1bit[i].rgbReserved = 0;
-            }
-        }
-        memcpy(pQUAD, grayPalette1bit.data(), sizeof(RGBQUAD) * 2);
     }
-    else if (nBitCount == 8)
+    else
     {
-        if (pQUAD[0].rgbRed < pQUAD[255].rgbRed)
+        // 获取图像的行字节数
+        int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
+        // 计算每个像素的字节数
+        float bytePerPixel = float(nBitCount) / 8;
+
+        // 遍历图像的每个像素点
+        for (int y = 0; y < nHeight; ++y)
         {
-            isPaletteDarkToLight = true;
-        }
-        else
-        {
-            isPaletteDarkToLight = false;
-        }
-        std::vector<RGBQUAD> grayPalette8bit(256); // 创建8位灰度调色板
-
-        if (isPaletteDarkToLight)
-        {
-            for (int i = 0; i < 256; i++)
+            for (int x = 0; x < nWidth; ++x)
             {
-                grayPalette8bit[i].rgbRed = static_cast<BYTE>(i);
-                grayPalette8bit[i].rgbGreen = static_cast<BYTE>(i);
-                grayPalette8bit[i].rgbBlue = static_cast<BYTE>(i);
-                grayPalette8bit[i].rgbReserved = 0;
-            }
-        }
-        else
-        {
-            for (int i = 0; i < 256; i++)
-            {
-                grayPalette8bit[i].rgbRed = static_cast<BYTE>(255 - i);
-                grayPalette8bit[i].rgbGreen = static_cast<BYTE>(255 - i);
-                grayPalette8bit[i].rgbBlue = static_cast<BYTE>(255 - i);
-                grayPalette8bit[i].rgbReserved = 0;
-            }
-        }
-        memcpy(pQUAD, grayPalette8bit.data(), sizeof(RGBQUAD) * 256);
-    }
+                int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);//计算像素在位图中的偏移量
+                BYTE* pixel = pBits + offset;// 获取像素的偏移量
 
+                BYTE red = 0, green = 0, blue = 0;
 
-    // 获取图像的行字节数
-    int rowSize = ((nWidth * nBitCount + 31) / 32) * 4;
-    // 计算每个像素的字节数
-    float bytePerPixel = float(nBitCount) / 8;
+                GetColor(x, y, red, green, blue);
 
-    // 遍历图像的每个像素点
-    for (int y = 0; y < nHeight; ++y)
-    {
-        for (int x = 0; x < nWidth; ++x)
-        {
-            int offset = (nHeight - 1 - y) * rowSize + int(float(x) * bytePerPixel);//计算像素在位图中的偏移量
-            BYTE* pixel = pBits + offset;// 获取像素的偏移量
+                // 计算灰度值
+                BYTE grayValue = static_cast<BYTE>((red * 0.299) + (green * 0.587) + (blue * 0.114));
 
-            BYTE red = 0, green = 0, blue = 0;
-
-            switch (nBitCount)
-            {
-            case 1:
-                GetColor1bit(pixel, red, green, blue, x);
-                break;
-            case 8:
-                GetColor8bit(pixel, red, green, blue, x);
-                break;
-            case 16:
-                GetColor16bit(pixel, red, green, blue);
-                break;
-            case 24:
-                GetColor24bit(pixel, red, green, blue);
-                break;
-            case 32:
-                GetColor32bit(pixel, red, green, blue);
-                break;
-            default:
-                AfxMessageBox(_T("Unsupported bit count."));
-                return;
-            }
-
-            // 计算灰度值
-            BYTE grayValue = static_cast<BYTE>((red * 0.299) + (green * 0.587) + (blue * 0.114));
-
-            // 根据灰度值设置像素
-            switch (nBitCount)
-            {
-            case 1:
-                break;
-            case 8:
-                break;
-            case 16:
-            {
-                WORD newPixel;
-                if (m_bIs565Format)
-                {              
-                    // RGB565: 5-6-5
-                    BYTE r = (grayValue >> 3) & 0x1F;  // 5-bit red
-                    BYTE g = (grayValue >> 2) & 0x3F;  // 6-bit green
-                    BYTE b = (grayValue >> 3) & 0x1F;  // 5-bit blue
-                    newPixel = (r << 11) | (g << 5) | b;
-                }
-                else
-                {
-                    // RGB555: 5-5-5
-                    BYTE r = (grayValue >> 3) & 0x1F;;  // 5-bit red
-                    BYTE g = (grayValue >> 3) & 0x1F;;  // 5-bit green
-                    BYTE b = (grayValue >> 3) & 0x1F;;  // 5-bit blue
-                    newPixel = (r << 10) | (g << 5) | b;
-                }
-                *((WORD*)pixel) = newPixel;
-                break;
-            }
-            case 24:
-                pixel[0] = grayValue;
-                pixel[1] = grayValue;
-                pixel[2] = grayValue;
-                break;
-            case 32:
-                pixel[0] = grayValue;
-                pixel[1] = grayValue;
-                pixel[2] = grayValue;
-                break;
+                // 根据灰度值设置像素
+                SetColor(pixel, x, y, grayValue, grayValue, grayValue);
             }
         }
     }
@@ -1051,27 +793,7 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
             for (int x = 0; x < width; x++)
             {
                 BYTE red, green, blue;
-                switch (nBitCount)
-                {
-                case 1:
-                    GetColor1bit(&pSource[x / 8], red, green, blue, x % 8);
-                    break;
-                case 4:
-                    GetColor4bit(&pSource[x / 2], red, green, blue, x % 2);
-                    break;
-                case 8:
-                    GetColor8bit(&pSource[x], red, green, blue, x);
-                    break;
-                case 16:
-                    GetColor16bit(&pSource[x * 2], red, green, blue);
-                    break;
-                case 24:
-                    GetColor24bit(&pSource[x * 3], red, green, blue);
-                    break;
-                case 32:
-                    GetColor32bit(&pSource[x * 4], red, green, blue);
-                    break;
-                }
+                GetColor(x, y, red, green, blue);
 
                 BYTE val = (channel == 0) ? red : (channel == 1 ? green : blue);
                 sourceHist[val]++;
@@ -1202,8 +924,6 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                 // 处理调色板索引图像（1位/4位/8位）
                 if (nBitCount <= 8)
                 {
-                    // 1位和4位图像通过修改调色板实现映射
-                    //if (nBitCount == 1 || nBitCount == 4)
                     if (TRUE)
                     {
                         int paletteSize = (nBitCount == 1) ? 2 : ((nBitCount == 4) ? 16 : 256);
@@ -1222,46 +942,11 @@ bool CImageProc::HistogramMatching(CImageProc& targetImageProc)
                             b = mapping[b];
                         }
                     }
-                    //else // 8位图像直接修改索引（假设索引对应灰度值）
-                    //{
-                    //    pSource[x] = static_cast<BYTE>(mapping[red]); // 假设8位索引对应灰度值
-                    //}
                 }
                 else // 真彩色图像直接修改像素值
                 {
-                    switch (nBitCount)
-                    {
-                    case 16:
-                    {
-                        WORD newPixel;
-                        if (m_bIs565Format)
-                        {
-                            BYTE r = (newRed >> 3) & 0x1F;
-                            BYTE g = (newGreen >> 2) & 0x3F;
-                            BYTE b = (newBlue >> 3) & 0x1F;
-                            newPixel = (r << 11) | (g << 5) | b;
-                        }
-                        else
-                        {
-                            BYTE r = (newRed >> 3) & 0x1F;
-                            BYTE g = (newGreen >> 3) & 0x1F;
-                            BYTE b = (newBlue >> 3) & 0x1F;
-                            newPixel = (r << 10) | (g << 5) | b;
-                        }
-                        *((WORD*)&pSource[x * 2]) = newPixel;
-                        break;
-                    }
-                    case 24:
-                        pSource[x * 3] = newBlue;
-                        pSource[x * 3 + 1] = newGreen;
-                        pSource[x * 3 + 2] = newRed;
-                        break;
-                    case 32:
-                        pSource[x * 4] = newBlue;
-                        pSource[x * 4 + 1] = newGreen;
-                        pSource[x * 4 + 2] = newRed;
-                        break;
-                    }
+                    int index = x * (nBitCount / 8);
+                    SetColor(&pSource[index], x, y, newRed, newGreen, newBlue);
                 }
             }
         }

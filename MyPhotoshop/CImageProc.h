@@ -34,6 +34,7 @@ public:
     void ShowBMP(CDC* pDC, int x, int y, int destWidth, int destHeight);
     void DisplayColor(CClientDC* pDC,int imgX, int imgY, int x, int y);
     void GetColor(int x, int y, BYTE& red, BYTE& green, BYTE& blue);
+    void SetColor(BYTE* pixel, int x, int y, BYTE r, BYTE g, BYTE b);
     void ResetFFTState();  // 新增方法声明
     //灰度处理
 	std::vector<int> CalculateHistogramMix(); // 计算灰度直方图
