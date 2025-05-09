@@ -3367,12 +3367,6 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
         // 写入实际使用的调色板大小（以字节为单位）
         int paletteSize = clrUsed * sizeof(RGBQUAD);
         ofs.write((char*)pQUAD, paletteSize);
-
-        //// 保存顺序标记
-        //BYTE gray0 = 0.299 * pQUAD[0].rgbRed + 0.587 * pQUAD[0].rgbGreen + 0.114 * pQUAD[0].rgbBlue;
-        //BYTE gray255 = 0.299 * pQUAD[clrUsed - 1].rgbRed + 0.587 * pQUAD[clrUsed - 1].rgbGreen + 0.114 * pQUAD[clrUsed - 1].rgbBlue;
-        //BYTE paletteOrder = (gray0 < gray255) ? 0 : 1;
-        //ofs.write((char*)&paletteOrder, 1);
     }
 
     ofs.close();
@@ -3524,20 +3518,6 @@ bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
     else {
         pQUAD = nullptr;
     }
-
-    ////  处理调色板顺序
-    //if (bitCount == 8 && pQUAD) {
-    //    BYTE paletteOrder = 0;
-    //    ifs.read((char*)&paletteOrder, 1);
-
-    //    // 使用 clrUsed 作为实际调色板大小
-    //    if (paletteOrder == 1) {
-    //        int half = clrUsed / 2;
-    //        for (int i = 0; i < half; ++i) {
-    //            std::swap(pQUAD[i], pQUAD[clrUsed - 1 - i]);
-    //        }
-    //    }
-    //}
 
     if (bitCount == 16) {
         // 读取格式标记
