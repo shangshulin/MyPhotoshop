@@ -3635,10 +3635,26 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     }
 
     // 写入图像信息头
-    outFile.write("LZW", 3); // 文件标识
-    outFile.write(reinterpret_cast<const char*>(&width), sizeof(width));
-    outFile.write(reinterpret_cast<const char*>(&height), sizeof(height));
-    outFile.write(reinterpret_cast<const char*>(&bitCount), sizeof(bitCount));
+    outFile.write("LZW", 3);
+    outFile.write(reinterpret_cast<const char*>(&nWidth), sizeof(nWidth));
+    outFile.write(reinterpret_cast<const char*>(&nHeight), sizeof(nHeight));
+    outFile.write(reinterpret_cast<const char*>(&nBitCount), sizeof(nBitCount));
+    
+    // 如果是8位或更低位深度的图像，保存颜色表信息
+    if (nBitCount <= 8 && pQUAD != NULL) {
+        // 写入颜色表大小
+        int paletteSize = 1 << nBitCount;
+        outFile.write(reinterpret_cast<const char*>(&paletteSize), sizeof(paletteSize));
+        
+        // 写入颜色表数据
+        for (int i = 0; i < paletteSize; i++) {
+            outFile.write(reinterpret_cast<const char*>(&pQUAD[i]), sizeof(RGBQUAD));
+        }
+    } else {
+        // 如果没有颜色表，写入0
+        int paletteSize = 0;
+        outFile.write(reinterpret_cast<const char*>(&paletteSize), sizeof(paletteSize));
+    }
 
     // 写入编码数据长度
     int codeCount = static_cast<int>(outputCodes.size());
@@ -3720,12 +3736,21 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
 
     // 读取图像信息
     int width, height, bitCount;
-    if (!inFile.read(reinterpret_cast<char*>(&width), sizeof(width)) ||
-        !inFile.read(reinterpret_cast<char*>(&height), sizeof(height)) ||
-        !inFile.read(reinterpret_cast<char*>(&bitCount), sizeof(bitCount))) {
-        AfxMessageBox(_T("File format error!"));
-        inFile.close();
-        return false;
+    inFile.read(reinterpret_cast<char*>(&width), sizeof(width));
+    inFile.read(reinterpret_cast<char*>(&height), sizeof(height));
+    inFile.read(reinterpret_cast<char*>(&bitCount), sizeof(bitCount));
+    
+    // 读取颜色表信息
+    int paletteSize = 0;
+    inFile.read(reinterpret_cast<char*>(&paletteSize), sizeof(paletteSize));
+    
+    // 创建颜色表数据缓存
+    std::vector<RGBQUAD> palette;
+    if (paletteSize > 0) {
+        palette.resize(paletteSize);
+        for (int i = 0; i < paletteSize; i++) {
+            inFile.read(reinterpret_cast<char*>(&palette[i]), sizeof(RGBQUAD));
+        }
     }
 
     // 验证图像参数
@@ -3900,11 +3925,20 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     // 设置颜色表 (如果需要)
     if (bitCount <= 8) {
         pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
-        for (int i = 0; i < (1 << bitCount); i++) {
-            pQUAD[i].rgbBlue = i;
-            pQUAD[i].rgbGreen = i;
-            pQUAD[i].rgbRed = i;
-            pQUAD[i].rgbReserved = 0;
+        
+        if (paletteSize > 0) {
+            // 使用保存的颜色表
+            for (int i = 0; i < paletteSize && i < (1 << bitCount); i++) {
+                pQUAD[i] = palette[i];
+            }
+        } else {
+            // 如果没有保存颜色表，创建默认灰度表
+            for (int i = 0; i < (1 << bitCount); i++) {
+                pQUAD[i].rgbBlue = i;
+                pQUAD[i].rgbGreen = i;
+                pQUAD[i].rgbRed = i;
+                pQUAD[i].rgbReserved = 0;
+            }
         }
     }
 
