@@ -3310,6 +3310,10 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     ofs.write((char*)&nWidth, sizeof(nWidth));
     ofs.write((char*)&nHeight, sizeof(nHeight));
     ofs.write((char*)&nBitCount, sizeof(nBitCount));
+
+    int clrUsed = (pBIH && pBIH->biClrUsed > 0) ? pBIH->biClrUsed : (1 << nBitCount);
+    ofs.write((char*)&clrUsed, sizeof(clrUsed));
+
     int tableSize = (int)codeTable.size();
     ofs.write((char*)&tableSize, sizeof(tableSize));
 
@@ -3360,12 +3364,15 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
 
     //写调色盘数据
     if (nBitCount <= 8 && pQUAD) {
-        ofs.write((char*)pQUAD, (1 << nBitCount) * sizeof(RGBQUAD));
-        // 保存顺序标记
-        BYTE gray0 = 0.299 * pQUAD[0].rgbRed + 0.587 * pQUAD[0].rgbGreen + 0.114 * pQUAD[0].rgbBlue;
-        BYTE gray255 = 0.299 * pQUAD[255].rgbRed + 0.587 * pQUAD[255].rgbGreen + 0.114 * pQUAD[255].rgbBlue;
-        BYTE paletteOrder = (gray0 < gray255) ? 0 : 1; // 0:黑到白, 1:白到黑
-        ofs.write((char*)&paletteOrder, 1);
+        // 写入实际使用的调色板大小（以字节为单位）
+        int paletteSize = clrUsed * sizeof(RGBQUAD);
+        ofs.write((char*)pQUAD, paletteSize);
+
+        //// 保存顺序标记
+        //BYTE gray0 = 0.299 * pQUAD[0].rgbRed + 0.587 * pQUAD[0].rgbGreen + 0.114 * pQUAD[0].rgbBlue;
+        //BYTE gray255 = 0.299 * pQUAD[clrUsed - 1].rgbRed + 0.587 * pQUAD[clrUsed - 1].rgbGreen + 0.114 * pQUAD[clrUsed - 1].rgbBlue;
+        //BYTE paletteOrder = (gray0 < gray255) ? 0 : 1;
+        //ofs.write((char*)&paletteOrder, 1);
     }
 
     ofs.close();
@@ -3383,10 +3390,11 @@ bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
     }
 
     // 2. 读取文件头
-    int width = 0, height = 0, bitCount = 0, tableSize = 0;
+    int width = 0, height = 0, bitCount = 0, tableSize = 0, clrUsed = 0;
     ifs.read((char*)&width, sizeof(width));
     ifs.read((char*)&height, sizeof(height));
     ifs.read((char*)&bitCount, sizeof(bitCount));
+    ifs.read((char*)&clrUsed, sizeof(clrUsed));
     ifs.read((char*)&tableSize, sizeof(tableSize));
     if (width <= 0 || height <= 0 || bitCount <= 0 || tableSize <= 0) {
         AfxMessageBox(_T("文件头的信息无效"));
@@ -3499,34 +3507,38 @@ bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
     pBIH->biSizeImage = rowSize * height;
     pBIH->biXPelsPerMeter = 0;
     pBIH->biYPelsPerMeter = 0;
-    pBIH->biClrUsed = (bitCount <= 8) ? (1 << bitCount) : 0;
+    pBIH->biClrUsed = 0;
     pBIH->biClrImportant = 0;
 
     // 填写调色板
     if (bitCount <= 8) {
         pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
-        ifs.read((char*)pQUAD, (1 << bitCount) * sizeof(RGBQUAD));
 
-        for (int i = 0; i < (1 << bitCount); ++i) {
-            pQUAD[i].rgbRed = pQUAD[i].rgbGreen = pQUAD[i].rgbBlue = i;
-            pQUAD[i].rgbReserved = 0;
-        }
+        // 读取实际使用的调色板大小（以字节为单位）
+        int paletteSize = clrUsed * sizeof(RGBQUAD);
+        ifs.read((char*)pQUAD, paletteSize);
+
+        // 设置 BMP 信息头中的 biClrUsed
+        pBIH->biClrUsed = clrUsed;
     }
     else {
         pQUAD = nullptr;
     }
 
-    if (bitCount == 8 && pQUAD) {
-        // 判断调色板顺序
-        BYTE paletteOrder = 0;
-        ifs.read((char*)&paletteOrder, 1);
-        // 如果原始是白到黑，现在是黑到白，则反转调色板
-        if (paletteOrder == 1) {
-            for (int i = 0; i < 128; ++i) {
-                std::swap(pQUAD[i], pQUAD[255 - i]);
-            }
-        }
-    }
+    ////  处理调色板顺序
+    //if (bitCount == 8 && pQUAD) {
+    //    BYTE paletteOrder = 0;
+    //    ifs.read((char*)&paletteOrder, 1);
+
+    //    // 使用 clrUsed 作为实际调色板大小
+    //    if (paletteOrder == 1) {
+    //        int half = clrUsed / 2;
+    //        for (int i = 0; i < half; ++i) {
+    //            std::swap(pQUAD[i], pQUAD[clrUsed - 1 - i]);
+    //        }
+    //    }
+    //}
+
     if (bitCount == 16) {
         // 读取格式标记
         BYTE formatFlag = 0;
