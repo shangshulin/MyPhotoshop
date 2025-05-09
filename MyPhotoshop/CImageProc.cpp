@@ -3278,9 +3278,9 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     }
 
     // 2. 构建霍夫曼树
-    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNode> pq;
+    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNode> pq;// 优先队列
     for (auto& kv : freq) {
-        pq.push(new HuffmanNode(kv.first, kv.second));
+        pq.push(new HuffmanNode(kv.first, kv.second));//kv.first为像素值，kv.second为频率
     }
     if (pq.empty()) {
         AfxMessageBox(_T("图像数据为空"));
@@ -3299,7 +3299,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     BuildHuffmanCodeTable(root, codeTable, path);
 
     // 4. 写文件
-    std::ofstream ofs(CW2A(savePath), std::ios::binary);
+    std::ofstream ofs(CW2A(savePath), std::ios::binary);// 二进制文件
     if (!ofs) {
         FreeHuffmanTree(root);
         AfxMessageBox(_T("无法打开保存文件"));
@@ -3351,6 +3351,13 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
         buf <<= (8 - cnt);
         ofs.write((char*)&buf, 1);
     }
+    if (nBitCount == 16) {
+        // 判断是否为565格式（需要从原始BMP文件获取这个信息）
+        // 保存格式信息（0表示555，1表示565）
+        BYTE formatFlag = m_bIs565Format ? 1 : 0;
+        ofs.write((char*)&formatFlag, 1);
+    }
+
     //写调色盘数据
     if (nBitCount <= 8 && pQUAD) {
         ofs.write((char*)pQUAD, (1 << nBitCount) * sizeof(RGBQUAD));
@@ -3520,7 +3527,26 @@ bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
             }
         }
     }
+    if (bitCount == 16) {
+        // 读取格式标记
+        BYTE formatFlag = 0;
+        ifs.read((char*)&formatFlag, 1);
+        bool is565Format = (formatFlag == 1);
 
+        if (is565Format) {
+            // 设置正确的BITMAPINFOHEADER结构，表明这是565格式
+            pBIH->biCompression = BI_BITFIELDS;
+
+            // 添加掩码信息
+            DWORD* masks = (DWORD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+            masks[0] = 0xF800; // R掩码
+            masks[1] = 0x07E0; // G掩码
+            masks[2] = 0x001F; // B掩码
+
+            // 更新文件头中的bfOffBits
+            pBFH->bfOffBits += 3 * sizeof(DWORD); // 增加三个掩码的大小
+        }
+    }
     // 填写像素数据
     pBits = pDib + pBFH->bfOffBits;
     memcpy(pBits, decodedData.data(), dataSize);
