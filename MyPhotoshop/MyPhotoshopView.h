@@ -103,6 +103,8 @@ public:
 	//图像编码
 	afx_msg void OnHuffmanEncode();
 	afx_msg void OnHuffmanDecode();
+	afx_msg void OnLZWEncode();
+	afx_msg void OnLZWDecode();
 public:
 	template <typename TExecute, typename TUndo>
 	void AddCommand(TExecute&& executeFunc, TUndo&& undoFunc)

@@ -16,6 +16,21 @@
 #include <queue>
 #include <map>
 #include <fstream>
+#include <unordered_map>
+
+// 为 std::vector<BYTE> 添加哈希函数
+namespace std {
+    template<>
+    struct hash<vector<BYTE>> {
+        size_t operator()(const vector<BYTE>& v) const {
+            size_t hash = v.size();
+            for (auto& i : v) {
+                hash ^= i + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            }
+            return hash;
+        }
+    };
+}
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -3524,5 +3539,507 @@ bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
     // 填写像素数据
     pBits = pDib + pBFH->bfOffBits;
     memcpy(pBits, decodedData.data(), dataSize);
+    return true;
+}
+
+// LZW编码
+bool CImageProc::LZWEncodeImage(const CString& savePath)
+{
+    if (!IsValid()) return false;
+
+    // 获取图像数据
+    int width = nWidth;
+    int height = nHeight;
+    int bitCount = nBitCount;
+    int bytesPerPixel = bitCount / 8;
+    int alignedWidth = GetAlignedWidthBytes();
+
+    // 创建输入数据流 - 按正确方式读取不同位深度的像素
+    std::vector<BYTE> inputData;
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            BYTE* pixel = GetPixelPtr(x, y);
+
+            // 根据位深度处理像素数据
+            switch (bitCount) {
+            case 1:
+            case 4:
+            case 8:
+                inputData.push_back(*pixel);
+                break;
+            case 16: {
+                // 16位图像 - 按WORD读取
+                WORD pixelValue = *((WORD*)pixel);
+                inputData.push_back(pixelValue & 0xFF);        // 低字节
+                inputData.push_back((pixelValue >> 8) & 0xFF); // 高字节
+                break;
+            }
+            case 24:
+            case 32:
+                // 24/32位图像 - 按通道读取
+                for (int c = 0; c < bytesPerPixel; c++) {
+                    inputData.push_back(pixel[c]);
+                }
+                break;
+            default:
+                AfxMessageBox(_T("Unsupported bit count for LZW encoding"));
+                return false;
+            }
+        }
+    }
+
+    // LZW编码
+    std::vector<int> outputCodes;
+    std::unordered_map<std::vector<BYTE>, int> dictionary;
+
+    // 初始化字典 (0-255为单字节值)
+    int nextCode = 256; // 0-255已经被单字节占用
+    for (int i = 0; i < 256; i++) {
+        std::vector<BYTE> singleByte = { static_cast<BYTE>(i) };
+        dictionary[singleByte] = i;
+    }
+
+    std::vector<BYTE> currentSequence;
+    for (size_t i = 0; i < inputData.size(); i++) {
+        std::vector<BYTE> newSequence = currentSequence;
+        newSequence.push_back(inputData[i]);
+
+        if (dictionary.find(newSequence) != dictionary.end()) {
+            // 序列在字典中，继续添加
+            currentSequence = newSequence;
+        }
+        else {
+            // 序列不在字典中，输出当前序列的编码，并添加新序列到字典
+            outputCodes.push_back(dictionary[currentSequence]);
+
+            // 如果字典未满，添加新序列
+            if (nextCode < 4096) { // 限制字典大小为12位
+                dictionary[newSequence] = nextCode++;
+            }
+
+            // 重置当前序列为当前字节
+            currentSequence = { inputData[i] };
+        }
+    }
+
+    // 输出最后一个序列的编码
+    if (!currentSequence.empty()) {
+        outputCodes.push_back(dictionary[currentSequence]);
+    }
+
+    // 写入文件
+    std::ofstream outFile(savePath, std::ios::binary);
+    if (!outFile) {
+        AfxMessageBox(_T("Failed to create output file!"));
+        return false;
+    }
+
+    // 写入图像信息头
+    outFile.write("LZW", 3); // 文件标识
+    outFile.write(reinterpret_cast<const char*>(&width), sizeof(width));
+    outFile.write(reinterpret_cast<const char*>(&height), sizeof(height));
+    outFile.write(reinterpret_cast<const char*>(&bitCount), sizeof(bitCount));
+
+    // 写入编码数据长度
+    int codeCount = static_cast<int>(outputCodes.size());
+    outFile.write(reinterpret_cast<const char*>(&codeCount), sizeof(codeCount));
+
+    // 写入编码数据 (12位编码，每3个码占用4字节) - 改进的打包方式
+    std::vector<BYTE> compressedData;
+    int bitBuffer = 0;
+    int bitCountBuffer = 0;
+
+    for (int code : outputCodes) {
+        // 将12位编码添加到缓冲区
+        bitBuffer |= (code << bitCountBuffer);
+        bitCountBuffer += 12;
+
+        // 当缓冲区中有足够的位时，写入字节
+        while (bitCountBuffer >= 8) {
+            compressedData.push_back(bitBuffer & 0xFF);
+            bitBuffer >>= 8;
+            bitCountBuffer -= 8;
+        }
+    }
+
+    // 写入剩余的位
+    if (bitCountBuffer > 0) {
+        compressedData.push_back(bitBuffer & 0xFF);
+    }
+
+    // 写入压缩后的数据
+    outFile.write(reinterpret_cast<const char*>(compressedData.data()), compressedData.size());
+    outFile.close();
+
+    // 计算压缩率 - 修正计算方式
+    double originalSize = inputData.size();
+    double compressedSize = compressedData.size();
+    double ratio = (1.0 - compressedSize / originalSize) * 100.0;
+
+    // 确保压缩率不显示为负值
+    if (ratio < 0) {
+        ratio = 0;
+        CString message;
+        message.Format(_T("LZW encoding completed, but compression increased size!\nOriginal size: %.2f KB\nCompressed size: %.2f KB"),
+            originalSize / 1024.0, compressedSize / 1024.0);
+        AfxMessageBox(message);
+    }
+    else {
+        CString message;
+        message.Format(_T("LZW encoding completed!\nOriginal size: %.2f KB\nCompressed size: %.2f KB\nCompression ratio: %.2f%%"),
+            originalSize / 1024.0, compressedSize / 1024.0, ratio);
+        AfxMessageBox(message);
+    }
+
+    return true;
+}
+
+// LZW解码
+bool CImageProc::LZWDecodeImage(const CString& openPath)
+{
+    // 打开文件
+    std::ifstream inFile(openPath, std::ios::binary);
+    if (!inFile) {
+        AfxMessageBox(_T("Failed to open input file!"));
+        return false;
+    }
+
+    // 读取并验证文件头
+    char header[4] = { 0 };
+    if (!inFile.read(header, 3) || inFile.gcount() != 3) {
+        AfxMessageBox(_T("File Read Error"));
+        inFile.close();
+        return false;
+    }
+
+    if (strcmp(header, "LZW") != 0) {
+        AfxMessageBox(_T("Not a valid LZW encoded file!"));
+        inFile.close();
+        return false;
+    }
+
+    // 读取图像信息
+    int width, height, bitCount;
+    if (!inFile.read(reinterpret_cast<char*>(&width), sizeof(width)) ||
+        !inFile.read(reinterpret_cast<char*>(&height), sizeof(height)) ||
+        !inFile.read(reinterpret_cast<char*>(&bitCount), sizeof(bitCount))) {
+        AfxMessageBox(_T("File format error!"));
+        inFile.close();
+        return false;
+    }
+
+    // 验证图像参数
+    if (width <= 0 || height <= 0 ||
+        (bitCount != 1 && bitCount != 4 && bitCount != 8 &&
+            bitCount != 16 && bitCount != 24 && bitCount != 32)) {
+        AfxMessageBox(_T("Invalid image parameters"));
+        inFile.close();
+        return false;
+    }
+
+    // 读取编码数据长度
+    int codeCount;
+    if (!inFile.read(reinterpret_cast<char*>(&codeCount), sizeof(codeCount)) || codeCount <= 0) {
+        AfxMessageBox(_T("Invalid encoded data length"));
+        inFile.close();
+        return false;
+    }
+
+    // 读取压缩数据
+    std::vector<BYTE> compressedData;
+    BYTE byte;
+    while (inFile.get(reinterpret_cast<char&>(byte))) {
+        compressedData.push_back(byte);
+    }
+    inFile.close();
+
+    // 从压缩数据中提取编码 - 改进的提取方式
+    std::vector<int> inputCodes;
+    inputCodes.reserve(codeCount);
+
+    int bitBuffer = 0;
+    int bitCountBuffer = 0;
+
+    for (BYTE b : compressedData) {
+        bitBuffer |= (b << bitCountBuffer);
+        bitCountBuffer += 8;
+
+        while (bitCountBuffer >= 12) {
+            int code = bitBuffer & 0xFFF;
+            inputCodes.push_back(code);
+
+            if (inputCodes.size() >= codeCount) {
+                break;
+            }
+
+            bitBuffer >>= 12;
+            bitCountBuffer -= 12;
+        }
+    }
+
+    if (inputCodes.empty()) {
+        AfxMessageBox(_T("Decoded data is null"));
+        return false;
+    }
+
+    // LZW解码
+    std::vector<BYTE> outputData;
+    outputData.reserve(width * height * (bitCount / 8 + 1)); // 确保足够空间
+    std::unordered_map<int, std::vector<BYTE>> dictionary;
+
+    // 初始化字典 (0-255为单字节值)
+    int nextCode = 256;
+    for (int i = 0; i < 256; i++) {
+        dictionary[i] = { static_cast<BYTE>(i) };
+    }
+
+    // 处理第一个编码
+    int oldCode = inputCodes[0];
+    if (oldCode >= 256) {
+        AfxMessageBox(_T("The first code is invalid"));
+        return false;
+    }
+
+    std::vector<BYTE> output = dictionary[oldCode];
+    outputData.insert(outputData.end(), output.begin(), output.end());
+    BYTE character = output[0];
+
+    // 处理剩余编码
+    for (size_t i = 1; i < inputCodes.size(); i++) {
+        int code = inputCodes[i];
+
+        std::vector<BYTE> sequence;
+        if (dictionary.find(code) != dictionary.end()) {
+            // 编码在字典中
+            sequence = dictionary[code];
+        }
+        else if (code == nextCode) {
+            // 特殊情况：编码不在字典中，但是可以推导
+            sequence = dictionary[oldCode];
+            sequence.push_back(character);
+        }
+        else {
+            // 无效编码
+            CString errMsg;
+            errMsg.Format(_T("Decoding error: Invalid code %d at position %d!"), code, i);
+            AfxMessageBox(errMsg);
+            return false;
+        }
+
+        // 输出解码序列
+        outputData.insert(outputData.end(), sequence.begin(), sequence.end());
+
+        // 更新字典
+        if (!sequence.empty()) {
+            character = sequence[0];
+            if (nextCode < 4096) { // 限制字典大小为12位
+                std::vector<BYTE> newEntry = dictionary[oldCode];
+                newEntry.push_back(character);
+                dictionary[nextCode++] = newEntry;
+            }
+        }
+
+        oldCode = code;
+    }
+
+    // 清理现有图像资源
+    CleanUp();
+
+    // 创建新的DIB
+    int bytesPerPixel = (bitCount + 7) / 8; // 向上取整
+    int alignedWidth = ((width * bitCount + 31) / 32) * 4; // 确保每行是4字节的倍数
+    int imageSize = alignedWidth * height;
+
+    // 计算DIB所需的总内存大小
+    DWORD dibSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    if (bitCount <= 8) {
+        dibSize += (1 << bitCount) * sizeof(RGBQUAD); // 颜色表
+    }
+    dibSize += imageSize;
+
+    // 分配内存
+    m_hDib = GlobalAlloc(GHND, dibSize);
+    if (!m_hDib) {
+        AfxMessageBox(_T("Memory allocation failed!"));
+        return false;
+    }
+
+    pDib = (BYTE*)GlobalLock(m_hDib);
+    if (!pDib) {
+        AfxMessageBox(_T("Memory lock failed!"));
+        GlobalFree(m_hDib);
+        m_hDib = NULL;
+        return false;
+    }
+
+    // 设置文件头
+    pBFH = (BITMAPFILEHEADER*)pDib;
+    pBFH->bfType = 0x4D42; // 'BM'
+    pBFH->bfSize = dibSize;
+    pBFH->bfReserved1 = 0;
+    pBFH->bfReserved2 = 0;
+    pBFH->bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    if (bitCount <= 8) {
+        pBFH->bfOffBits += (1 << bitCount) * sizeof(RGBQUAD);
+    }
+
+    // 设置信息头
+    pBIH = (BITMAPINFOHEADER*)(pDib + sizeof(BITMAPFILEHEADER));
+    pBIH->biSize = sizeof(BITMAPINFOHEADER);
+    pBIH->biWidth = width;
+    pBIH->biHeight = height;
+    pBIH->biPlanes = 1;
+    pBIH->biBitCount = bitCount;
+    pBIH->biCompression = BI_RGB;
+    pBIH->biSizeImage = imageSize;
+    pBIH->biXPelsPerMeter = 0;
+    pBIH->biYPelsPerMeter = 0;
+    pBIH->biClrUsed = 0;
+    pBIH->biClrImportant = 0;
+
+    // 设置颜色表 (如果需要)
+    if (bitCount <= 8) {
+        pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        for (int i = 0; i < (1 << bitCount); i++) {
+            pQUAD[i].rgbBlue = i;
+            pQUAD[i].rgbGreen = i;
+            pQUAD[i].rgbRed = i;
+            pQUAD[i].rgbReserved = 0;
+        }
+    }
+
+    // 设置图像数据
+    pBits = pDib + pBFH->bfOffBits;
+
+    // 清空图像数据区域
+    memset(pBits, 0, imageSize);
+
+    // 填充图像数据 - 修正像素填充方式
+    size_t dataIndex = 0;
+    
+    // 计算每行实际需要的字节数（不考虑对齐）
+    int rowBytes = (width * bitCount + 7) / 8;
+    // 计算每行需要填充的字节数
+    int paddingBytes = alignedWidth - rowBytes;
+
+    for (int y = 0; y < height; y++) {
+        // 获取当前行的起始位置 - BMP图像是从下到上存储的
+        BYTE* rowStart = pBits + (height - 1 - y) * alignedWidth;
+        
+        // 处理每一行的像素数据
+        for (int x = 0; x < width && dataIndex < outputData.size(); ) {
+            switch (bitCount) {
+            case 1: {
+                // 1位图像 - 8个像素占1个字节
+                BYTE pixelByte = 0;
+                for (int bit = 7; bit >= 0 && x < width; bit--, x++) {
+                    if (dataIndex < outputData.size()) {
+                        // 如果像素值大于0，则设置对应位
+                        if (outputData[dataIndex++] > 0) {
+                            pixelByte |= (1 << bit);
+                        }
+                    }
+                }
+                *rowStart++ = pixelByte;
+                break;
+            }
+            case 4: {
+                // 4位图像 - 2个像素占1个字节
+                BYTE pixelByte = 0;
+                for (int nibble = 1; nibble >= 0 && x < width; nibble--, x++) {
+                    if (dataIndex < outputData.size()) {
+                        BYTE pixelValue = outputData[dataIndex++] & 0x0F; // 确保只取低4位
+                        pixelByte |= (pixelValue << (nibble * 4));
+                    }
+                }
+                *rowStart++ = pixelByte;
+                break;
+            }
+            case 8:
+                // 8位图像 - 1个像素占1个字节
+                if (dataIndex < outputData.size()) {
+                    *rowStart++ = outputData[dataIndex++];
+                    x++;
+                }
+                break;
+            case 16: {
+                // 16位图像 - 1个像素占2个字节
+                if (dataIndex + 1 < outputData.size()) {
+                    // 注意字节顺序：低字节在前，高字节在后
+                    *rowStart++ = outputData[dataIndex++]; // 低字节
+                    *rowStart++ = outputData[dataIndex++]; // 高字节
+                    x++;
+                }
+                else if (dataIndex < outputData.size()) {
+                    // 如果只剩一个字节，填充低字节，高字节置0
+                    *rowStart++ = outputData[dataIndex++];
+                    *rowStart++ = 0;
+                    x++;
+                }
+                break;
+            }
+            case 24: {
+                // 24位图像 - 1个像素占3个字节 (BGR顺序)
+                if (dataIndex + 2 < outputData.size()) {
+                    // 确保BGR顺序正确
+                    *rowStart++ = outputData[dataIndex++]; // B
+                    *rowStart++ = outputData[dataIndex++]; // G
+                    *rowStart++ = outputData[dataIndex++]; // R
+                    x++;
+                }
+                else {
+                    // 数据不足，填充剩余字节
+                    for (int i = 0; i < 3 && dataIndex < outputData.size(); i++) {
+                        *rowStart++ = outputData[dataIndex++];
+                    }
+                    // 如果还有未填充的字节，填0
+                    while (rowStart < pBits + (height - 1 - y) * alignedWidth + (x + 1) * 3) {
+                        *rowStart++ = 0;
+                    }
+                    x++;
+                }
+                break;
+            }
+            case 32: {
+                // 32位图像 - 1个像素占4个字节 (BGRA顺序)
+                if (dataIndex + 3 < outputData.size()) {
+                    // 确保BGRA顺序正确
+                    *rowStart++ = outputData[dataIndex++]; // B
+                    *rowStart++ = outputData[dataIndex++]; // G
+                    *rowStart++ = outputData[dataIndex++]; // R
+                    *rowStart++ = outputData[dataIndex++]; // A
+                    x++;
+                }
+                else {
+                    // 数据不足，填充剩余字节
+                    for (int i = 0; i < 4 && dataIndex < outputData.size(); i++) {
+                        *rowStart++ = outputData[dataIndex++];
+                    }
+                    // 如果还有未填充的字节，填0
+                    while (rowStart < pBits + (height - 1 - y) * alignedWidth + (x + 1) * 4) {
+                        *rowStart++ = 0;
+                    }
+                    x++;
+                }
+                break;
+            }
+            }
+        }
+        
+        // 添加行填充字节（确保每行是4字节的倍数）
+        for (int p = 0; p < paddingBytes; p++) {
+            *rowStart++ = 0;
+        }
+    }
+
+    // 更新图像参数
+    nWidth = width;
+    nHeight = height;
+    nBitCount = bitCount;
+
+    // 重置FFT状态
+    ResetFFTState();
+
+    AfxMessageBox(_T("LZW decoding complete!"));
     return true;
 }

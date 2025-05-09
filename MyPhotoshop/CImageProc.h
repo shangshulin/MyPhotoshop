@@ -76,6 +76,10 @@ public:
     // 图像编码与解码
     bool HuffmanEncodeImage(const CString& savePath);
     bool HuffmanDecodeImage(const CString& openPath);
+    
+    // LZW编码与解码
+    bool LZWEncodeImage(const CString& savePath);
+    bool LZWDecodeImage(const CString& openPath);
 
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }

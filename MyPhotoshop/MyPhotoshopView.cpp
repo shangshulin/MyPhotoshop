@@ -19,6 +19,10 @@
 #include <fftw3.h>
 #include "CFreqPassFilterDlg.h"
 #include "CSpectrumDlg.h"
+#include "NoiseRatioDialog.h"
+#include "ImpulseNoiseDialog.h"
+#include "GaussianNoiseDialog.h"
+#include "GaussianWhiteNoiseDialog.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -78,6 +82,8 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     // 图像编码
     ON_COMMAND(ID_HUFFMAN_ENCODE, &CMyPhotoshopView::OnHuffmanEncode)
     ON_COMMAND(ID_HUFFMAN_DECODE, &CMyPhotoshopView::OnHuffmanDecode)
+    ON_COMMAND(ID_LZW_ENCODE, &CMyPhotoshopView::OnLZWEncode)
+    ON_COMMAND(ID_LZW_DECODE, &CMyPhotoshopView::OnLZWDecode)
 
 END_MESSAGE_MAP()
 
@@ -1301,6 +1307,83 @@ void CMyPhotoshopView::OnHuffmanDecode()
         {
             AfxMessageBox(_T("解码成功！"));
             pDoc->UpdateAllViews(nullptr); // 刷新显示
+        }
+    }
+}
+
+// LZW编码
+void CMyPhotoshopView::OnLZWEncode()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    ASSERT_VALID(pDoc);
+    if (!pDoc)
+        return;
+
+    if (!pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开一个图像！"));
+        return;
+    }
+
+    // 创建保存文件对话框
+    CFileDialog dlg(FALSE, _T("lzw"), _T("output.lzw"),
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+        _T("LZW编码文件 (*.lzw)|*.lzw|所有文件 (*.*)|*.*||"), this);
+
+    if (dlg.DoModal() == IDOK) {
+        CString savePath = dlg.GetPathName();
+        
+        // 保存当前状态用于撤销
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+        
+        // 执行LZW编码
+        AddCommand(
+            [pDoc, savePath]() {
+                bool result = pDoc->pImage->LZWEncodeImage(savePath);
+                if (result) {
+                    AfxMessageBox(_T("LZW编码成功！"));
+                } else {
+                    AfxMessageBox(_T("LZW编码失败！"));
+                }
+                return result;
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+}
+
+// LZW解码
+void CMyPhotoshopView::OnLZWDecode()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    ASSERT_VALID(pDoc);
+    if (!pDoc)
+        return;
+
+    // 不再检查是否有有效图像
+    
+    // 创建打开文件对话框
+    CFileDialog dlg(TRUE, _T("lzw"), NULL,
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+        _T("LZW encoded files (*.lzw)|*.lzw|All files (*.*)|*.*||"), this);
+
+    if (dlg.DoModal() == IDOK) {
+        CString openPath = dlg.GetPathName();
+        
+        // 执行LZW解码
+        bool result = pDoc->pImage->LZWDecodeImage(openPath);
+        if (result) {
+            // 刷新视图
+            Invalidate();
+            
+            // 重置滚动条和缩放比例
+            m_dZoomRatio = 1.0;
+            m_ptScrollPos = CPoint(0, 0);
+            UpdateScrollBars();
         }
     }
 }

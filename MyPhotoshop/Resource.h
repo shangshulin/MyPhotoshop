@@ -118,13 +118,19 @@
 #define ID_HUF                          32832
 #define ID_HUFFMAN_ENCODE               32833
 #define ID_HUFFMAN_DECODE               32834
+#define ID_32835                        32835
+#define ID_LZW32836                     32836
+#define ID_LZW32837                     32837
+// 添加LZW编码和解码的菜单项ID
+#define ID_LZW_ENCODE                   32790
+#define ID_LZW_DECODE                   32791
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        330
-#define _APS_NEXT_COMMAND_VALUE         32835
+#define _APS_NEXT_COMMAND_VALUE         32840
 #define _APS_NEXT_CONTROL_VALUE         1039
 #define _APS_NEXT_SYMED_VALUE           320
 #endif
