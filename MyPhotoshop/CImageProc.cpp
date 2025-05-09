@@ -13,6 +13,9 @@
 #include <iostream>
 #include <utility>
 #include "CSpectrumDlg.h"
+#include <queue>
+#include <map>
+#include <fstream>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -3228,4 +3231,298 @@ void CImageProc::DisplayFullSpectrum(CDC* pDC, int xOffset, int yOffset,
     memDC.SelectObject(pOldBitmap);
     bitmap.DeleteObject();
     memDC.DeleteDC();
+}
+
+// 递归生成编码表
+void BuildHuffmanCodeTable(HuffmanNode* node, std::map<BYTE, std::vector<bool>>& table, std::vector<bool>& path) {
+    if (!node->left && !node->right) {
+        table[node->value] = path;
+        return;
+    }
+    if (node->left) {
+        path.push_back(false);
+        BuildHuffmanCodeTable(node->left, table, path);
+        path.pop_back();
+    }
+    if (node->right) {
+        path.push_back(true);
+        BuildHuffmanCodeTable(node->right, table, path);
+        path.pop_back();
+    }
+}
+
+// 释放霍夫曼树
+void FreeHuffmanTree(HuffmanNode* node) {
+    if (!node) return;
+    FreeHuffmanTree(node->left);
+    FreeHuffmanTree(node->right);
+    delete node;
+}
+
+// 霍夫曼编码主函数
+bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
+    if (!IsValid()) {
+        AfxMessageBox(_T("没有有效的图像可编码"));
+        return false;
+    }
+
+    // 计算像素数据大小
+    int bytesPerPixel = nBitCount / 8;
+    int dataSize = nWidth * nHeight * bytesPerPixel;
+    BYTE* data = pBits;
+
+    // 1. 统计频率
+    std::map<BYTE, int> freq;
+    for (int i = 0; i < dataSize; ++i) {
+        freq[data[i]]++;
+    }
+
+    // 2. 构建霍夫曼树
+    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNode> pq;
+    for (auto& kv : freq) {
+        pq.push(new HuffmanNode(kv.first, kv.second));
+    }
+    if (pq.empty()) {
+        AfxMessageBox(_T("图像数据为空"));
+        return false;
+    }
+    while (pq.size() > 1) {
+        HuffmanNode* l = pq.top(); pq.pop();
+        HuffmanNode* r = pq.top(); pq.pop();
+        pq.push(new HuffmanNode(l, r));
+    }
+    HuffmanNode* root = pq.top();
+
+    // 3. 生成编码表
+    std::map<BYTE, std::vector<bool>> codeTable;
+    std::vector<bool> path;
+    BuildHuffmanCodeTable(root, codeTable, path);
+
+    // 4. 写文件
+    std::ofstream ofs(CW2A(savePath), std::ios::binary);
+    if (!ofs) {
+        FreeHuffmanTree(root);
+        AfxMessageBox(_T("无法打开保存文件"));
+        return false;
+    }
+
+    // 写文件头（宽、高、位深、编码表大小）
+    ofs.write((char*)&nWidth, sizeof(nWidth));
+    ofs.write((char*)&nHeight, sizeof(nHeight));
+    ofs.write((char*)&nBitCount, sizeof(nBitCount));
+    int tableSize = (int)codeTable.size();
+    ofs.write((char*)&tableSize, sizeof(tableSize));
+
+    // 写编码表
+    for (auto& kv : codeTable) {
+        ofs.write((char*)&kv.first, 1); // 像素值
+        BYTE len = (BYTE)kv.second.size();
+        ofs.write((char*)&len, 1);      // 编码长度
+        BYTE buf = 0, cnt = 0;
+        for (bool b : kv.second) {
+            buf = (buf << 1) | b;
+            cnt++;
+            if (cnt == 8) {
+                ofs.write((char*)&buf, 1);
+                buf = 0;
+                cnt = 0;
+            }
+        }
+        if (cnt) {
+            buf <<= (8 - cnt);
+            ofs.write((char*)&buf, 1);
+        }
+    }
+
+    // 写编码数据
+    BYTE buf = 0, cnt = 0;
+    for (int i = 0; i < dataSize; ++i) {
+        for (bool b : codeTable[data[i]]) {
+            buf = (buf << 1) | b;
+            cnt++;
+            if (cnt == 8) {
+                ofs.write((char*)&buf, 1);
+                buf = 0;
+                cnt = 0;
+            }
+        }
+    }
+    if (cnt) {
+        buf <<= (8 - cnt);
+        ofs.write((char*)&buf, 1);
+    }
+    //写调色盘数据
+    if (nBitCount <= 8 && pQUAD) {
+        ofs.write((char*)pQUAD, (1 << nBitCount) * sizeof(RGBQUAD));
+        // 保存顺序标记
+        BYTE gray0 = 0.299 * pQUAD[0].rgbRed + 0.587 * pQUAD[0].rgbGreen + 0.114 * pQUAD[0].rgbBlue;
+        BYTE gray255 = 0.299 * pQUAD[255].rgbRed + 0.587 * pQUAD[255].rgbGreen + 0.114 * pQUAD[255].rgbBlue;
+        BYTE paletteOrder = (gray0 < gray255) ? 0 : 1; // 0:黑到白, 1:白到黑
+        ofs.write((char*)&paletteOrder, 1);
+    }
+
+    ofs.close();
+    FreeHuffmanTree(root);
+    return true;
+}
+
+//霍夫曼解码
+bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
+    // 1. 打开文件
+    std::ifstream ifs(CW2A(openPath), std::ios::binary);
+    if (!ifs) {
+        AfxMessageBox(_T("无法打开解码文件"));
+        return false;
+    }
+
+    // 2. 读取文件头
+    int width = 0, height = 0, bitCount = 0, tableSize = 0;
+    ifs.read((char*)&width, sizeof(width));
+    ifs.read((char*)&height, sizeof(height));
+    ifs.read((char*)&bitCount, sizeof(bitCount));
+    ifs.read((char*)&tableSize, sizeof(tableSize));
+    if (width <= 0 || height <= 0 || bitCount <= 0 || tableSize <= 0) {
+        AfxMessageBox(_T("文件头的信息无效"));
+        return false;
+    }
+
+    // 3. 读取编码表
+    struct CodeEntry {
+        BYTE value;
+        std::vector<bool> code;
+    };
+    std::vector<CodeEntry> codeEntries;
+    for (int i = 0; i < tableSize; ++i) {
+        BYTE val = 0, len = 0;
+        ifs.read((char*)&val, 1);
+        ifs.read((char*)&len, 1);
+        std::vector<bool> code;
+        int bitsRead = 0;
+        while (bitsRead < len) {
+            BYTE buf = 0;
+            ifs.read((char*)&buf, 1);
+            int remain = len - bitsRead;
+            int bits = min(8, remain);
+            for (int b = 7; b >= 8 - bits; --b) {
+                code.push_back((buf >> b) & 1);
+            }
+            bitsRead += bits;
+        }
+        codeEntries.push_back({ val, code });
+    }
+
+    // 4. 重建Huffman树
+    HuffmanNode* root = new HuffmanNode(0, 0);
+    for (const auto& entry : codeEntries) {
+        HuffmanNode* node = root;
+        for (size_t i = 0; i < entry.code.size(); ++i) {
+            if (entry.code[i]) {
+                if (!node->right) node->right = new HuffmanNode(0, 0);
+                node = node->right;
+            }
+            else {
+                if (!node->left) node->left = new HuffmanNode(0, 0);
+                node = node->left;
+            }
+        }
+        node->value = entry.value;
+    }
+
+    // 5. 读取编码数据并解码
+    int bytesPerPixel = bitCount / 8;
+    int dataSize = width * height * bytesPerPixel;
+    std::vector<BYTE> decodedData;
+    decodedData.reserve(dataSize);
+
+    HuffmanNode* node = root;
+    BYTE buf = 0;
+    int bitsLeft = 0;
+    while ((int)decodedData.size() < dataSize && ifs) {
+        if (bitsLeft == 0) {
+            ifs.read((char*)&buf, 1);
+            bitsLeft = 8;
+        }
+        bool bit = (buf & (1 << (bitsLeft - 1))) != 0;
+        bitsLeft--;
+        node = bit ? node->right : node->left;
+        if (node && !node->left && !node->right) {
+            decodedData.push_back(node->value);
+            node = root;
+        }
+    }
+    FreeHuffmanTree(root);
+
+    if ((int)decodedData.size() != dataSize) {
+        AfxMessageBox(_T("解码数据长度不符"));
+        return false;
+    }
+
+    // 6. 构建BMP内存结构
+    CleanUp();
+    int rowSize = ((width * bitCount + 31) / 32) * 4;
+    DWORD dibSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) +
+        ((bitCount <= 8) ? (1 << bitCount) * sizeof(RGBQUAD) : 0) + rowSize * height;
+    m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, dibSize);
+    if (!m_hDib) {
+        AfxMessageBox(_T("内存分配失败"));
+        return false;
+    }
+    pDib = (BYTE*)::GlobalLock(m_hDib);
+    pBFH = (BITMAPFILEHEADER*)pDib;
+    pBIH = (BITMAPINFOHEADER*)(pDib + sizeof(BITMAPFILEHEADER));
+    nWidth = width;
+    nHeight = height;
+    nBitCount = bitCount;
+
+    // 填写文件头
+    pBFH->bfType = 0x4D42;
+    pBFH->bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) +
+        ((bitCount <= 8) ? (1 << bitCount) * sizeof(RGBQUAD) : 0);
+    pBFH->bfSize = dibSize;
+    pBFH->bfReserved1 = 0;
+    pBFH->bfReserved2 = 0;
+
+    // 填写信息头
+    pBIH->biSize = sizeof(BITMAPINFOHEADER);
+    pBIH->biWidth = width;
+    pBIH->biHeight = height;
+    pBIH->biPlanes = 1;
+    pBIH->biBitCount = bitCount;
+    pBIH->biCompression = 0;
+    pBIH->biSizeImage = rowSize * height;
+    pBIH->biXPelsPerMeter = 0;
+    pBIH->biYPelsPerMeter = 0;
+    pBIH->biClrUsed = (bitCount <= 8) ? (1 << bitCount) : 0;
+    pBIH->biClrImportant = 0;
+
+    // 填写调色板
+    if (bitCount <= 8) {
+        pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        ifs.read((char*)pQUAD, (1 << bitCount) * sizeof(RGBQUAD));
+
+        for (int i = 0; i < (1 << bitCount); ++i) {
+            pQUAD[i].rgbRed = pQUAD[i].rgbGreen = pQUAD[i].rgbBlue = i;
+            pQUAD[i].rgbReserved = 0;
+        }
+    }
+    else {
+        pQUAD = nullptr;
+    }
+
+    if (bitCount == 8 && pQUAD) {
+        // 判断调色板顺序
+        BYTE paletteOrder = 0;
+        ifs.read((char*)&paletteOrder, 1);
+        // 如果原始是白到黑，现在是黑到白，则反转调色板
+        if (paletteOrder == 1) {
+            for (int i = 0; i < 128; ++i) {
+                std::swap(pQUAD[i], pQUAD[255 - i]);
+            }
+        }
+    }
+
+    // 填写像素数据
+    pBits = pDib + pBFH->bfOffBits;
+    memcpy(pBits, decodedData.data(), dataSize);
+    return true;
 }

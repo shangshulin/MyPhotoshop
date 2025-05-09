@@ -75,6 +75,9 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     //FFT与IFFT
     ON_COMMAND(ID_FREQ_FFT, &CMyPhotoshopView::OnFreqFFT)
     ON_COMMAND(ID_FREQ_IFFT, &CMyPhotoshopView::OnFreqIFFT)
+    // 图像编码
+    ON_COMMAND(ID_HUFFMAN_ENCODE, &CMyPhotoshopView::OnHuffmanEncode)
+    ON_COMMAND(ID_HUFFMAN_DECODE, &CMyPhotoshopView::OnHuffmanDecode)
 
 END_MESSAGE_MAP()
 
@@ -1249,5 +1252,55 @@ void CMyPhotoshopView::OnHomomorphicFiltering() {
     }
     catch (...) {
         AfxMessageBox(_T("同态滤波操作失败"));
+    }
+}
+
+void CMyPhotoshopView::OnHuffmanEncode()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像"));
+        return;
+    }
+    // 弹出“另存为”对话框
+    CFileDialog fileDlg(FALSE, _T("huff"), NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+        _T("Huffman编码文件(*.huff)|*.huff|所有文件(*.*)|*.*||"), this);
+    if (fileDlg.DoModal() == IDOK)
+    {
+        CString savePath = fileDlg.GetPathName();
+        // 假设m_imageProc是你的CImageProc对象
+        if (!pDoc->pImage->HuffmanEncodeImage(savePath))
+        {
+            AfxMessageBox(_T("保存失败！"));
+        }
+        else
+        {
+            AfxMessageBox(_T("保存成功！"));
+        }
+    }
+}
+
+void CMyPhotoshopView::OnHuffmanDecode()
+{
+    CFileDialog fileDlg(TRUE, _T("huff"), NULL, OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
+        _T("Huffman编码文件(*.huff)|*.huff|所有文件(*.*)|*.*||"), this);
+    if (fileDlg.DoModal() == IDOK)
+    {
+        CString filePath = fileDlg.GetPathName();
+        CMyPhotoshopDoc* pDoc = GetDocument();
+        if (!pDoc || !pDoc->pImage)
+        {
+            AfxMessageBox(_T("文档或图像对象无效"));
+            return;
+        }
+        if (!pDoc->pImage->HuffmanDecodeImage(filePath))
+        {
+            AfxMessageBox(_T("解码失败或文件格式错误！"));
+        }
+        else
+        {
+            AfxMessageBox(_T("解码成功！"));
+            pDoc->UpdateAllViews(nullptr); // 刷新显示
+        }
     }
 }
