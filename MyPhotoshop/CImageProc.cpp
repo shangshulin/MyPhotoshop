@@ -347,9 +347,9 @@ void CImageProc::SetColor(BYTE* pixel, int x, int y, BYTE r, BYTE g, BYTE b)
     {
     case 16:
         if (m_bIs565Format)
-            *((WORD*)pixel) = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+            *((WORD*)pixel) = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3); // 565格式：5位R, 6位G, 5位B
         else
-            *((WORD*)pixel) = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+            *((WORD*)pixel) = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3); // 555格式：5位R, 5位G, 5位B
         break;
     case 24:
         pixel[0] = b;
@@ -3639,7 +3639,11 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     outFile.write(reinterpret_cast<const char*>(&nWidth), sizeof(nWidth));
     outFile.write(reinterpret_cast<const char*>(&nHeight), sizeof(nHeight));
     outFile.write(reinterpret_cast<const char*>(&nBitCount), sizeof(nBitCount));
-    
+    // 保存16位图像格式标志
+    if (nBitCount == 16) {
+        bool is565 = m_bIs565Format;
+        outFile.write(reinterpret_cast<const char*>(&is565), sizeof(is565));
+    }
     // 如果是8位或更低位深度的图像，保存颜色表信息
     if (nBitCount <= 8 && pQUAD != NULL) {
         // 写入颜色表大小
@@ -3739,7 +3743,11 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     inFile.read(reinterpret_cast<char*>(&width), sizeof(width));
     inFile.read(reinterpret_cast<char*>(&height), sizeof(height));
     inFile.read(reinterpret_cast<char*>(&bitCount), sizeof(bitCount));
-    
+    if (bitCount == 16) {
+        bool is565;
+        inFile.read(reinterpret_cast<char*>(&is565), sizeof(is565));
+        m_bIs565Format = is565;
+    }
     // 读取颜色表信息
     int paletteSize = 0;
     inFile.read(reinterpret_cast<char*>(&paletteSize), sizeof(paletteSize));
