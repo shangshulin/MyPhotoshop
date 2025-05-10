@@ -3641,8 +3641,8 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     outFile.write(reinterpret_cast<const char*>(&nBitCount), sizeof(nBitCount));
     // 保存16位图像格式标志
     if (nBitCount == 16) {
-        bool is565 = m_bIs565Format;
-        outFile.write(reinterpret_cast<const char*>(&is565), sizeof(is565));
+        BYTE formatFlag = m_bIs565Format ? 1 : 0;
+        outFile.write(reinterpret_cast<const char*>(&formatFlag), sizeof(formatFlag));
     }
     // 如果是8位或更低位深度的图像，保存颜色表信息
     if (nBitCount <= 8 && pQUAD != NULL) {
@@ -3743,11 +3743,16 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     inFile.read(reinterpret_cast<char*>(&width), sizeof(width));
     inFile.read(reinterpret_cast<char*>(&height), sizeof(height));
     inFile.read(reinterpret_cast<char*>(&bitCount), sizeof(bitCount));
+    
+    // 读取16位图像格式标志
+    bool is565Format = false;
     if (bitCount == 16) {
-        bool is565;
-        inFile.read(reinterpret_cast<char*>(&is565), sizeof(is565));
-        m_bIs565Format = is565;
+        BYTE formatFlag;
+        inFile.read(reinterpret_cast<char*>(&formatFlag), sizeof(formatFlag));
+        is565Format = (formatFlag == 1);
+        m_bIs565Format = is565Format;
     }
+    
     // 读取颜色表信息
     int paletteSize = 0;
     inFile.read(reinterpret_cast<char*>(&paletteSize), sizeof(paletteSize));
@@ -3912,6 +3917,12 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     pBFH->bfReserved1 = 0;
     pBFH->bfReserved2 = 0;
     pBFH->bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    
+    // 对于16位565格式图像，需要添加位掩码
+    if (bitCount == 16 && is565Format) {
+        pBFH->bfOffBits += 3 * sizeof(DWORD); // 增加三个掩码的大小
+    }
+    
     if (bitCount <= 8) {
         pBFH->bfOffBits += (1 << bitCount) * sizeof(RGBQUAD);
     }
@@ -3923,7 +3934,20 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     pBIH->biHeight = height;
     pBIH->biPlanes = 1;
     pBIH->biBitCount = bitCount;
-    pBIH->biCompression = BI_RGB;
+    
+    // 对于16位565格式图像，设置正确的压缩类型
+    if (bitCount == 16 && is565Format) {
+        pBIH->biCompression = BI_BITFIELDS;
+        
+        // 添加掩码信息
+        DWORD* masks = (DWORD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        masks[0] = 0xF800; // R掩码
+        masks[1] = 0x07E0; // G掩码
+        masks[2] = 0x001F; // B掩码
+    } else {
+        pBIH->biCompression = BI_RGB;
+    }
+    
     pBIH->biSizeImage = imageSize;
     pBIH->biXPelsPerMeter = 0;
     pBIH->biYPelsPerMeter = 0;
