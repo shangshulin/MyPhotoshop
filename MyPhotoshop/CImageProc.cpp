@@ -4200,14 +4200,14 @@ void CImageProc::IDCT2D(double block[8][8]) {
 void CImageProc::Quantize(double block[8][8]) {
     // 使用更保守的量化表
     static const int quantTable[8][8] = {
-        {4, 3, 3, 4, 6, 10, 13, 16},
-        {3, 3, 4, 5, 7, 15, 15, 14},
-        {4, 4, 4, 6, 10, 15, 18, 14},
-        {4, 5, 6, 8, 13, 22, 20, 16},
-        {5, 6, 10, 14, 17, 28, 26, 20},
-        {6, 9, 14, 16, 21, 26, 29, 23},
-        {13, 16, 20, 22, 26, 31, 30, 26},
-        {18, 23, 24, 25, 28, 25, 26, 25}
+        {2, 2, 2, 2, 3, 4, 5, 6},
+        {2, 2, 2, 2, 3, 4, 5, 6},
+        {2, 2, 2, 3, 4, 5, 7, 7},
+        {2, 2, 3, 4, 5, 7, 8, 8},
+        {3, 3, 4, 5, 7, 9, 10, 10},
+        {4, 4, 5, 7, 9, 11, 12, 12},
+        {5, 5, 7, 8, 10, 12, 14, 14},
+        {6, 6, 7, 8, 10, 12, 14, 16}
     };
 
     for (int i = 0; i < 8; i++) {
@@ -4221,14 +4221,14 @@ void CImageProc::Quantize(double block[8][8]) {
 void CImageProc::Dequantize(double block[8][8]) {
     // 使用与量化相同的表
     static const int quantTable[8][8] = {
-        {4, 3, 3, 4, 6, 10, 13, 16},
-        {3, 3, 4, 5, 7, 15, 15, 14},
-        {4, 4, 4, 6, 10, 15, 18, 14},
-        {4, 5, 6, 8, 13, 22, 20, 16},
-        {5, 6, 10, 14, 17, 28, 26, 20},
-        {6, 9, 14, 16, 21, 26, 29, 23},
-        {13, 16, 20, 22, 26, 31, 30, 26},
-        {18, 23, 24, 25, 28, 25, 26, 25}
+        {2, 2, 2, 2, 3, 4, 5, 6},
+        {2, 2, 2, 2, 3, 4, 5, 6},
+        {2, 2, 2, 3, 4, 5, 7, 7},
+        {2, 2, 3, 4, 5, 7, 8, 8},
+        {3, 3, 4, 5, 7, 9, 10, 10},
+        {4, 4, 5, 7, 9, 11, 12, 12},
+        {5, 5, 7, 8, 10, 12, 14, 14},
+        {6, 6, 7, 8, 10, 12, 14, 16}
     };
 
     for (int i = 0; i < 8; i++) {
@@ -4262,7 +4262,8 @@ bool CImageProc::CosineEncodeImage(const CString& savePath) {
             fwrite(pQUAD, sizeof(RGBQUAD), 256, fp);
         }
 
-        // 按8x8块处理图像
+        // 创建重叠块处理，减少块边界效应
+        // 按8x8块处理图像，但使用重叠区域
         for (int y = 0; y < nHeight; y += 8) {
             for (int x = 0; x < nWidth; x += 8) {
                 // 提取8x8块
@@ -4270,11 +4271,10 @@ bool CImageProc::CosineEncodeImage(const CString& savePath) {
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         if (y + i < nHeight && x + j < nWidth) {
+                            // 直接获取灰度值（索引值）
                             BYTE* pixel = GetPixelPtr(x + j, y + i);
-                            // 获取灰度值并中心化
-                            BYTE r, g, b;
-                            GetColor(x + j, y + i, r, g, b);
-                            block[i][j] = static_cast<double>(r) - 128.0;
+                            // 对于8位灰度图像，直接使用像素值作为灰度值
+                            block[i][j] = static_cast<double>(*pixel) - 128.0;
                         }
                     }
                 }
@@ -4441,8 +4441,15 @@ bool CImageProc::CosineDecodeImage(const CString& openPath) {
     // 初始化像素数据为0
     ZeroMemory(pBits, imageSize);
 
-    // 处理灰度图像或彩色图像
+    // 创建临时缓冲区用于平滑处理
+    std::vector<std::vector<double>> tempBuffer;
+    std::vector<std::vector<int>> blockCount;
+    
     if (nBitCount == 8) {
+        // 初始化临时缓冲区和计数器
+        tempBuffer.resize(nHeight, std::vector<double>(nWidth, 0.0));
+        blockCount.resize(nHeight, std::vector<int>(nWidth, 0));
+        
         // 灰度图像处理
         for (int y = 0; y < nHeight; y += 8) {
             for (int x = 0; x < nWidth; x += 8) {
@@ -4467,25 +4474,42 @@ bool CImageProc::CosineDecodeImage(const CString& openPath) {
                 // 应用IDCT变换
                 IDCT2D(block);
                 
-                // 写回像素数据
+                // 将结果累加到临时缓冲区
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         if (y + i < nHeight && x + j < nWidth) {
-                            // 反中心化并限制在0-255范围内
-                            int value = static_cast<int>(round(block[i][j] + 128.0));
-                            value = max(0, min(255, value));
-                            
-                            // 设置像素值
-                            BYTE* pixel = GetPixelPtr(x + j, y + i);
-                            *pixel = static_cast<BYTE>(value);
+                            // 反中心化
+                            double value = block[i][j] + 128.0;
+                            tempBuffer[y + i][x + j] += value;
+                            blockCount[y + i][x + j]++;
                         }
                     }
+                }
+            }
+        }
+        
+        // 计算平均值并写入像素数据
+        for (int y = 0; y < nHeight; y++) {
+            for (int x = 0; x < nWidth; x++) {
+                if (blockCount[y][x] > 0) {
+                    double avgValue = tempBuffer[y][x] / blockCount[y][x];
+                    int value = static_cast<int>(round(avgValue));
+                    value = max(0, min(255, value));
+                    
+                    // 设置像素值
+                    BYTE* pixel = GetPixelPtr(x, y);
+                    *pixel = static_cast<BYTE>(value);
                 }
             }
         }
     }
     else if (nBitCount == 24 || nBitCount == 32) {
         // 彩色图像处理
+        std::vector<std::vector<double>> tempBufferR(nHeight, std::vector<double>(nWidth, 0.0));
+        std::vector<std::vector<double>> tempBufferG(nHeight, std::vector<double>(nWidth, 0.0));
+        std::vector<std::vector<double>> tempBufferB(nHeight, std::vector<double>(nWidth, 0.0));
+        std::vector<std::vector<int>> blockCount(nHeight, std::vector<int>(nWidth, 0));
+        
         for (int y = 0; y < nHeight; y += 8) {
             for (int x = 0; x < nWidth; x += 8) {
                 // 读取量化后的DCT系数
@@ -4520,24 +4544,36 @@ bool CImageProc::CosineDecodeImage(const CString& openPath) {
                 IDCT2D(blockG);
                 IDCT2D(blockB);
                 
-                // 写回像素数据
+                // 将结果累加到临时缓冲区
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         if (y + i < nHeight && x + j < nWidth) {
-                            // 反中心化并限制在0-255范围内
-                            int r = static_cast<int>(round(blockR[i][j] + 128.0));
-                            int g = static_cast<int>(round(blockG[i][j] + 128.0));
-                            int b = static_cast<int>(round(blockB[i][j] + 128.0));
-                            
-                            r = max(0, min(255, r));
-                            g = max(0, min(255, g));
-                            b = max(0, min(255, b));
-                            
-                            // 设置像素颜色
-                            BYTE* pixel = GetPixelPtr(x + j, y + i);
-                            SetColor(pixel, x + j, y + i, r, g, b);
+                            // 反中心化
+                            tempBufferR[y + i][x + j] += blockR[i][j] + 128.0;
+                            tempBufferG[y + i][x + j] += blockG[i][j] + 128.0;
+                            tempBufferB[y + i][x + j] += blockB[i][j] + 128.0;
+                            blockCount[y + i][x + j]++;
                         }
                     }
+                }
+            }
+        }
+        
+        // 计算平均值并写入像素数据
+        for (int y = 0; y < nHeight; y++) {
+            for (int x = 0; x < nWidth; x++) {
+                if (blockCount[y][x] > 0) {
+                    int r = static_cast<int>(round(tempBufferR[y][x] / blockCount[y][x]));
+                    int g = static_cast<int>(round(tempBufferG[y][x] / blockCount[y][x]));
+                    int b = static_cast<int>(round(tempBufferB[y][x] / blockCount[y][x]));
+                    
+                    r = max(0, min(255, r));
+                    g = max(0, min(255, g));
+                    b = max(0, min(255, b));
+                    
+                    // 设置像素颜色
+                    BYTE* pixel = GetPixelPtr(x, y);
+                    SetColor(pixel, x, y, r, g, b);
                 }
             }
         }
