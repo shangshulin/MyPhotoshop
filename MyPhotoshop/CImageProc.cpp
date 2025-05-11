@@ -4251,7 +4251,16 @@ bool CImageProc::CosineEncodeImage(const CString& savePath) {
     fwrite(&nWidth, sizeof(int), 1, fp);
     fwrite(&nHeight, sizeof(int), 1, fp);
     fwrite(&nBitCount, sizeof(int), 1, fp);
+    // 保存16位图像格式标志
+    if (nBitCount == 16) {
+        BYTE formatFlag = m_bIs565Format ? 1 : 0;
+        fwrite(&formatFlag, sizeof(BYTE), 1, fp);
+    }
 
+    // 如果是8位图像，保存调色板
+    if (nBitCount == 8 && pQUAD) {
+        fwrite(pQUAD, sizeof(RGBQUAD), 256, fp);
+    }
     // 处理灰度图像或彩色图像
     if (nBitCount == 8) {
         // 灰度图像处理
@@ -4295,7 +4304,60 @@ bool CImageProc::CosineEncodeImage(const CString& savePath) {
             }
         }
     }
-    else if (nBitCount == 24 || nBitCount == 32) {
+    else if (nBitCount == 16) {
+        // 分块处理图像
+        for (int y = 0; y < nHeight; y += 8) {
+            for (int x = 0; x < nWidth; x += 8) {
+                // 创建三个8x8块，分别存储R、G、B通道
+                double blockR[8][8] = { 0 };
+                double blockG[8][8] = { 0 };
+                double blockB[8][8] = { 0 };
+
+                // 填充块
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        int py = y + i;
+                        int px = x + j;
+
+                        // 边界检查
+                        if (py >= nHeight || px >= nWidth) continue;
+
+                        // 获取像素颜色
+                        BYTE* pixel = GetPixelPtr(px, py);
+                        BYTE r, g, b;
+                        GetColor16bit(pixel, r, g, b);
+
+                        // 中心化: 将[0,255]映射到[-128,127]
+                        blockR[i][j] = static_cast<double>(r) - 128.0;
+                        blockG[i][j] = static_cast<double>(g) - 128.0;
+                        blockB[i][j] = static_cast<double>(b) - 128.0;
+                    }
+                }
+
+                // 对每个通道应用DCT变换
+                DCT2D(blockR);
+                DCT2D(blockG);
+                DCT2D(blockB);
+
+                // 量化
+                Quantize(blockR);
+                Quantize(blockG);
+                Quantize(blockB);
+
+                // 写入量化后的DCT系数
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        short coefR = static_cast<short>(round(blockR[i][j]));
+                        short coefG = static_cast<short>(round(blockG[i][j]));
+                        short coefB = static_cast<short>(round(blockB[i][j]));
+                        fwrite(&coefR, sizeof(short), 1, fp);
+                        fwrite(&coefG, sizeof(short), 1, fp);
+                        fwrite(&coefB, sizeof(short), 1, fp);
+                    }
+                }
+            }
+        }
+    }else if (nBitCount == 24 || nBitCount == 32) {
         // 彩色图像处理 - 分别处理RGB三个通道
         int alignedWidth = GetAlignedWidthBytes();
         
@@ -4354,92 +4416,125 @@ bool CImageProc::CosineEncodeImage(const CString& savePath) {
 
 // DCT解码函数
 bool CImageProc::CosineDecodeImage(const CString& openPath) {
-    // 打开文件进行读取
+    // 打开文件
     FILE* fp = nullptr;
     errno_t err = _tfopen_s(&fp, openPath, _T("rb"));
     if (err != 0 || fp == nullptr) return false;
 
     // 读取图像基本信息
     int width, height, bitCount;
-    if (fread(&width, sizeof(int), 1, fp) != 1 ||
-        fread(&height, sizeof(int), 1, fp) != 1 ||
-        fread(&bitCount, sizeof(int), 1, fp) != 1) {
-        fclose(fp);
-        return false;
+    fread(&width, sizeof(int), 1, fp);
+    fread(&height, sizeof(int), 1, fp);
+    fread(&bitCount, sizeof(int), 1, fp);
+
+    // 读取16位图像格式标志
+    bool is565Format = false;
+    if (bitCount == 16) {
+        BYTE formatFlag = 0;
+        fread(&formatFlag, sizeof(BYTE), 1, fp);
+        is565Format = (formatFlag == 1);
+        m_bIs565Format = is565Format;
+    }
+
+    // 读取调色板（如果有）
+    RGBQUAD palette[256];
+    if (bitCount == 8) {
+        fread(palette, sizeof(RGBQUAD), 256, fp);
     }
 
     // 清理现有资源
     CleanUp();
 
-    // 创建新的DIB
-    nWidth = width;
-    nHeight = height;
-    nBitCount = bitCount;
-
-    // 计算DIB所需内存大小
-    int alignedWidth = ((nWidth * nBitCount / 8) + 3) & ~3;
-    int imageSize = alignedWidth * nHeight;
+    // 计算每行字节数（4字节对齐）
+    int rowSize = ((width * bitCount + 31) / 32) * 4;
     
-    // 创建DIB头
-    BITMAPINFOHEADER bih;
-    ZeroMemory(&bih, sizeof(BITMAPINFOHEADER));
-    bih.biSize = sizeof(BITMAPINFOHEADER);
-    bih.biWidth = nWidth;
-    bih.biHeight = nHeight;
-    bih.biPlanes = 1;
-    bih.biBitCount = nBitCount;
-    bih.biCompression = BI_RGB;
-    bih.biSizeImage = imageSize;
-
-    // 计算DIB总大小
-    int dibSize = sizeof(BITMAPINFOHEADER);
-    if (nBitCount == 8) {
-        dibSize += 256 * sizeof(RGBQUAD); // 8位图像需要调色板
+    // 计算DIB大小
+    DWORD dibSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    
+    // 对于16位565格式图像，需要添加位掩码
+    if (bitCount == 16 && is565Format) {
+        dibSize += 3 * sizeof(DWORD); // 增加三个掩码的大小
     }
-    dibSize += imageSize;
+    
+    // 添加调色板大小（如果需要）
+    if (bitCount <= 8) {
+        dibSize += (1 << bitCount) * sizeof(RGBQUAD);
+    }
+    
+    // 添加像素数据大小
+    dibSize += rowSize * height;
 
     // 分配内存
-    m_hDib = GlobalAlloc(GMEM_FIXED, dibSize);
-    if (m_hDib == NULL) {
-        fclose(fp);
-        return false;
-    }
-
-    pDib = (BYTE*)GlobalLock(m_hDib);
-    if (pDib == NULL) {
-        GlobalFree(m_hDib);
+    m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, dibSize);
+    if (!m_hDib) return false;
+    pDib = (BYTE*)::GlobalLock(m_hDib);
+    if (!pDib) {
+        ::GlobalFree(m_hDib);
         m_hDib = NULL;
-        fclose(fp);
         return false;
     }
 
-    // 设置DIB头
-    pBIH = (BITMAPINFOHEADER*)pDib;
-    *pBIH = bih;
+    // 设置文件头
+    pBFH = (BITMAPFILEHEADER*)pDib;
+    pBFH->bfType = 0x4D42; // 'BM'
+    pBFH->bfSize = dibSize;
+    pBFH->bfReserved1 = 0;
+    pBFH->bfReserved2 = 0;
+    pBFH->bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    
+    // 对于16位565格式图像，需要添加位掩码
+    if (bitCount == 16 && is565Format) {
+        pBFH->bfOffBits += 3 * sizeof(DWORD); // 增加三个掩码的大小
+    }
+    
+    // 添加调色板偏移（如果需要）
+    if (bitCount <= 8) {
+        pBFH->bfOffBits += (1 << bitCount) * sizeof(RGBQUAD);
+    }
 
-    // 设置调色板指针
-    if (nBitCount == 8) {
-        pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPINFOHEADER));
+    // 设置信息头
+    pBIH = (BITMAPINFOHEADER*)(pDib + sizeof(BITMAPFILEHEADER));
+    pBIH->biSize = sizeof(BITMAPINFOHEADER);
+    pBIH->biWidth = width;
+    pBIH->biHeight = height;
+    pBIH->biPlanes = 1;
+    pBIH->biBitCount = bitCount;
+    
+    // 对于16位565格式图像，设置正确的压缩类型和位掩码
+    if (bitCount == 16 && is565Format) {
+        pBIH->biCompression = BI_BITFIELDS;
         
-        // 读取调色板
-        if (fread(pQUAD, sizeof(RGBQUAD), 256, fp) != 256) {
-            CleanUp();
-            fclose(fp);
-            return false;
-        }
+        // 添加掩码信息
+        DWORD* masks = (DWORD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        masks[0] = 0xF800; // R掩码
+        masks[1] = 0x07E0; // G掩码
+        masks[2] = 0x001F; // B掩码
+    } else {
+        pBIH->biCompression = BI_RGB;
+    }
+    
+    pBIH->biSizeImage = rowSize * height;
+    pBIH->biXPelsPerMeter = 0;
+    pBIH->biYPelsPerMeter = 0;
+    pBIH->biClrUsed = 0;
+    pBIH->biClrImportant = 0;
+
+    // 设置调色板（如果需要）
+    if (bitCount == 8) {
+        pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        memcpy(pQUAD, palette, 256 * sizeof(RGBQUAD));
     }
     else {
-        pQUAD = NULL;
+        pQUAD = nullptr;
     }
 
     // 设置像素数据指针
-    pBits = pDib + sizeof(BITMAPINFOHEADER);
-    if (nBitCount == 8) {
-        pBits += 256 * sizeof(RGBQUAD);
-    }
+    pBits = pDib + pBFH->bfOffBits;
 
-    // 初始化像素数据为0
-    ZeroMemory(pBits, imageSize);
+    // 更新图像参数
+    nWidth = width;
+    nHeight = height;
+    nBitCount = bitCount;
 
     // 创建临时缓冲区用于平滑处理
     std::vector<std::vector<double>> tempBuffer;
@@ -4503,7 +4598,97 @@ bool CImageProc::CosineDecodeImage(const CString& openPath) {
             }
         }
     }
-    else if (nBitCount == 24 || nBitCount == 32) {
+    else if (nBitCount == 16) {
+        // 16位图像处理
+        std::vector<std::vector<double>> tempBufferR(nHeight, std::vector<double>(nWidth, 0.0));
+        std::vector<std::vector<double>> tempBufferG(nHeight, std::vector<double>(nWidth, 0.0));
+        std::vector<std::vector<double>> tempBufferB(nHeight, std::vector<double>(nWidth, 0.0));
+        std::vector<std::vector<int>> blockCount(nHeight, std::vector<int>(nWidth, 0));
+        
+        for (int y = 0; y < nHeight; y += 8) {
+            for (int x = 0; x < nWidth; x += 8) {
+                // 读取量化后的DCT系数
+                double blockR[8][8] = { 0 };
+                double blockG[8][8] = { 0 };
+                double blockB[8][8] = { 0 };
+                
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        short coefR, coefG, coefB;
+                        if (fread(&coefR, sizeof(short), 1, fp) != 1 ||
+                            fread(&coefG, sizeof(short), 1, fp) != 1 ||
+                            fread(&coefB, sizeof(short), 1, fp) != 1) {
+                            // 文件读取错误
+                            CleanUp();
+                            fclose(fp);
+                            return false;
+                        }
+                        blockR[i][j] = static_cast<double>(coefR);
+                        blockG[i][j] = static_cast<double>(coefG);
+                        blockB[i][j] = static_cast<double>(coefB);
+                    }
+                }
+                
+                // 反量化
+                Dequantize(blockR);
+                Dequantize(blockG);
+                Dequantize(blockB);
+                
+                // 应用IDCT变换
+                IDCT2D(blockR);
+                IDCT2D(blockG);
+                IDCT2D(blockB);
+                
+                // 将结果累加到临时缓冲区
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            // 反中心化
+                            tempBufferR[y + i][x + j] += blockR[i][j] + 128.0;
+                            tempBufferG[y + i][x + j] += blockG[i][j] + 128.0;
+                            tempBufferB[y + i][x + j] += blockB[i][j] + 128.0;
+                            blockCount[y + i][x + j]++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 计算平均值并写入像素数据
+        for (int y = 0; y < nHeight; y++) {
+            for (int x = 0; x < nWidth; x++) {
+                if (blockCount[y][x] > 0) {
+                    int r = static_cast<int>(round(tempBufferR[y][x] / blockCount[y][x]));
+                    int g = static_cast<int>(round(tempBufferG[y][x] / blockCount[y][x]));
+                    int b = static_cast<int>(round(tempBufferB[y][x] / blockCount[y][x]));
+                    
+                    r = max(0, min(255, r));
+                    g = max(0, min(255, g));
+                    b = max(0, min(255, b));
+                    
+                    // 设置16位像素颜色
+                    BYTE* pixel = GetPixelPtr(x, y);
+                    WORD pixelValue;
+                    
+                    if (is565Format) {
+                        // RGB565格式
+                        BYTE r5 = (r >> 3) & 0x1F;  // 5位红色
+                        BYTE g6 = (g >> 2) & 0x3F;  // 6位绿色
+                        BYTE b5 = (b >> 3) & 0x1F;  // 5位蓝色
+                        pixelValue = (r5 << 11) | (g6 << 5) | b5;
+                    } else {
+                        // RGB555格式
+                        BYTE r5 = (r >> 3) & 0x1F;  // 5位红色
+                        BYTE g5 = (g >> 3) & 0x1F;  // 5位绿色
+                        BYTE b5 = (b >> 3) & 0x1F;  // 5位蓝色
+                        pixelValue = (r5 << 10) | (g5 << 5) | b5;
+                    }
+                    
+                    *reinterpret_cast<WORD*>(pixel) = pixelValue;
+                }
+            }
+        }
+    }else if (nBitCount == 24 || nBitCount == 32) {
         // 彩色图像处理
         std::vector<std::vector<double>> tempBufferR(nHeight, std::vector<double>(nWidth, 0.0));
         std::vector<std::vector<double>> tempBufferG(nHeight, std::vector<double>(nWidth, 0.0));
