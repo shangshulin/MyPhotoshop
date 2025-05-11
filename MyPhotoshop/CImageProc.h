@@ -81,6 +81,13 @@ public:
     bool LZWEncodeImage(const CString& savePath);
     bool LZWDecodeImage(const CString& openPath);
 
+    // 基于余弦变换和量化的编码与解码
+    bool CosineEncodeImage(const CString& savePath);
+    bool CosineDecodeImage(const CString& openPath);
+    void DCT2D(double block[8][8]);
+    void IDCT2D(double block[8][8]);
+    void Quantize(double block[8][8]);
+    void Dequantize(double block[8][8]);
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
     bool FFT2D(bool bForward = true, bool bSaveState = true); // true=FFT, false=IFFT

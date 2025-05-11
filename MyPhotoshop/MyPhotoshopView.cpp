@@ -84,6 +84,8 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_HUFFMAN_DECODE, &CMyPhotoshopView::OnHuffmanDecode)
     ON_COMMAND(ID_LZW_ENCODE, &CMyPhotoshopView::OnLZWEncode)
     ON_COMMAND(ID_LZW_DECODE, &CMyPhotoshopView::OnLZWDecode)
+    ON_COMMAND(ID_COSINE_ENCODE, &CMyPhotoshopView::OnCosineEncode)
+    ON_COMMAND(ID_COSINE_DECODE, &CMyPhotoshopView::OnCosineDecode)
 
 END_MESSAGE_MAP()
 
@@ -1385,5 +1387,106 @@ void CMyPhotoshopView::OnLZWDecode()
             m_ptScrollPos = CPoint(0, 0);
             UpdateScrollBars();
         }
+    }
+}
+
+// 基于余弦变换和量化的编码
+void CMyPhotoshopView::OnCosineEncode()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    ASSERT_VALID(pDoc);
+    if (!pDoc)
+        return;
+
+    if (!pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开一个图像！"));
+        return;
+    }
+
+    // 创建保存文件对话框
+    CFileDialog dlg(FALSE, _T("dct"), _T("output.dct"),
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+        _T("DCT编码文件 (*.dct)|*.dct|所有文件 (*.*)|*.*||"), this);
+
+    if (dlg.DoModal() == IDOK) {
+        CString savePath = dlg.GetPathName();
+
+        // 保存当前状态用于撤销
+        CImageProc* pOldImage = new CImageProc();
+        *pOldImage = *pDoc->pImage;
+
+        // 执行DCT编码
+        AddCommand(
+            [pDoc, savePath]() {
+                bool result = pDoc->pImage->CosineEncodeImage(savePath);
+                if (result) {
+                    AfxMessageBox(_T("DCT编码成功！"));
+                }
+                else {
+                    AfxMessageBox(_T("DCT编码失败！"));
+                }
+                return result;
+            },
+            [pDoc, pOldImage]() {
+                *pDoc->pImage = *pOldImage;
+                delete pOldImage;
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
+    }
+}
+
+void CMyPhotoshopView::OnCosineDecode()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    ASSERT_VALID(pDoc);
+    if (!pDoc)
+        return;
+
+    // 创建打开文件对话框
+    CFileDialog dlg(TRUE, _T("dct"), NULL,
+        OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
+        _T("DCT编码文件 (*.dct)|*.dct|所有文件 (*.*)|*.*||"), this);
+
+    if (dlg.DoModal() == IDOK) {
+        CString openPath = dlg.GetPathName();
+
+        // 保存当前状态用于撤销
+        CImageProc* pOldImage = nullptr;
+        if (pDoc->pImage && pDoc->pImage->IsValid()) {
+            pOldImage = new CImageProc();
+            *pOldImage = *pDoc->pImage;
+        }
+
+        // 如果当前没有图像，创建一个新的
+        if (!pDoc->pImage) {
+            pDoc->pImage = new CImageProc();
+        }
+
+        // 执行DCT解码
+        AddCommand(
+            [pDoc, openPath]() {
+                bool result = pDoc->pImage->CosineDecodeImage(openPath);
+                if (result) {
+                    AfxMessageBox(_T("DCT解码成功！"));
+                    pDoc->UpdateAllViews(nullptr);
+                }
+                else {
+                    AfxMessageBox(_T("DCT解码失败！"));
+                }
+                return result;
+            },
+            [pDoc, pOldImage]() {
+                if (pOldImage) {
+                    *pDoc->pImage = *pOldImage;
+                    delete pOldImage;
+                }
+                else {
+                    delete pDoc->pImage;
+                    pDoc->pImage = nullptr;
+                }
+                pDoc->UpdateAllViews(nullptr);
+            }
+        );
     }
 }

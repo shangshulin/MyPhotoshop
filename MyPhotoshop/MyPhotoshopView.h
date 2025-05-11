@@ -105,6 +105,8 @@ public:
 	afx_msg void OnHuffmanDecode();
 	afx_msg void OnLZWEncode();
 	afx_msg void OnLZWDecode();
+	afx_msg void OnCosineEncode();
+	afx_msg void OnCosineDecode();
 public:
 	template <typename TExecute, typename TUndo>
 	void AddCommand(TExecute&& executeFunc, TUndo&& undoFunc)

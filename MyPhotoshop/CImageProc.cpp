@@ -4109,3 +4109,446 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     AfxMessageBox(_T("LZW decoding complete!"));
     return true;
 }
+
+// 量化表（JPEG标准量化表）
+const int quantizationTable[8][8] = {
+    {16, 11, 10, 16, 24, 40, 51, 61},
+    {12, 12, 14, 19, 26, 58, 60, 55},
+    {14, 13, 16, 24, 40, 57, 69, 56},
+    {14, 17, 22, 29, 51, 87, 80, 62},
+    {18, 22, 37, 56, 68, 109, 103, 77},
+    {24, 35, 55, 64, 81, 104, 113, 92},
+    {49, 64, 78, 87, 103, 121, 120, 101},
+    {72, 92, 95, 98, 112, 100, 103, 99}
+};
+
+// DCT变换函数
+void CImageProc::DCT2D(double block[8][8]) {
+    // 临时存储DCT结果
+    double temp[8][8] = { 0 };
+    const double PI = 3.14159265358979323846;
+
+    // 对每一行进行DCT
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            double sum = 0.0;
+            double cj = (j == 0) ? 1.0 / sqrt(2.0) : 1.0;
+            
+            for (int k = 0; k < 8; k++) {
+                double cosVal = cos((2.0 * k + 1.0) * j * PI / 16.0);
+                sum += block[i][k] * cosVal;
+            }
+            
+            temp[i][j] = cj * sum / 2.0;
+        }
+    }
+
+    // 对每一列进行DCT
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            double sum = 0.0;
+            double ci = (i == 0) ? 1.0 / sqrt(2.0) : 1.0;
+            
+            for (int k = 0; k < 8; k++) {
+                double cosVal = cos((2.0 * k + 1.0) * i * PI / 16.0);
+                sum += temp[k][j] * cosVal;
+            }
+            
+            block[i][j] = ci * sum / 2.0;
+        }
+    }
+}
+
+// 逆DCT变换函数
+void CImageProc::IDCT2D(double block[8][8]) {
+    // 临时存储IDCT结果
+    double temp[8][8] = { 0 };
+    const double PI = 3.14159265358979323846;
+
+    // 对每一行进行IDCT
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            double sum = 0.0;
+            
+            for (int k = 0; k < 8; k++) {
+                double ck = (k == 0) ? 1.0 / sqrt(2.0) : 1.0;
+                double cosVal = cos((2.0 * j + 1.0) * k * PI / 16.0);
+                sum += ck * block[i][k] * cosVal;
+            }
+            
+            temp[i][j] = sum / 2.0;
+        }
+    }
+
+    // 对每一列进行IDCT
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            double sum = 0.0;
+            
+            for (int k = 0; k < 8; k++) {
+                double ck = (k == 0) ? 1.0 / sqrt(2.0) : 1.0;
+                double cosVal = cos((2.0 * i + 1.0) * k * PI / 16.0);
+                sum += ck * temp[k][j] * cosVal;
+            }
+            
+            block[i][j] = sum / 2.0;
+        }
+    }
+}
+
+// 量化函数 - 使用更保守的量化表
+void CImageProc::Quantize(double block[8][8]) {
+    // 使用更保守的量化表
+    static const int quantTable[8][8] = {
+        {4, 3, 3, 4, 6, 10, 13, 16},
+        {3, 3, 4, 5, 7, 15, 15, 14},
+        {4, 4, 4, 6, 10, 15, 18, 14},
+        {4, 5, 6, 8, 13, 22, 20, 16},
+        {5, 6, 10, 14, 17, 28, 26, 20},
+        {6, 9, 14, 16, 21, 26, 29, 23},
+        {13, 16, 20, 22, 26, 31, 30, 26},
+        {18, 23, 24, 25, 28, 25, 26, 25}
+    };
+
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            block[i][j] = round(block[i][j] / quantTable[i][j]);
+        }
+    }
+}
+
+// 反量化函数
+void CImageProc::Dequantize(double block[8][8]) {
+    // 使用与量化相同的表
+    static const int quantTable[8][8] = {
+        {4, 3, 3, 4, 6, 10, 13, 16},
+        {3, 3, 4, 5, 7, 15, 15, 14},
+        {4, 4, 4, 6, 10, 15, 18, 14},
+        {4, 5, 6, 8, 13, 22, 20, 16},
+        {5, 6, 10, 14, 17, 28, 26, 20},
+        {6, 9, 14, 16, 21, 26, 29, 23},
+        {13, 16, 20, 22, 26, 31, 30, 26},
+        {18, 23, 24, 25, 28, 25, 26, 25}
+    };
+
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            block[i][j] *= quantTable[i][j];
+        }
+    }
+}
+
+// DCT编码函数
+bool CImageProc::CosineEncodeImage(const CString& savePath) {
+    if (!IsValid()) return false;
+
+    // 打开文件进行写入
+    FILE* fp = nullptr;
+    errno_t err = _tfopen_s(&fp, savePath, _T("wb"));
+    if (err != 0 || fp == nullptr) return false;
+
+    // 写入图像基本信息
+    fwrite(&nWidth, sizeof(int), 1, fp);
+    fwrite(&nHeight, sizeof(int), 1, fp);
+    fwrite(&nBitCount, sizeof(int), 1, fp);
+
+    // 处理灰度图像或彩色图像
+    if (nBitCount == 8) {
+        // 灰度图像处理
+        int alignedWidth = GetAlignedWidthBytes();
+        
+        // 写入调色板
+        if (pQUAD) {
+            fwrite(pQUAD, sizeof(RGBQUAD), 256, fp);
+        }
+
+        // 按8x8块处理图像
+        for (int y = 0; y < nHeight; y += 8) {
+            for (int x = 0; x < nWidth; x += 8) {
+                // 提取8x8块
+                double block[8][8] = { 0 };
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            BYTE* pixel = GetPixelPtr(x + j, y + i);
+                            // 获取灰度值并中心化
+                            BYTE r, g, b;
+                            GetColor(x + j, y + i, r, g, b);
+                            block[i][j] = static_cast<double>(r) - 128.0;
+                        }
+                    }
+                }
+
+                // 应用DCT变换
+                DCT2D(block);
+                
+                // 量化
+                Quantize(block);
+                
+                // 写入量化后的DCT系数
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        short coef = static_cast<short>(block[i][j]);
+                        fwrite(&coef, sizeof(short), 1, fp);
+                    }
+                }
+            }
+        }
+    }
+    else if (nBitCount == 24 || nBitCount == 32) {
+        // 彩色图像处理 - 分别处理RGB三个通道
+        int alignedWidth = GetAlignedWidthBytes();
+        
+        // 按8x8块处理图像
+        for (int y = 0; y < nHeight; y += 8) {
+            for (int x = 0; x < nWidth; x += 8) {
+                // 为RGB三个通道分别创建8x8块
+                double blockR[8][8] = { 0 };
+                double blockG[8][8] = { 0 };
+                double blockB[8][8] = { 0 };
+                
+                // 提取RGB值
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            BYTE r, g, b;
+                            GetColor(x + j, y + i, r, g, b);
+                            blockR[i][j] = static_cast<double>(r) - 128.0;
+                            blockG[i][j] = static_cast<double>(g) - 128.0;
+                            blockB[i][j] = static_cast<double>(b) - 128.0;
+                        }
+                    }
+                }
+                
+                // 对RGB三个通道分别应用DCT和量化
+                DCT2D(blockR);
+                DCT2D(blockG);
+                DCT2D(blockB);
+                
+                Quantize(blockR);
+                Quantize(blockG);
+                Quantize(blockB);
+                
+                // 写入量化后的DCT系数
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        short coefR = static_cast<short>(blockR[i][j]);
+                        short coefG = static_cast<short>(blockG[i][j]);
+                        short coefB = static_cast<short>(blockB[i][j]);
+                        fwrite(&coefR, sizeof(short), 1, fp);
+                        fwrite(&coefG, sizeof(short), 1, fp);
+                        fwrite(&coefB, sizeof(short), 1, fp);
+                    }
+                }
+            }
+        }
+    }
+    else {
+        fclose(fp);
+        return false; // 不支持的位深度
+    }
+
+    fclose(fp);
+    return true;
+}
+
+// DCT解码函数
+bool CImageProc::CosineDecodeImage(const CString& openPath) {
+    // 打开文件进行读取
+    FILE* fp = nullptr;
+    errno_t err = _tfopen_s(&fp, openPath, _T("rb"));
+    if (err != 0 || fp == nullptr) return false;
+
+    // 读取图像基本信息
+    int width, height, bitCount;
+    if (fread(&width, sizeof(int), 1, fp) != 1 ||
+        fread(&height, sizeof(int), 1, fp) != 1 ||
+        fread(&bitCount, sizeof(int), 1, fp) != 1) {
+        fclose(fp);
+        return false;
+    }
+
+    // 清理现有资源
+    CleanUp();
+
+    // 创建新的DIB
+    nWidth = width;
+    nHeight = height;
+    nBitCount = bitCount;
+
+    // 计算DIB所需内存大小
+    int alignedWidth = ((nWidth * nBitCount / 8) + 3) & ~3;
+    int imageSize = alignedWidth * nHeight;
+    
+    // 创建DIB头
+    BITMAPINFOHEADER bih;
+    ZeroMemory(&bih, sizeof(BITMAPINFOHEADER));
+    bih.biSize = sizeof(BITMAPINFOHEADER);
+    bih.biWidth = nWidth;
+    bih.biHeight = nHeight;
+    bih.biPlanes = 1;
+    bih.biBitCount = nBitCount;
+    bih.biCompression = BI_RGB;
+    bih.biSizeImage = imageSize;
+
+    // 计算DIB总大小
+    int dibSize = sizeof(BITMAPINFOHEADER);
+    if (nBitCount == 8) {
+        dibSize += 256 * sizeof(RGBQUAD); // 8位图像需要调色板
+    }
+    dibSize += imageSize;
+
+    // 分配内存
+    m_hDib = GlobalAlloc(GMEM_FIXED, dibSize);
+    if (m_hDib == NULL) {
+        fclose(fp);
+        return false;
+    }
+
+    pDib = (BYTE*)GlobalLock(m_hDib);
+    if (pDib == NULL) {
+        GlobalFree(m_hDib);
+        m_hDib = NULL;
+        fclose(fp);
+        return false;
+    }
+
+    // 设置DIB头
+    pBIH = (BITMAPINFOHEADER*)pDib;
+    *pBIH = bih;
+
+    // 设置调色板指针
+    if (nBitCount == 8) {
+        pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPINFOHEADER));
+        
+        // 读取调色板
+        if (fread(pQUAD, sizeof(RGBQUAD), 256, fp) != 256) {
+            CleanUp();
+            fclose(fp);
+            return false;
+        }
+    }
+    else {
+        pQUAD = NULL;
+    }
+
+    // 设置像素数据指针
+    pBits = pDib + sizeof(BITMAPINFOHEADER);
+    if (nBitCount == 8) {
+        pBits += 256 * sizeof(RGBQUAD);
+    }
+
+    // 初始化像素数据为0
+    ZeroMemory(pBits, imageSize);
+
+    // 处理灰度图像或彩色图像
+    if (nBitCount == 8) {
+        // 灰度图像处理
+        for (int y = 0; y < nHeight; y += 8) {
+            for (int x = 0; x < nWidth; x += 8) {
+                // 读取量化后的DCT系数
+                double block[8][8] = { 0 };
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        short coef;
+                        if (fread(&coef, sizeof(short), 1, fp) != 1) {
+                            // 文件读取错误
+                            CleanUp();
+                            fclose(fp);
+                            return false;
+                        }
+                        block[i][j] = static_cast<double>(coef);
+                    }
+                }
+                
+                // 反量化
+                Dequantize(block);
+                
+                // 应用IDCT变换
+                IDCT2D(block);
+                
+                // 写回像素数据
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            // 反中心化并限制在0-255范围内
+                            int value = static_cast<int>(round(block[i][j] + 128.0));
+                            value = max(0, min(255, value));
+                            
+                            // 设置像素值
+                            BYTE* pixel = GetPixelPtr(x + j, y + i);
+                            *pixel = static_cast<BYTE>(value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else if (nBitCount == 24 || nBitCount == 32) {
+        // 彩色图像处理
+        for (int y = 0; y < nHeight; y += 8) {
+            for (int x = 0; x < nWidth; x += 8) {
+                // 读取量化后的DCT系数
+                double blockR[8][8] = { 0 };
+                double blockG[8][8] = { 0 };
+                double blockB[8][8] = { 0 };
+                
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        short coefR, coefG, coefB;
+                        if (fread(&coefR, sizeof(short), 1, fp) != 1 ||
+                            fread(&coefG, sizeof(short), 1, fp) != 1 ||
+                            fread(&coefB, sizeof(short), 1, fp) != 1) {
+                            // 文件读取错误
+                            CleanUp();
+                            fclose(fp);
+                            return false;
+                        }
+                        blockR[i][j] = static_cast<double>(coefR);
+                        blockG[i][j] = static_cast<double>(coefG);
+                        blockB[i][j] = static_cast<double>(coefB);
+                    }
+                }
+                
+                // 反量化
+                Dequantize(blockR);
+                Dequantize(blockG);
+                Dequantize(blockB);
+                
+                // 应用IDCT变换
+                IDCT2D(blockR);
+                IDCT2D(blockG);
+                IDCT2D(blockB);
+                
+                // 写回像素数据
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            // 反中心化并限制在0-255范围内
+                            int r = static_cast<int>(round(blockR[i][j] + 128.0));
+                            int g = static_cast<int>(round(blockG[i][j] + 128.0));
+                            int b = static_cast<int>(round(blockB[i][j] + 128.0));
+                            
+                            r = max(0, min(255, r));
+                            g = max(0, min(255, g));
+                            b = max(0, min(255, b));
+                            
+                            // 设置像素颜色
+                            BYTE* pixel = GetPixelPtr(x + j, y + i);
+                            SetColor(pixel, x + j, y + i, r, g, b);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else {
+        // 不支持的位深度
+        CleanUp();
+        fclose(fp);
+        return false;
+    }
+
+    fclose(fp);
+    return true;
+}

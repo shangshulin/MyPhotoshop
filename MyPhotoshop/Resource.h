@@ -80,7 +80,9 @@
 #define ID_                             32788
 #define ID_32789                        32789
 #define ID_32790                        32790
+#define ID_LZW_ENCODE                   32790
 #define ID_HISTOGRAM_MIX                32791
+#define ID_LZW_DECODE                   32791
 #define ID_HISTOGRAM_RGB                32792
 #define ID_FUNCTION_HISTOGRAM_MATCHING  32793
 #define ID_COLOR_STYLE_VINTAGE          32794
@@ -121,16 +123,18 @@
 #define ID_32835                        32835
 #define ID_LZW32836                     32836
 #define ID_LZW32837                     32837
-// 添加LZW编码和解码的菜单项ID
-#define ID_LZW_ENCODE                   32790
-#define ID_LZW_DECODE                   32791
+#define ID_32840                        32840
+#define ID_DCT32841                     32841
+#define ID_DCT32842                     32842
+#define ID_COSINE_ENCODE                32843
+#define ID_COSINE_DECODE                32844
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        330
-#define _APS_NEXT_COMMAND_VALUE         32840
+#define _APS_NEXT_COMMAND_VALUE         32845
 #define _APS_NEXT_CONTROL_VALUE         1039
 #define _APS_NEXT_SYMED_VALUE           320
 #endif
