@@ -3552,9 +3552,9 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     int height = nHeight;
     int bitCount = nBitCount;
     int bytesPerPixel = bitCount / 8;
-    int alignedWidth = GetAlignedWidthBytes();
+    int alignedWidth = GetAlignedWidthBytes(); // 对齐后的宽度
 
-    // 创建输入数据流 - 按正确方式读取不同位深度的像素
+    // 创建输入数据流
     std::vector<BYTE> inputData;
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
@@ -3664,15 +3664,15 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     int codeCount = static_cast<int>(outputCodes.size());
     outFile.write(reinterpret_cast<const char*>(&codeCount), sizeof(codeCount));
 
-    // 写入编码数据 (12位编码，每3个码占用4字节) - 改进的打包方式
+    // 写入编码数据 (12位编码，每3个码占用4字节)，动态处理
     std::vector<BYTE> compressedData;
-    int bitBuffer = 0;
-    int bitCountBuffer = 0;
+    int bitBuffer = 0; // 位缓冲区，存储待写入的位
+    int bitCountBuffer = 0; // 记录缓冲区中有效位的数量
 
     for (int code : outputCodes) {
         // 将12位编码添加到缓冲区
-        bitBuffer |= (code << bitCountBuffer);
-        bitCountBuffer += 12;
+        bitBuffer |= (code << bitCountBuffer); // 将 12 位编码左移当前缓冲区的偏移量并合并缓冲区
+        bitCountBuffer += 12; // 更新缓冲区中的有效位数
 
         // 当缓冲区中有足够的位时，写入字节
         while (bitCountBuffer >= 8) {
@@ -3691,7 +3691,7 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     outFile.write(reinterpret_cast<const char*>(compressedData.data()), compressedData.size());
     outFile.close();
 
-    // 计算压缩率 - 修正计算方式
+    // 计算压缩率
     double originalSize = inputData.size();
     double compressedSize = compressedData.size();
     double ratio = (1.0 - compressedSize / originalSize) * 100.0;
@@ -3791,27 +3791,28 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     }
     inFile.close();
 
-    // 从压缩数据中提取编码 - 改进的提取方式
+    // 从压缩数据中提取编码
     std::vector<int> inputCodes;
     inputCodes.reserve(codeCount);
 
-    int bitBuffer = 0;
-    int bitCountBuffer = 0;
+    int bitBuffer = 0; // 用于累积字节的整数缓冲区
+    int bitCountBuffer = 0; // bitBuffer中有效位的数量
 
+	// 将压缩的字节流重组为12位编码
     for (BYTE b : compressedData) {
-        bitBuffer |= (b << bitCountBuffer);
-        bitCountBuffer += 8;
+        bitBuffer |= (b << bitCountBuffer); // 将字节添加到缓冲区
+        bitCountBuffer += 8; // 更新缓冲区中的有效位数
 
         while (bitCountBuffer >= 12) {
-            int code = bitBuffer & 0xFFF;
-            inputCodes.push_back(code);
+            int code = bitBuffer & 0xFFF; // 提取低十二位作为编码
+			inputCodes.push_back(code); // 存储编码
 
             if (inputCodes.size() >= codeCount) {
-                break;
+				break; // 达到预期的编码数量时停止
             }
 
-            bitBuffer >>= 12;
-            bitCountBuffer -= 12;
+			bitBuffer >>= 12; // 移除已处理的12位
+			bitCountBuffer -= 12; // 更新缓冲区中的有效位数
         }
     }
 
@@ -3826,7 +3827,7 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     std::unordered_map<int, std::vector<BYTE>> dictionary;
 
     // 初始化字典 (0-255为单字节值)
-    int nextCode = 256;
+	int nextCode = 256; // 下一个待分配的编码号
     for (int i = 0; i < 256; i++) {
         dictionary[i] = { static_cast<BYTE>(i) };
     }
@@ -3840,11 +3841,11 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
 
     std::vector<BYTE> output = dictionary[oldCode];
     outputData.insert(outputData.end(), output.begin(), output.end());
-    BYTE character = output[0];
+    BYTE character = output[0]; // 该序列的第一个字节
 
     // 处理剩余编码
     for (size_t i = 1; i < inputCodes.size(); i++) {
-        int code = inputCodes[i];
+		int code = inputCodes[i]; // 当前编码
 
         std::vector<BYTE> sequence;
         if (dictionary.find(code) != dictionary.end()) {
@@ -4010,7 +4011,7 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
                 break;
             }
             case 4: {
-                // 4位图像 - 2个像素占1个字节
+				// 4位图像 - 2个像素占1个字节 高四位第一个像素 第四位第二个像素
                 BYTE pixelByte = 0;
                 for (int nibble = 1; nibble >= 0 && x < width; nibble--, x++) {
                     if (dataIndex < outputData.size()) {
@@ -4031,7 +4032,7 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
             case 16: {
                 // 16位图像 - 1个像素占2个字节
                 if (dataIndex + 1 < outputData.size()) {
-                    // 注意字节顺序：低字节在前，高字节在后
+                    // 低字节在前，高字节在后
                     *rowStart++ = outputData[dataIndex++]; // 低字节
                     *rowStart++ = outputData[dataIndex++]; // 高字节
                     x++;
