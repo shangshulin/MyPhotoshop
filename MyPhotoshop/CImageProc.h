@@ -88,6 +88,11 @@ public:
     void IDCT2D(double block[8][8]);
     void Quantize(double block[8][8]);
     void Dequantize(double block[8][8]);
+
+    //综合编码与解码函数
+    bool ComprehensiveEncodeImage(const CString& savePath);
+    bool ComprehensiveDecodeImage(const CString& openPath);
+
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
     bool FFT2D(bool bForward = true, bool bSaveState = true); // true=FFT, false=IFFT

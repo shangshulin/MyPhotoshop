@@ -4774,3 +4774,596 @@ bool CImageProc::CosineDecodeImage(const CString& openPath) {
     fclose(fp);
     return true;
 }
+// 综合编码函数
+bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
+    if (!IsValid()) return false;
+
+    // 打开临时文件进行写入
+    CString tempPath = savePath + _T(".temp");
+    FILE* fp = nullptr;
+    errno_t err = _tfopen_s(&fp, tempPath, _T("wb"));
+    if (err != 0 || fp == nullptr) return false;
+
+    // 写入图像基本信息
+    fwrite(&nWidth, sizeof(int), 1, fp);
+    fwrite(&nHeight, sizeof(int), 1, fp);
+    fwrite(&nBitCount, sizeof(int), 1, fp);
+    // 保存16位图像格式标志
+    if (nBitCount == 16) {
+        BYTE formatFlag = m_bIs565Format ? 1 : 0;
+        fwrite(&formatFlag, sizeof(BYTE), 1, fp);
+    }
+
+    // 如果是8位图像，保存调色板
+    if (nBitCount == 8 && pQUAD) {
+        fwrite(pQUAD, sizeof(RGBQUAD), 256, fp);
+    }
+
+    std::vector<short> allCoefficients;
+
+    // 分块处理图像
+    for (int y = 0; y < nHeight; y += 8) {
+        for (int x = 0; x < nWidth; x += 8) {
+            if (nBitCount == 8) {
+                // 灰度图像处理
+                double block[8][8] = { 0 };
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            BYTE* pixel = GetPixelPtr(x + j, y + i);
+                            block[i][j] = static_cast<double>(*pixel) - 128.0;
+                        }
+                    }
+                }
+
+                // 应用DCT变换
+                DCT2D(block);
+
+                // 量化
+                Quantize(block);
+
+                // 收集量化后的DCT系数
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        short coef = static_cast<short>(block[i][j]);
+                        allCoefficients.push_back(coef);
+                    }
+                }
+            }
+            else if (nBitCount == 16) {
+                // 16位图像处理
+                double blockR[8][8] = { 0 };
+                double blockG[8][8] = { 0 };
+                double blockB[8][8] = { 0 };
+
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        int py = y + i;
+                        int px = x + j;
+
+                        if (py >= nHeight || px >= nWidth) continue;
+
+                        BYTE* pixel = GetPixelPtr(px, py);
+                        BYTE r, g, b;
+                        GetColor16bit(pixel, r, g, b);
+
+                        blockR[i][j] = static_cast<double>(r) - 128.0;
+                        blockG[i][j] = static_cast<double>(g) - 128.0;
+                        blockB[i][j] = static_cast<double>(b) - 128.0;
+                    }
+                }
+
+                // 对每个通道应用DCT变换
+                DCT2D(blockR);
+                DCT2D(blockG);
+                DCT2D(blockB);
+
+                // 量化
+                Quantize(blockR);
+                Quantize(blockG);
+                Quantize(blockB);
+
+                // 收集量化后的DCT系数
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        short coefR = static_cast<short>(round(blockR[i][j]));
+                        short coefG = static_cast<short>(round(blockG[i][j]));
+                        short coefB = static_cast<short>(round(blockB[i][j]));
+                        allCoefficients.push_back(coefR);
+                        allCoefficients.push_back(coefG);
+                        allCoefficients.push_back(coefB);
+                    }
+                }
+            }
+            else if (nBitCount == 24 || nBitCount == 32) {
+                // 彩色图像处理
+                double blockR[8][8] = { 0 };
+                double blockG[8][8] = { 0 };
+                double blockB[8][8] = { 0 };
+
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            BYTE r, g, b;
+                            GetColor(x + j, y + i, r, g, b);
+                            blockR[i][j] = static_cast<double>(r) - 128.0;
+                            blockG[i][j] = static_cast<double>(g) - 128.0;
+                            blockB[i][j] = static_cast<double>(b) - 128.0;
+                        }
+                    }
+                }
+
+                // 对每个通道应用DCT变换
+                DCT2D(blockR);
+                DCT2D(blockG);
+                DCT2D(blockB);
+
+                // 量化
+                Quantize(blockR);
+                Quantize(blockG);
+                Quantize(blockB);
+
+                // 收集量化后的DCT系数
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        short coefR = static_cast<short>(round(blockR[i][j]));
+                        short coefG = static_cast<short>(round(blockG[i][j]));
+                        short coefB = static_cast<short>(round(blockB[i][j]));
+                        allCoefficients.push_back(coefR);
+                        allCoefficients.push_back(coefG);
+                        allCoefficients.push_back(coefB);
+                    }
+                }
+            }
+        }
+    }
+
+    // 霍夫曼编码
+    std::vector<BYTE> byteData;
+    for (short coef : allCoefficients) {
+        BYTE* ptr = reinterpret_cast<BYTE*>(&coef);
+        byteData.insert(byteData.end(), ptr, ptr + sizeof(short));
+    }
+    pBits = byteData.data();
+    nWidth = 1;
+    nHeight = byteData.size();
+    nBitCount = 8;
+
+    // 打开另一个临时文件用于霍夫曼编码
+    CString huffmanTempPath = savePath + _T(".huffman_temp");
+    if (!HuffmanEncodeImage(huffmanTempPath)) {
+        fclose(fp);
+        _tremove(tempPath);
+        return false;
+    }
+
+    // 追加霍夫曼编码后的数据到临时文件
+    std::ifstream huffmanIfs(CW2A(huffmanTempPath), std::ios::binary);
+    if (!huffmanIfs) {
+        fclose(fp);
+        _tremove(tempPath);
+        _tremove(huffmanTempPath);
+        return false;
+    }
+    char buffer[1024];
+    while (huffmanIfs.read(buffer, sizeof(buffer))) {
+        fwrite(buffer, 1, sizeof(buffer), fp);
+    }
+    if (huffmanIfs.gcount() > 0) {
+        fwrite(buffer, 1, huffmanIfs.gcount(), fp);
+    }
+    huffmanIfs.close();
+
+    fclose(fp);
+
+    // 删除霍夫曼编码临时文件
+    _tremove(huffmanTempPath);
+
+    // 重命名临时文件为最终文件
+    if (_trename(tempPath, savePath) != 0) {
+        _tremove(tempPath);
+        return false;
+    }
+
+    // 计算压缩率
+    double originalSize = nWidth * nHeight * (nBitCount / 8);
+    struct _stat fileStat;
+    if (_stat(CW2A(savePath), &fileStat) == 0) {
+        double compressedSize = fileStat.st_size;
+        double ratio = (1.0 - compressedSize / originalSize) * 100.0;
+        if (ratio < 0) {
+            ratio = 0;
+        }
+        CString message;
+        message.Format(_T("Comprehensive encoding completed!\nOriginal size: %.2f KB\nCompressed size: %.2f KB\nCompression ratio: %.2f%%"),
+            originalSize / 1024.0, compressedSize / 1024.0, ratio);
+        AfxMessageBox(message);
+    }
+
+    return true;
+}
+
+// 综合解码函数
+bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
+    // 读取图像基本信息
+    FILE* fp = nullptr;
+    errno_t err = _tfopen_s(&fp, openPath, _T("rb"));
+    if (err != 0 || fp == nullptr) return false;
+
+    int width, height, bitCount;
+    fread(&width, sizeof(int), 1, fp);
+    fread(&height, sizeof(int), 1, fp);
+    fread(&bitCount, sizeof(int), 1, fp);
+
+    // 读取16位图像格式标志
+    bool is565Format = false;
+    if (bitCount == 16) {
+        BYTE formatFlag = 0;
+        fread(&formatFlag, sizeof(BYTE), 1, fp);
+        is565Format = (formatFlag == 1);
+        m_bIs565Format = is565Format;
+    }
+
+    // 读取调色板（如果有）
+    RGBQUAD palette[256];
+    if (bitCount == 8) {
+        fread(palette, sizeof(RGBQUAD), 256, fp);
+    }
+
+    // 保存当前文件指针位置
+    long currentPos = ftell(fp);
+
+    // 关闭文件
+    fclose(fp);
+
+    // 创建一个临时文件用于霍夫曼解码
+    CString huffmanTempPath = openPath + _T(".huffman_temp");
+    std::ifstream ifs(CW2A(openPath), std::ios::binary);
+    if (!ifs) return false;
+    std::ofstream ofs(CW2A(huffmanTempPath), std::ios::binary);
+    if (!ofs) return false;
+
+    // 跳过文件头
+    ifs.seekg(currentPos, std::ios::beg);
+
+    // 复制霍夫曼编码数据到临时文件
+    char buffer[1024];
+    while (ifs.read(buffer, sizeof(buffer))) {
+        ofs.write(buffer, sizeof(buffer));
+    }
+    if (ifs.gcount() > 0) {
+        ofs.write(buffer, ifs.gcount());
+    }
+    ifs.close();
+    ofs.close();
+
+    // 霍夫曼解码
+    pBits = nullptr;
+    nWidth = 1;
+    nHeight = 0;
+    nBitCount = 8;
+    if (!HuffmanDecodeImage(huffmanTempPath)) {
+        _tremove(huffmanTempPath);
+        return false;
+    }
+
+    // 删除霍夫曼解码临时文件
+    _tremove(huffmanTempPath);
+
+    std::vector<short> allCoefficients;
+    for (size_t i = 0; i < nWidth * nHeight; i += sizeof(short)) {
+        short coef = *reinterpret_cast<short*>(pBits + i);
+        allCoefficients.push_back(coef);
+    }
+
+    // 清理现有资源
+    CleanUp();
+
+    // 计算每行字节数（4字节对齐）
+    int rowSize = ((width * bitCount + 31) / 32) * 4;
+
+    // 计算DIB大小
+    DWORD dibSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+
+    // 对于16位565格式图像，需要添加位掩码
+    if (bitCount == 16 && is565Format) {
+        dibSize += 3 * sizeof(DWORD); // 增加三个掩码的大小
+    }
+
+    // 添加调色板大小（如果需要）
+    if (bitCount <= 8) {
+        dibSize += (1 << bitCount) * sizeof(RGBQUAD);
+    }
+
+    // 添加像素数据大小
+    dibSize += rowSize * height;
+
+    // 分配内存
+    m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, dibSize);
+    if (!m_hDib) return false;
+    pDib = (BYTE*)::GlobalLock(m_hDib);
+    if (!pDib) {
+        ::GlobalFree(m_hDib);
+        m_hDib = NULL;
+        return false;
+    }
+
+    // 设置文件头
+    pBFH = (BITMAPFILEHEADER*)pDib;
+    pBFH->bfType = 0x4D42; // 'BM'
+    pBFH->bfSize = dibSize;
+    pBFH->bfReserved1 = 0;
+    pBFH->bfReserved2 = 0;
+    pBFH->bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+
+    // 对于16位565格式图像，需要添加位掩码
+    if (bitCount == 16 && is565Format) {
+        pBFH->bfOffBits += 3 * sizeof(DWORD); // 增加三个掩码的大小
+    }
+
+    // 添加调色板偏移（如果需要）
+    if (bitCount <= 8) {
+        pBFH->bfOffBits += (1 << bitCount) * sizeof(RGBQUAD);
+    }
+
+    // 设置信息头
+    pBIH = (BITMAPINFOHEADER*)(pDib + sizeof(BITMAPFILEHEADER));
+    pBIH->biSize = sizeof(BITMAPINFOHEADER);
+    pBIH->biWidth = width;
+    pBIH->biHeight = height;
+    pBIH->biPlanes = 1;
+    pBIH->biBitCount = bitCount;
+
+    // 对于16位565格式图像，设置正确的压缩类型和位掩码
+    if (bitCount == 16 && is565Format) {
+        pBIH->biCompression = BI_BITFIELDS;
+
+        // 添加掩码信息
+        DWORD* masks = (DWORD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        masks[0] = 0xF800; // R掩码
+        masks[1] = 0x07E0; // G掩码
+        masks[2] = 0x001F; // B掩码
+    }
+    else {
+        pBIH->biCompression = BI_RGB;
+    }
+
+    pBIH->biSizeImage = rowSize * height;
+    pBIH->biXPelsPerMeter = 0;
+    pBIH->biYPelsPerMeter = 0;
+    pBIH->biClrUsed = 0;
+    pBIH->biClrImportant = 0;
+
+    // 设置调色板（如果需要）
+    if (bitCount == 8) {
+        pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        memcpy(pQUAD, palette, 256 * sizeof(RGBQUAD));
+    }
+    else {
+        pQUAD = nullptr;
+    }
+
+    // 设置像素数据指针
+    pBits = pDib + pBFH->bfOffBits;
+
+    // 更新图像参数
+    nWidth = width;
+    nHeight = height;
+    nBitCount = bitCount;
+
+    // 创建临时缓冲区用于平滑处理
+    std::vector<std::vector<double>> tempBufferR;
+    std::vector<std::vector<double>> tempBufferG;
+    std::vector<std::vector<double>> tempBufferB;
+    std::vector<std::vector<int>> blockCount;
+
+    size_t coefIndex = 0;
+
+    if (nBitCount == 8) {
+        // 初始化临时缓冲区和计数器
+        tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
+        blockCount.resize(nHeight, std::vector<int>(nWidth, 0));
+
+        // 灰度图像处理
+        for (int y = 0; y < nHeight; y += 8) {
+            for (int x = 0; x < nWidth; x += 8) {
+                // 读取量化后的DCT系数
+                double block[8][8] = { 0 };
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        block[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                    }
+                }
+
+                // 反量化
+                Dequantize(block);
+
+                // 应用IDCT变换
+                IDCT2D(block);
+
+                // 将结果累加到临时缓冲区
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            // 反中心化
+                            double value = block[i][j] + 128.0;
+                            tempBufferR[y + i][x + j] += value;
+                            blockCount[y + i][x + j]++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 计算平均值并写入像素数据
+        for (int y = 0; y < nHeight; y++) {
+            for (int x = 0; x < nWidth; x++) {
+                if (blockCount[y][x] > 0) {
+                    double avgValue = tempBufferR[y][x] / blockCount[y][x];
+                    int value = static_cast<int>(round(avgValue));
+                    value = max(0, min(255, value));
+
+                    // 设置像素值
+                    BYTE* pixel = GetPixelPtr(x, y);
+                    *pixel = static_cast<BYTE>(value);
+                }
+            }
+        }
+    }
+    else if (nBitCount == 16) {
+        // 16位图像处理
+        tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
+        tempBufferG.resize(nHeight, std::vector<double>(nWidth, 0.0));
+        tempBufferB.resize(nHeight, std::vector<double>(nWidth, 0.0));
+        blockCount.resize(nHeight, std::vector<int>(nWidth, 0));
+
+        for (int y = 0; y < nHeight; y += 8) {
+            for (int x = 0; x < nWidth; x += 8) {
+                // 读取量化后的DCT系数
+                double blockR[8][8] = { 0 };
+                double blockG[8][8] = { 0 };
+                double blockB[8][8] = { 0 };
+
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        blockR[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockG[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockB[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                    }
+                }
+
+                // 反量化
+                Dequantize(blockR);
+                Dequantize(blockG);
+                Dequantize(blockB);
+
+                // 应用IDCT变换
+                IDCT2D(blockR);
+                IDCT2D(blockG);
+                IDCT2D(blockB);
+
+                // 将结果累加到临时缓冲区
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            // 反中心化
+                            tempBufferR[y + i][x + j] += blockR[i][j] + 128.0;
+                            tempBufferG[y + i][x + j] += blockG[i][j] + 128.0;
+                            tempBufferB[y + i][x + j] += blockB[i][j] + 128.0;
+                            blockCount[y + i][x + j]++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 计算平均值并写入像素数据
+        for (int y = 0; y < nHeight; y++) {
+            for (int x = 0; x < nWidth; x++) {
+                if (blockCount[y][x] > 0) {
+                    int r = static_cast<int>(tempBufferR[y][x] / blockCount[y][x]);
+                    int g = static_cast<int>(tempBufferG[y][x] / blockCount[y][x]);
+                    int b = static_cast<int>(tempBufferB[y][x] / blockCount[y][x]);
+
+                    r = max(0, min(255, r));
+                    g = max(0, min(255, g));
+                    b = max(0, min(255, b));
+
+                    // 设置16位像素颜色
+                    BYTE* pixel = GetPixelPtr(x, y);
+                    WORD pixelValue;
+
+                    if (is565Format) {
+                        // RGB565格式
+                        BYTE r5 = (r >> 3) & 0x1F;  // 5位红色
+                        BYTE g6 = (g >> 2) & 0x3F;  // 6位绿色
+                        BYTE b5 = (b >> 3) & 0x1F;  // 5位蓝色
+                        pixelValue = (r5 << 11) | (g6 << 5) | b5;
+                    }
+                    else {
+                        // RGB555格式
+                        BYTE r5 = (r >> 3) & 0x1F;  // 5位红色
+                        BYTE g5 = (g >> 3) & 0x1F;  // 5位绿色
+                        BYTE b5 = (b >> 3) & 0x1F;  // 5位蓝色
+                        pixelValue = (r5 << 10) | (g5 << 5) | b5;
+                    }
+
+                    *reinterpret_cast<WORD*>(pixel) = pixelValue;
+                }
+            }
+        }
+    }
+    else if (nBitCount == 24 || nBitCount == 32) {
+        // 彩色图像处理
+        tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
+        tempBufferG.resize(nHeight, std::vector<double>(nWidth, 0.0));
+        tempBufferB.resize(nHeight, std::vector<double>(nWidth, 0.0));
+        blockCount.resize(nHeight, std::vector<int>(nWidth, 0));
+
+        for (int y = 0; y < nHeight; y += 8) {
+            for (int x = 0; x < nWidth; x += 8) {
+                // 读取量化后的DCT系数
+                double blockR[8][8] = { 0 };
+                double blockG[8][8] = { 0 };
+                double blockB[8][8] = { 0 };
+
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        blockR[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockG[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockB[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                    }
+                }
+
+                // 反量化
+                Dequantize(blockR);
+                Dequantize(blockG);
+                Dequantize(blockB);
+
+                // 应用IDCT变换
+                IDCT2D(blockR);
+                IDCT2D(blockG);
+                IDCT2D(blockB);
+
+                // 将结果累加到临时缓冲区
+                for (int i = 0; i < 8; i++) {
+                    for (int j = 0; j < 8; j++) {
+                        if (y + i < nHeight && x + j < nWidth) {
+                            // 反中心化
+                            tempBufferR[y + i][x + j] += blockR[i][j] + 128.0;
+                            tempBufferG[y + i][x + j] += blockG[i][j] + 128.0;
+                            tempBufferB[y + i][x + j] += blockB[i][j] + 128.0;
+                            blockCount[y + i][x + j]++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 计算平均值并写入像素数据
+        for (int y = 0; y < nHeight; y++) {
+            for (int x = 0; x < nWidth; x++) {
+                if (blockCount[y][x] > 0) {
+                    int r = static_cast<int>(tempBufferR[y][x] / blockCount[y][x]);
+                    int g = static_cast<int>(tempBufferG[y][x] / blockCount[y][x]);
+                    int b = static_cast<int>(tempBufferB[y][x] / blockCount[y][x]);
+
+                    r = max(0, min(255, r));
+                    g = max(0, min(255, g));
+                    b = max(0, min(255, b));
+
+                    // 设置像素颜色
+                    BYTE* pixel = GetPixelPtr(x, y);
+                    SetColor(pixel, x, y, r, g, b);
+                }
+            }
+        }
+    }
+    else {
+        // 不支持的位深度
+        CleanUp();
+        return false;
+    }
+
+    return true;
+}

@@ -128,6 +128,8 @@
 #define ID_DCT32842                     32842
 #define ID_COSINE_ENCODE                32843
 #define ID_COSINE_DECODE                32844
+#define ID_COM_PREHENSIVE_ENCODE        32845
+#define ID_COM_PREHENSIVE_DECODE        32846
 
 // Next default values for new objects
 // 

@@ -86,6 +86,8 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_LZW_DECODE, &CMyPhotoshopView::OnLZWDecode)
     ON_COMMAND(ID_COSINE_ENCODE, &CMyPhotoshopView::OnCosineEncode)
     ON_COMMAND(ID_COSINE_DECODE, &CMyPhotoshopView::OnCosineDecode)
+    ON_COMMAND(ID_COM_PREHENSIVE_ENCODE, &CMyPhotoshopView::OnComprehensiveEncode)
+    ON_COMMAND(ID_COM_PREHENSIVE_DECODE, &CMyPhotoshopView::OnComprehensiveDecode)
 
 END_MESSAGE_MAP()
 
@@ -1488,5 +1490,57 @@ void CMyPhotoshopView::OnCosineDecode()
                 pDoc->UpdateAllViews(nullptr);
             }
         );
+    }
+}
+
+// 综合编码
+void CMyPhotoshopView::OnComprehensiveEncode()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像"));
+        return;
+    }
+    // 弹出“另存为”对话框
+    CFileDialog fileDlg(FALSE, _T("comp"), NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+        _T("综合编码文件(*.comp)|*.comp|所有文件(*.*)|*.*||"), this);
+    if (fileDlg.DoModal() == IDOK)
+    {
+        CString savePath = fileDlg.GetPathName();
+        // 假设pDoc->pImage是你的CImageProc对象
+        if (!pDoc->pImage->ComprehensiveEncodeImage(savePath))
+        {
+            AfxMessageBox(_T("保存失败！"));
+        }
+        else
+        {
+            AfxMessageBox(_T("保存成功！"));
+        }
+    }
+}
+
+// 综合解码
+void CMyPhotoshopView::OnComprehensiveDecode()
+{
+    CFileDialog fileDlg(TRUE, _T("comp"), NULL, OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
+        _T("综合编码文件(*.comp)|*.comp|所有文件(*.*)|*.*||"), this);
+    if (fileDlg.DoModal() == IDOK)
+    {
+        CString filePath = fileDlg.GetPathName();
+        CMyPhotoshopDoc* pDoc = GetDocument();
+        if (!pDoc || !pDoc->pImage)
+        {
+            AfxMessageBox(_T("文档或图像对象无效"));
+            return;
+        }
+        if (!pDoc->pImage->ComprehensiveDecodeImage(filePath))
+        {
+            AfxMessageBox(_T("解码失败或文件格式错误！"));
+        }
+        else
+        {
+            AfxMessageBox(_T("解码成功！"));
+            pDoc->UpdateAllViews(nullptr); // 刷新显示
+        }
     }
 }
