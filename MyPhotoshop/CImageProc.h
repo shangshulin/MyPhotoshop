@@ -76,6 +76,11 @@ public:
     // 图像编码与解码
     bool HuffmanEncodeImage(const CString& savePath);
     bool HuffmanDecodeImage(const CString& openPath);
+    void Quantize(double block[8][8], const double quantTable[8][8]);
+    void Dequantize(double block[8][8], const double quantTable[8][8]);
+    //量化表定义
+    static const double luminanceQuantTable[8][8];
+    static const double chrominanceQuantTable[8][8];
     
     // LZW编码与解码
     bool LZWEncodeImage(const CString& savePath);
@@ -201,3 +206,4 @@ struct CompareNode {
         return a->freq > b->freq;
     }
 };
+

@@ -4777,7 +4777,8 @@ bool CImageProc::CosineDecodeImage(const CString& openPath) {
 // 综合编码函数
 bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     if (!IsValid()) return false;
-	// 备份原始图像参数
+
+    // 备份原始图像参数
     int originalWidth = nWidth;
     int originalHeight = nHeight;
     int originalBitCount = nBitCount;
@@ -4792,6 +4793,7 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     fwrite(&nWidth, sizeof(int), 1, fp);
     fwrite(&nHeight, sizeof(int), 1, fp);
     fwrite(&nBitCount, sizeof(int), 1, fp);
+
     // 保存16位图像格式标志
     if (nBitCount == 16) {
         BYTE formatFlag = m_bIs565Format ? 1 : 0;
@@ -4809,7 +4811,7 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     for (int y = 0; y < nHeight; y += 8) {
         for (int x = 0; x < nWidth; x += 8) {
             if (nBitCount == 8) {
-                // 灰度图像处理
+                // 灰度图像处理（保持原有逻辑不变）
                 double block[8][8] = { 0 };
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
@@ -4824,7 +4826,7 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
                 DCT2D(block);
 
                 // 量化
-                Quantize(block);
+                Quantize(block, luminanceQuantTable);
 
                 // 收集量化后的DCT系数
                 for (int i = 0; i < 8; i++) {
@@ -4835,7 +4837,7 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
                 }
             }
             else if (nBitCount == 16) {
-                // 16位图像处理
+                // 16位图像处理（保持原有逻辑不变）
                 double blockR[8][8] = { 0 };
                 double blockG[8][8] = { 0 };
                 double blockB[8][8] = { 0 };
@@ -4863,9 +4865,9 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
                 DCT2D(blockB);
 
                 // 量化
-                Quantize(blockR);
-                Quantize(blockG);
-                Quantize(blockB);
+                Quantize(blockR, luminanceQuantTable);
+                Quantize(blockG, luminanceQuantTable);
+                Quantize(blockB, luminanceQuantTable);
 
                 // 收集量化后的DCT系数
                 for (int i = 0; i < 8; i++) {
@@ -4880,42 +4882,44 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
                 }
             }
             else if (nBitCount == 24 || nBitCount == 32) {
-                // 彩色图像处理
-                double blockR[8][8] = { 0 };
-                double blockG[8][8] = { 0 };
-                double blockB[8][8] = { 0 };
+                // 彩色图像处理 - 转换为YUV空间
+                double blockY[8][8] = { 0 };
+                double blockU[8][8] = { 0 };
+                double blockV[8][8] = { 0 };
 
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         if (y + i < nHeight && x + j < nWidth) {
                             BYTE r, g, b;
                             GetColor(x + j, y + i, r, g, b);
-                            blockR[i][j] = static_cast<double>(r) - 128.0;
-                            blockG[i][j] = static_cast<double>(g) - 128.0;
-                            blockB[i][j] = static_cast<double>(b) - 128.0;
+
+                            // RGB转YUV (BT.601标准)
+                            blockY[i][j] = 0.299 * r + 0.587 * g + 0.114 * b - 128.0;
+                            blockU[i][j] = -0.147 * r - 0.289 * g + 0.436 * b;
+                            blockV[i][j] = 0.615 * r - 0.515 * g - 0.100 * b;
                         }
                     }
                 }
 
                 // 对每个通道应用DCT变换
-                DCT2D(blockR);
-                DCT2D(blockG);
-                DCT2D(blockB);
+                DCT2D(blockY);
+                DCT2D(blockU);
+                DCT2D(blockV);
 
-                // 量化
-                Quantize(blockR);
-                Quantize(blockG);
-                Quantize(blockB);
+                // 使用不同量化表进行量化
+                Quantize(blockY, luminanceQuantTable);
+                Quantize(blockU, chrominanceQuantTable);
+                Quantize(blockV, chrominanceQuantTable);
 
-                // 收集量化后的DCT系数
+                // 收集量化后的DCT系数（YUV顺序）
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
-                        short coefR = static_cast<short>(round(blockR[i][j]));
-                        short coefG = static_cast<short>(round(blockG[i][j]));
-                        short coefB = static_cast<short>(round(blockB[i][j]));
-                        allCoefficients.push_back(coefR);
-                        allCoefficients.push_back(coefG);
-                        allCoefficients.push_back(coefB);
+                        short coefY = static_cast<short>(round(blockY[i][j]));
+                        short coefU = static_cast<short>(round(blockU[i][j]));
+                        short coefV = static_cast<short>(round(blockV[i][j]));
+                        allCoefficients.push_back(coefY);
+                        allCoefficients.push_back(coefU);
+                        allCoefficients.push_back(coefV);
                     }
                 }
             }
@@ -4970,7 +4974,7 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     }
 
     // 计算压缩率
-     double originalSize = originalWidth * originalHeight * (originalBitCount / 8.0); // 原始大小（字节）
+    double originalSize = originalWidth * originalHeight * (originalBitCount / 8.0); // 原始大小（字节）
     struct _stat fileStat;
     if (_stat(CW2A(savePath), &fileStat) == 0) {
         double compressedSize = fileStat.st_size;
@@ -5162,7 +5166,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
     size_t coefIndex = 0;
 
     if (nBitCount == 8) {
-        // 初始化临时缓冲区和计数器
+        // 灰度图像处理（保持原有逻辑不变）
         tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
         blockCount.resize(nHeight, std::vector<int>(nWidth, 0));
 
@@ -5178,7 +5182,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
                 }
 
                 // 反量化
-                Dequantize(block);
+                Dequantize(block, luminanceQuantTable);
 
                 // 应用IDCT变换
                 IDCT2D(block);
@@ -5213,7 +5217,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
         }
     }
     else if (nBitCount == 16) {
-        // 16位图像处理
+        // 16位图像处理（保持原有逻辑不变）
         tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferG.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferB.resize(nHeight, std::vector<double>(nWidth, 0.0));
@@ -5235,9 +5239,9 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
                 }
 
                 // 反量化
-                Dequantize(blockR);
-                Dequantize(blockG);
-                Dequantize(blockB);
+                Dequantize(blockR, luminanceQuantTable);
+                Dequantize(blockG, luminanceQuantTable);
+                Dequantize(blockB, luminanceQuantTable);
 
                 // 应用IDCT变换
                 IDCT2D(blockR);
@@ -5296,7 +5300,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
         }
     }
     else if (nBitCount == 24 || nBitCount == 32) {
-        // 彩色图像处理
+        // 彩色图像处理 - 从YUV转回RGB
         tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferG.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferB.resize(nHeight, std::vector<double>(nWidth, 0.0));
@@ -5304,37 +5308,51 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
 
         for (int y = 0; y < nHeight; y += 8) {
             for (int x = 0; x < nWidth; x += 8) {
-                // 读取量化后的DCT系数
-                double blockR[8][8] = { 0 };
-                double blockG[8][8] = { 0 };
-                double blockB[8][8] = { 0 };
+                // 读取量化后的DCT系数（YUV顺序）
+                double blockY[8][8] = { 0 };
+                double blockU[8][8] = { 0 };
+                double blockV[8][8] = { 0 };
 
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
-                        blockR[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
-                        blockG[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
-                        blockB[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockY[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockU[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockV[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
                     }
                 }
 
-                // 反量化
-                Dequantize(blockR);
-                Dequantize(blockG);
-                Dequantize(blockB);
+                // 反量化（使用对应量化表）
+                Dequantize(blockY, luminanceQuantTable);
+                Dequantize(blockU, chrominanceQuantTable);
+                Dequantize(blockV, chrominanceQuantTable);
 
                 // 应用IDCT变换
-                IDCT2D(blockR);
-                IDCT2D(blockG);
-                IDCT2D(blockB);
+                IDCT2D(blockY);
+                IDCT2D(blockU);
+                IDCT2D(blockV);
 
-                // 将结果累加到临时缓冲区
+                // 将结果累加到临时缓冲区（转换回RGB）
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         if (y + i < nHeight && x + j < nWidth) {
                             // 反中心化
-                            tempBufferR[y + i][x + j] += blockR[i][j] + 128.0;
-                            tempBufferG[y + i][x + j] += blockG[i][j] + 128.0;
-                            tempBufferB[y + i][x + j] += blockB[i][j] + 128.0;
+                            double Y = blockY[i][j] + 128.0;
+                            double U = blockU[i][j];
+                            double V = blockV[i][j];
+
+                            // YUV转RGB (BT.601标准)
+                            int r = static_cast<int>(Y + 1.402 * V);
+                            int g = static_cast<int>(Y - 0.344 * U - 0.714 * V);
+                            int b = static_cast<int>(Y + 1.772 * U);
+
+                            // 像素值范围限制
+                            r = max(0, min(255, r));
+                            g = max(0, min(255, g));
+                            b = max(0, min(255, b));
+
+                            tempBufferR[y + i][x + j] += r;
+                            tempBufferG[y + i][x + j] += g;
+                            tempBufferB[y + i][x + j] += b;
                             blockCount[y + i][x + j]++;
                         }
                     }
@@ -5367,5 +5385,49 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
         return false;
     }
 
+    // 释放内存
+    ::GlobalUnlock(m_hDib);
+
     return true;
+}
+
+// 量化表定义
+const double CImageProc::luminanceQuantTable[8][8] = {
+    {16, 11, 10, 16, 24, 40, 51, 61},
+    {12, 12, 14, 19, 26, 58, 60, 55},
+    {14, 13, 16, 24, 40, 57, 69, 56},
+    {14, 17, 22, 29, 51, 87, 80, 62},
+    {18, 22, 37, 56, 68, 109, 103, 77},
+    {24, 35, 55, 64, 81, 104, 113, 92},
+    {49, 64, 78, 87, 103, 121, 120, 101},
+    {72, 92, 95, 98, 112, 100, 103, 99}
+};
+
+const double CImageProc::chrominanceQuantTable[8][8] = {
+    {17, 18, 24, 47, 99, 99, 99, 99},
+    {18, 21, 26, 66, 99, 99, 99, 99},
+    {24, 26, 56, 99, 99, 99, 99, 99},
+    {47, 66, 99, 99, 99, 99, 99, 99},
+    {99, 99, 99, 99, 99, 99, 99, 99},
+    {99, 99, 99, 99, 99, 99, 99, 99},
+    {99, 99, 99, 99, 99, 99, 99, 99},
+    {99, 99, 99, 99, 99, 99, 99, 99}
+};
+
+// 辅助函数：量化
+void CImageProc::Quantize(double block[8][8], const double quantTable[8][8]) {
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            block[i][j] = round(block[i][j] / quantTable[i][j]);
+        }
+    }
+}
+
+// 辅助函数：反量化
+void CImageProc::Dequantize(double block[8][8], const double quantTable[8][8]) {
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            block[i][j] = block[i][j] * quantTable[i][j];
+        }
+    }
 }
