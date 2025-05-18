@@ -4777,6 +4777,10 @@ bool CImageProc::CosineDecodeImage(const CString& openPath) {
 // 综合编码函数
 bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     if (!IsValid()) return false;
+	// 备份原始图像参数
+    int originalWidth = nWidth;
+    int originalHeight = nHeight;
+    int originalBitCount = nBitCount;
 
     // 打开临时文件进行写入
     CString tempPath = savePath + _T(".temp");
@@ -4966,14 +4970,12 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     }
 
     // 计算压缩率
-    double originalSize = nWidth * nHeight * (nBitCount / 8);
+     double originalSize = originalWidth * originalHeight * (originalBitCount / 8.0); // 原始大小（字节）
     struct _stat fileStat;
     if (_stat(CW2A(savePath), &fileStat) == 0) {
         double compressedSize = fileStat.st_size;
         double ratio = (1.0 - compressedSize / originalSize) * 100.0;
-        if (ratio < 0) {
-            ratio = 0;
-        }
+        if (ratio < 0) ratio = 0; // 确保压缩率非负
         CString message;
         message.Format(_T("Comprehensive encoding completed!\nOriginal size: %.2f KB\nCompressed size: %.2f KB\nCompression ratio: %.2f%%"),
             originalSize / 1024.0, compressedSize / 1024.0, ratio);
