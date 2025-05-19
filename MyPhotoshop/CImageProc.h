@@ -76,6 +76,27 @@ public:
     // 图像编码与解码
     bool HuffmanEncodeImage(const CString& savePath);
     bool HuffmanDecodeImage(const CString& openPath);
+    void Quantize(double block[8][8], const double quantTable[8][8]);
+    void Dequantize(double block[8][8], const double quantTable[8][8]);
+    //量化表定义
+    static const double luminanceQuantTable[8][8];
+    static const double chrominanceQuantTable[8][8];
+    
+    // LZW编码与解码
+    bool LZWEncodeImage(const CString& savePath);
+    bool LZWDecodeImage(const CString& openPath);
+
+    // 基于余弦变换和量化的编码与解码
+    bool CosineEncodeImage(const CString& savePath);
+    bool CosineDecodeImage(const CString& openPath);
+    void DCT2D(double block[8][8]);
+    void IDCT2D(double block[8][8]);
+    void Quantize(double block[8][8]);
+    void Dequantize(double block[8][8]);
+
+    //综合编码与解码函数
+    bool ComprehensiveEncodeImage(const CString& savePath);
+    bool ComprehensiveDecodeImage(const CString& openPath);
 
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
@@ -185,3 +206,4 @@ struct CompareNode {
         return a->freq > b->freq;
     }
 };
+
