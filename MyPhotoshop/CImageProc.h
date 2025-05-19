@@ -78,6 +78,9 @@ public:
     bool HuffmanDecodeImage(const CString& openPath);
     void Quantize(double block[8][8], const double quantTable[8][8]);
     void Dequantize(double block[8][8], const double quantTable[8][8]);
+  //行程编码
+    bool RLEncodeImage(const CString& savePath);
+    bool RLDecodeImage(const CString& openPath);
     //量化表定义
     static const double luminanceQuantTable[8][8];
     static const double chrominanceQuantTable[8][8];

@@ -5449,3 +5449,229 @@ void CImageProc::Dequantize(double block[8][8], const double quantTable[8][8]) {
         }
     }
 }
+
+//行程编码
+bool CImageProc::RLEncodeImage(const CString& savePath) {
+    if (!IsValid()) {
+        AfxMessageBox(_T("没有有效的图像可编码"));
+        return false;
+    }
+
+    // 计算像素数据大小
+    if (nBitCount != 8 && nBitCount != 16 && nBitCount != 24 && nBitCount != 32) {
+        AfxMessageBox(_T("8,16,24,32bit only"));
+        return false;
+    }
+    int bytesPerPixel = nBitCount / 8;
+    int dataSize = nWidth * nHeight * bytesPerPixel;
+    BYTE* data = pBits;
+
+    std::ofstream ofs(CW2A(savePath), std::ios::binary);
+    if (!ofs) {
+        AfxMessageBox(_T("无法打开保存文件"));
+        return false;
+    }
+
+    // 写文件头（宽、高、位深）
+    ofs.write((char*)&nWidth, sizeof(nWidth));
+    ofs.write((char*)&nHeight, sizeof(nHeight));
+    ofs.write((char*)&nBitCount, sizeof(nBitCount));
+
+    //16位565处理
+    if (nBitCount == 16) {
+        BYTE is565 = m_bIs565Format ? 1 : 0;
+        ofs.write((char*)&is565, sizeof(is565));
+    }
+
+    //行程编码数据
+    std::vector<BYTE> imageDataNoPadding;
+    imageDataNoPadding.reserve(nWidth * nHeight * (nBitCount / 8)); // 预分配空间
+
+    int unpaddedRowSizeBytes = nWidth * (nBitCount / 8);
+    int paddedRowSizeBytes = ((nWidth * nBitCount + 31) / 32) * 4;
+
+    for (int y = 0; y < nHeight; ++y) {
+        // pBits 指向DIB的像素数据，通常是底向顶存储
+        // 第y行（从图像底部开始，y=0是图像最底行）
+        BYTE* currentRowStartInBuffer = pBits + y * paddedRowSizeBytes;
+        imageDataNoPadding.insert(imageDataNoPadding.end(), currentRowStartInBuffer, currentRowStartInBuffer + unpaddedRowSizeBytes);
+    }
+
+    if (!imageDataNoPadding.empty()) {
+        BYTE currentValue = imageDataNoPadding[0];
+        BYTE count = 1;
+        for (size_t i = 1; i < imageDataNoPadding.size(); ++i) {
+            if (imageDataNoPadding[i] == currentValue && count < 255) {
+                count++;
+            }
+            else {
+                ofs.write((char*)&count, 1);
+                ofs.write((char*)&currentValue, 1);
+                currentValue = imageDataNoPadding[i];
+                count = 1;
+            }
+        }
+        // 写入最后一个行程
+        ofs.write((char*)&count, 1);
+        ofs.write((char*)&currentValue, 1);
+    }
+
+    //写调色板数据
+    if (nBitCount == 8 && pQUAD) {
+        // 直接写入原始调色板，不进行顺序判断和修改
+        ofs.write((char*)pQUAD, 256 * sizeof(RGBQUAD));
+    }
+
+    ofs.close();
+    return true;
+}
+
+//行程解码
+bool CImageProc::RLDecodeImage(const CString& openPath) {
+    std::ifstream ifs(CW2A(openPath), std::ios::binary);
+    if (!ifs) {
+        AfxMessageBox(_T("无法打开解码文件"));
+        return false;
+    }
+
+    // 2. 读取文件头
+    int width = 0, height = 0, bitCount = 0;
+    ifs.read((char*)&width, sizeof(width));
+    ifs.read((char*)&height, sizeof(height));
+    ifs.read((char*)&bitCount, sizeof(bitCount));
+
+    //16位565处理
+    bool is16Bit565Format = false;
+    if (bitCount == 16) {
+        BYTE is565_byte = 0;
+        if (!ifs.read((char*)&is565_byte, sizeof(is565_byte))) {
+            AfxMessageBox(_T("读取失败"));
+            ifs.close();
+            return false;
+        }
+        is16Bit565Format = (is565_byte == 1);
+    }
+    if (width <= 0 || height <= 0 || (bitCount != 8 && bitCount != 16 && bitCount != 24 && bitCount != 32)) {
+        AfxMessageBox(_T("ERROR"));
+        ifs.close();
+        return false;
+    }
+
+    int bytePerPixel = bitCount / 8;
+    int dataSizeUncompressed = width * height * bytePerPixel;
+    int rowSizePadded = ((width * bitCount + 31) / 32) * 4;
+
+    std::vector<BYTE> decodedData;
+    if (dataSizeUncompressed > 0) {
+        decodedData.reserve(dataSizeUncompressed);//预分配解压后数据容量
+    }
+    // 3. 读取编码数据并解码
+    BYTE count = 0, value = 0;
+    while (decodedData.size() < (size_t)dataSizeUncompressed && ifs.read((char*)&count, 1) && ifs.read((char*)&value, 1)) {
+        for (int i = 0; i < count && decodedData.size() < (size_t)dataSizeUncompressed; ++i) {
+            decodedData.push_back(value);
+        }
+    }
+
+    if (decodedData.size() != (size_t)dataSizeUncompressed && dataSizeUncompressed > 0) {
+        CString msg;
+        msg.Format(_T("解码数据长度不符, 预期: %d, 实际: %d"), dataSizeUncompressed, decodedData.size());
+        AfxMessageBox(msg);
+        ifs.close();
+        return false;
+    }
+
+    // 4. 构建BMP内存结构
+    CleanUp();
+    DWORD paletteSize = (bitCount == 8) ? (256 * sizeof(RGBQUAD)) : 0;
+    DWORD colorMaskSize = (bitCount == 16) ? (3 * sizeof(DWORD)) : 0;
+    DWORD imageActualDataSizeInDib = (DWORD)rowSizePadded * height;
+    DWORD dibSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + paletteSize + colorMaskSize + imageActualDataSizeInDib;
+
+
+    m_hDib = ::GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE, dibSize);
+    if (!m_hDib) {
+        AfxMessageBox(_T("内存分配失败"));
+        ifs.close();
+        return false;
+    }
+    pDib = (BYTE*)::GlobalLock(m_hDib);
+    pBFH = (BITMAPFILEHEADER*)pDib;
+    pBIH = (BITMAPINFOHEADER*)(pDib + sizeof(BITMAPFILEHEADER));
+    nWidth = width;
+    nHeight = height;
+    nBitCount = bitCount;
+    if (bitCount == 16) {
+        m_bIs565Format = is16Bit565Format;
+    }
+
+    // 填写文件头
+    pBFH->bfType = 0x4D42; //  BM
+    pBFH->bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + paletteSize + colorMaskSize;
+    pBFH->bfSize = dibSize;
+    pBFH->bfReserved1 = 0;
+    pBFH->bfReserved2 = 0;
+
+    // 填写信息头
+    pBIH->biSize = sizeof(BITMAPINFOHEADER);
+    pBIH->biWidth = width;
+    pBIH->biHeight = height;
+    pBIH->biPlanes = 1;
+    pBIH->biBitCount = bitCount;
+    if (bitCount == 16) {
+        pBIH->biCompression = BI_BITFIELDS; // 16位图像使用BI_BITFIELDS
+    }
+    else {
+        pBIH->biCompression = BI_RGB; // 其他情况（如8, 24, 32位）使用BI_RGB
+    }
+    pBIH->biSizeImage = imageActualDataSizeInDib;
+    pBIH->biXPelsPerMeter = 0;
+    pBIH->biYPelsPerMeter = 0;
+    pBIH->biClrUsed = (bitCount == 8) ? 256 : 0;
+    pBIH->biClrImportant = (bitCount == 8) ? 256 : 0;
+
+
+    // 填写调色板
+
+    if (bitCount == 8) {
+        pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        if (!ifs.read((char*)pQUAD, 256 * sizeof(RGBQUAD))) {
+            AfxMessageBox(_T("ERROR"));
+            CleanUp();
+            ifs.close();
+            return false;
+        }
+
+    }
+    else {
+        pQUAD = nullptr;
+    }
+
+    // 填写颜色掩码 (仅针对16位图像)
+    if (bitCount == 16) {
+        DWORD* pColorMasks = (DWORD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
+        if (is16Bit565Format) { // 565 format
+            pColorMasks[0] = 0xF800; // Red mask
+            pColorMasks[1] = 0x07E0; // Green mask
+            pColorMasks[2] = 0x001F; // Blue mask
+        }
+        else { // 555 format
+            pColorMasks[0] = 0x7C00; // Red mask
+            pColorMasks[1] = 0x03E0; // Green mask
+            pColorMasks[2] = 0x001F; // Blue mask
+        }
+    }
+
+    // 填写像素数据
+    pBits = pDib + pBFH->bfOffBits;
+    int unpaddedRowBytes = width * bytePerPixel;
+
+    for (int y = 0; y < height; ++y) {
+        BYTE* destRow = pBits + y * rowSizePadded; // BMP中最后一行在文件最前面，即倒序写入
+        BYTE* srcRow = decodedData.data() + y * unpaddedRowBytes;
+        memcpy(destRow, srcRow, unpaddedRowBytes);
+    }
+
+    ifs.close();
+    return true;
+}
