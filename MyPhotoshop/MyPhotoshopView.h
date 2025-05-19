@@ -109,6 +109,8 @@ public:
 	afx_msg void OnCosineDecode();
 	afx_msg void OnComprehensiveEncode();
 	afx_msg void OnComprehensiveDecode();
+	afx_msg void OnRLEncode();
+	afx_msg void OnRLDecode();
 public:
 	template <typename TExecute, typename TUndo>
 	void AddCommand(TExecute&& executeFunc, TUndo&& undoFunc)

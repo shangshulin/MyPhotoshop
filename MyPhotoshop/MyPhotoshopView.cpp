@@ -88,6 +88,8 @@ BEGIN_MESSAGE_MAP(CMyPhotoshopView, CView)
     ON_COMMAND(ID_COSINE_DECODE, &CMyPhotoshopView::OnCosineDecode)
     ON_COMMAND(ID_COM_PREHENSIVE_ENCODE, &CMyPhotoshopView::OnComprehensiveEncode)
     ON_COMMAND(ID_COM_PREHENSIVE_DECODE, &CMyPhotoshopView::OnComprehensiveDecode)
+    ON_COMMAND(ID_RL_Encode, &CMyPhotoshopView::OnRLEncode)
+    ON_COMMAND(ID_RL_Decode, &CMyPhotoshopView::OnRLDecode)
 
 END_MESSAGE_MAP()
 
@@ -1534,6 +1536,55 @@ void CMyPhotoshopView::OnComprehensiveDecode()
             return;
         }
         if (!pDoc->pImage->ComprehensiveDecodeImage(filePath))
+        {
+            AfxMessageBox(_T("解码失败或文件格式错误！"));
+        }
+        else
+        {
+            AfxMessageBox(_T("解码成功！"));
+            pDoc->UpdateAllViews(nullptr); // 刷新显示
+        }
+    }
+}
+
+void CMyPhotoshopView::OnRLEncode()
+{
+    CMyPhotoshopDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->IsValid()) {
+        AfxMessageBox(_T("请先打开有效的图像"));
+        return;
+    }
+    // 弹出“另存为”对话框
+    CFileDialog fileDlg(FALSE, _T("rle"), NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
+        _T("RLE编码文件(*.rle)|*.rle|所有文件(*.*)|*.*||"), this);
+    if (fileDlg.DoModal() == IDOK)
+    {
+        CString savePath = fileDlg.GetPathName();
+        if (!pDoc->pImage->RLEncodeImage(savePath))
+        {
+            AfxMessageBox(_T("RLE编码保存失败！"));
+        }
+        else
+        {
+            AfxMessageBox(_T("RLE编码保存成功！"));
+        }
+    }
+}
+
+void CMyPhotoshopView::OnRLDecode()
+{
+    CFileDialog fileDlg(TRUE, _T("rle"), NULL, OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
+        _T("RLE编码文件(*.rle)|*.rle|所有文件(*.*)|*.*||"), this);
+    if (fileDlg.DoModal() == IDOK)
+    {
+        CString filePath = fileDlg.GetPathName();
+        CMyPhotoshopDoc* pDoc = GetDocument();
+        if (!pDoc || !pDoc->pImage)
+        {
+            AfxMessageBox(_T("文档或图像对象无效"));
+            return;
+        }
+        if (!pDoc->pImage->RLDecodeImage(filePath))
         {
             AfxMessageBox(_T("解码失败或文件格式错误！"));
         }
