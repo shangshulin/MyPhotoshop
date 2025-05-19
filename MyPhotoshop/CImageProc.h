@@ -69,10 +69,13 @@ public:
     void Multiply(CImageProc& img);    // 图像相乘
     void PowerTransform(double gamma); // 幂律变换
 
-
 	// 频域滤波
     void FreqPassFilter(double D0, int step, int filterType);  //高通/低通滤波
     void HomomorphicFiltering();    //同态滤波
+
+    // 图像编码与解码
+    bool HuffmanEncodeImage(const CString& savePath);
+    bool HuffmanDecodeImage(const CString& openPath);
 
     // 快速傅里叶变换
     bool IsFFTPerformed() const { return m_bFFTPerformed; }
@@ -164,4 +167,21 @@ public:
     std::vector<std::complex<double>> m_fullSpectrum;  // 存储完整频谱数据
     std::pair<int, int> m_paddedSize;
     std::vector<std::vector<std::complex<double>>> m_fullSpectrumRGB; // 存储RGB三个通道的频谱
+};
+
+// 霍夫曼树节点结构体
+struct HuffmanNode {
+    BYTE value;
+    int freq;
+    HuffmanNode* left;
+    HuffmanNode* right;
+    HuffmanNode(BYTE v, int f) : value(v), freq(f), left(nullptr), right(nullptr) {}
+    HuffmanNode(HuffmanNode* l, HuffmanNode* r) : value(0), freq(l->freq + r->freq), left(l), right(r) {}
+};
+
+// 比较器
+struct CompareNode {
+    bool operator()(HuffmanNode* a, HuffmanNode* b) {
+        return a->freq > b->freq;
+    }
 };

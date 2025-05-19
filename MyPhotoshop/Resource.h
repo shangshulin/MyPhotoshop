@@ -115,13 +115,16 @@
 #define ID_LOWPASS_FILTER               32828
 #define ID_HOMOMORPHIC_FILTERING        32829
 #define ID_HUFMAN                       32831
+#define ID_HUF                          32832
+#define ID_HUFFMAN_ENCODE               32833
+#define ID_HUFFMAN_DECODE               32834
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        330
-#define _APS_NEXT_COMMAND_VALUE         32832
+#define _APS_NEXT_COMMAND_VALUE         32835
 #define _APS_NEXT_CONTROL_VALUE         1039
 #define _APS_NEXT_SYMED_VALUE           320
 #endif
