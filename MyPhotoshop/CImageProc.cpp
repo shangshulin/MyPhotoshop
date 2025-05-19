@@ -3325,10 +3325,10 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     ofs.write((char*)&nWidth, sizeof(nWidth));
     ofs.write((char*)&nHeight, sizeof(nHeight));
     ofs.write((char*)&nBitCount, sizeof(nBitCount));
-
+    // 记录使用的颜色数
     int clrUsed = (pBIH && pBIH->biClrUsed > 0) ? pBIH->biClrUsed : (1 << nBitCount);
     ofs.write((char*)&clrUsed, sizeof(clrUsed));
-
+    // 记录编码表大小
     int tableSize = (int)codeTable.size();
     ofs.write((char*)&tableSize, sizeof(tableSize));
 
@@ -3337,18 +3337,21 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
         ofs.write((char*)&kv.first, 1); // 像素值
         BYTE len = (BYTE)kv.second.size();
         ofs.write((char*)&len, 1);      // 编码长度
-        BYTE buf = 0, cnt = 0;
+        BYTE buf = 0, cnt = 0;  //  buf用于存储编码数据，cnt用于记录编码长度
+        //  将编码数据写入文件
         for (bool b : kv.second) {
             buf = (buf << 1) | b;
             cnt++;
+            //  编码长度达到8位，写入文件（一个字节）
             if (cnt == 8) {
                 ofs.write((char*)&buf, 1);
                 buf = 0;
                 cnt = 0;
             }
         }
+        //  处理剩余的编码数据
         if (cnt) {
-            buf <<= (8 - cnt);
+            buf <<= (8 - cnt);//  填充剩余的位
             ofs.write((char*)&buf, 1);
         }
     }
@@ -3370,6 +3373,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
         buf <<= (8 - cnt);
         ofs.write((char*)&buf, 1);
     }
+    //16位图像需要另外存储格式信息
     if (nBitCount == 16) {
         // 判断是否为565格式（需要从原始BMP文件获取这个信息）
         // 保存格式信息（0表示555，1表示565）
