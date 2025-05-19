@@ -1573,8 +1573,8 @@ void CMyPhotoshopView::OnRLEncode()
 
 void CMyPhotoshopView::OnRLDecode()
 {
-    CFileDialog fileDlg(TRUE, _T("huff"), NULL, OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
-        _T("Huffman编码文件(*.huff)|*.huff|所有文件(*.*)|*.*||"), this);
+    CFileDialog fileDlg(TRUE, _T("rle"), NULL, OFN_HIDEREADONLY | OFN_FILEMUSTEXIST,
+        _T("RLE编码文件(*.rle)|*.rle|所有文件(*.*)|*.*||"), this);
     if (fileDlg.DoModal() == IDOK)
     {
         CString filePath = fileDlg.GetPathName();
@@ -1584,7 +1584,7 @@ void CMyPhotoshopView::OnRLDecode()
             AfxMessageBox(_T("文档或图像对象无效"));
             return;
         }
-        if (!pDoc->pImage->HuffmanDecodeImage(filePath))
+        if (!pDoc->pImage->RLDecodeImage(filePath))
         {
             AfxMessageBox(_T("解码失败或文件格式错误！"));
         }
