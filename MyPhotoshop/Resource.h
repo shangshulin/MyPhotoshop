@@ -130,8 +130,6 @@
 #define ID_COSINE_DECODE                32844
 #define ID_COM_PREHENSIVE_ENCODE        32845
 #define ID_COM_PREHENSIVE_DECODE        32846
-#define ID_RL_Encode                    32847
-#define ID_RL_Decode                    32848
 
 // Next default values for new objects
 // 
