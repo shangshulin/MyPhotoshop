@@ -51,4 +51,5 @@ public:
 	afx_msg void OnFileOpen();
 	void ApplyImageEnhancement();
 
+	virtual void SetTitle(LPCTSTR lpszTitle);
 };
