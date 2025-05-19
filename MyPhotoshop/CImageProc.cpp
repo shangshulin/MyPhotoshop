@@ -4800,18 +4800,18 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
         fwrite(&formatFlag, sizeof(BYTE), 1, fp);
     }
 
-    // 如果是8位图像，保存调色板
+    // 8位图像，保存调色板
     if (nBitCount == 8 && pQUAD) {
         fwrite(pQUAD, sizeof(RGBQUAD), 256, fp);
     }
+    
+    std::vector<short> allCoefficients;//存储量化后的DCT系数
 
-    std::vector<short> allCoefficients;
-
-    // 分块处理图像
+    // 分8x8块处理图像数据
     for (int y = 0; y < nHeight; y += 8) {
         for (int x = 0; x < nWidth; x += 8) {
             if (nBitCount == 8) {
-                // 灰度图像处理（保持原有逻辑不变）
+                // 灰度图像处理
                 double block[8][8] = { 0 };
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
@@ -4837,7 +4837,7 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
                 }
             }
             else if (nBitCount == 16) {
-                // 16位图像处理（保持原有逻辑不变）
+                // 16位图像处理
                 double blockR[8][8] = { 0 };
                 double blockG[8][8] = { 0 };
                 double blockB[8][8] = { 0 };
@@ -5062,7 +5062,6 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
         allCoefficients.push_back(coef);
     }
 
-    // 清理现有资源
     CleanUp();
 
     // 计算每行字节数（4字节对齐）
@@ -5076,7 +5075,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
         dibSize += 3 * sizeof(DWORD); // 增加三个掩码的大小
     }
 
-    // 添加调色板大小（如果需要）
+    // 添加调色板大小
     if (bitCount <= 8) {
         dibSize += (1 << bitCount) * sizeof(RGBQUAD);
     }
@@ -5107,7 +5106,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
         pBFH->bfOffBits += 3 * sizeof(DWORD); // 增加三个掩码的大小
     }
 
-    // 添加调色板偏移（如果需要）
+    // 添加调色板偏移
     if (bitCount <= 8) {
         pBFH->bfOffBits += (1 << bitCount) * sizeof(RGBQUAD);
     }
@@ -5140,7 +5139,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
     pBIH->biClrUsed = 0;
     pBIH->biClrImportant = 0;
 
-    // 设置调色板（如果需要）
+    // 设置调色板
     if (bitCount == 8) {
         pQUAD = (RGBQUAD*)(pDib + sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
         memcpy(pQUAD, palette, 256 * sizeof(RGBQUAD));
@@ -5166,11 +5165,10 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
     size_t coefIndex = 0;
 
     if (nBitCount == 8) {
-        // 灰度图像处理（保持原有逻辑不变）
+        // 灰度图像处理
         tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
         blockCount.resize(nHeight, std::vector<int>(nWidth, 0));
 
-        // 灰度图像处理
         for (int y = 0; y < nHeight; y += 8) {
             for (int x = 0; x < nWidth; x += 8) {
                 // 读取量化后的DCT系数
@@ -5217,7 +5215,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
         }
     }
     else if (nBitCount == 16) {
-        // 16位图像处理（保持原有逻辑不变）
+        // 16位图像处理
         tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferG.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferB.resize(nHeight, std::vector<double>(nWidth, 0.0));
@@ -5225,7 +5223,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
 
         for (int y = 0; y < nHeight; y += 8) {
             for (int x = 0; x < nWidth; x += 8) {
-                // 读取量化后的DCT系数
+             
                 double blockR[8][8] = { 0 };
                 double blockG[8][8] = { 0 };
                 double blockB[8][8] = { 0 };
@@ -5238,17 +5236,14 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
                     }
                 }
 
-                // 反量化
                 Dequantize(blockR, luminanceQuantTable);
                 Dequantize(blockG, luminanceQuantTable);
                 Dequantize(blockB, luminanceQuantTable);
 
-                // 应用IDCT变换
                 IDCT2D(blockR);
                 IDCT2D(blockG);
                 IDCT2D(blockB);
 
-                // 将结果累加到临时缓冲区
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         if (y + i < nHeight && x + j < nWidth) {
@@ -5263,7 +5258,6 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
             }
         }
 
-        // 计算平均值并写入像素数据
         for (int y = 0; y < nHeight; y++) {
             for (int x = 0; x < nWidth; x++) {
                 if (blockCount[y][x] > 0) {
@@ -5326,7 +5320,6 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
                 Dequantize(blockU, chrominanceQuantTable);
                 Dequantize(blockV, chrominanceQuantTable);
 
-                // 应用IDCT变换
                 IDCT2D(blockY);
                 IDCT2D(blockU);
                 IDCT2D(blockV);
