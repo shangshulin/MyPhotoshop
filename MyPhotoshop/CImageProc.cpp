@@ -1,3 +1,4 @@
+﻿#pragma execution_character_set("utf-8")
 #include "pch.h"
 #include "CImageProc.h"
 #include <afxdlgs.h>
@@ -17,6 +18,7 @@
 #include <map>
 #include <fstream>
 #include <unordered_map>
+#include "locale.h"
 
 // 为 std::vector<BYTE> 添加哈希函数
 namespace std {
@@ -36,18 +38,19 @@ namespace std {
 #define M_PI 3.14159265358979323846
 #endif
 
-CImageProc::CImageProc()
-{
-    m_hDib = NULL;
-    pDib = NULL;
-    pBFH = NULL;
-    pBIH = NULL;
-    pQUAD = NULL;
-    pBits = NULL;
-    nWidth = nHeight = nBitCount = 0;
-    m_bIs565Format = true;
-    isPaletteDarkToLight = false;
-    m_bIFFTPerformed = false;
+CImageProc::CImageProc()  
+{  
+   m_hDib = NULL;  
+   pDib = NULL;  
+   pBFH = NULL;  
+   pBIH = NULL;  
+   pQUAD = NULL;  
+   pBits = NULL;  
+   nWidth = nHeight = nBitCount = 0;  
+   m_bIs565Format = true;  
+   isPaletteDarkToLight = false;  
+   m_bIFFTPerformed = false;  
+   setlocale(LC_CTYPE, "chs"); // 修复未定义标识符错误，替换中文引号为英文引号  
 }
 CImageProc::~CImageProc()
 {
@@ -3385,6 +3388,21 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     }
 
     ofs.close();
+    // 计算压缩率
+    DWORD originalSize = nWidth * nHeight * (nBitCount / 8); // 原始像素数据大小
+    if (nBitCount <= 8 && pQUAD) {
+        originalSize += clrUsed * sizeof(RGBQUAD); // 加上调色板大小
+    }
+
+    CFile compressedFile(savePath, CFile::modeRead);
+    DWORD compressedSize = compressedFile.GetLength(); // 压缩后文件大小
+    compressedFile.Close();
+
+    double compressionRatio = (double)compressedSize / originalSize * 100;
+    CString msg;
+    msg.Format(L"霍夫曼编码完成\n原始大小: %d 字节\n压缩后大小: %d 字节\n压缩率: %.2f%%",
+        originalSize, compressedSize, compressionRatio);
+    AfxMessageBox(msg);
     FreeHuffmanTree(root);
     return true;
 }
