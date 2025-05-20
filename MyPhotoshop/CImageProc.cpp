@@ -3607,7 +3607,7 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     }
 
     // LZW编码
-    std::vector<int> outputCodes;
+	std::vector<int> outputCodes; // 存储输出的编码
     std::unordered_map<std::vector<BYTE>, int> dictionary;
 
     // 初始化字典 (0-255为单字节值)
@@ -3617,7 +3617,7 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
         dictionary[singleByte] = i;
     }
 
-    std::vector<BYTE> currentSequence;
+	std::vector<BYTE> currentSequence; // 当前处理的序列 逐字节添加
     for (size_t i = 0; i < inputData.size(); i++) {
         std::vector<BYTE> newSequence = currentSequence;
         newSequence.push_back(inputData[i]);
@@ -3682,13 +3682,13 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     int codeCount = static_cast<int>(outputCodes.size());
     outFile.write(reinterpret_cast<const char*>(&codeCount), sizeof(codeCount));
 
-    // 写入编码数据 (12位编码，每3个码占用4字节)，动态处理
-    std::vector<BYTE> compressedData;
+    // 写入编码数据 
+    std::vector<BYTE> compressedData; // 存储压缩后的字节数据
     int bitBuffer = 0; // 位缓冲区，存储待写入的位
     int bitCountBuffer = 0; // 记录缓冲区中有效位的数量
 
     for (int code : outputCodes) {
-        // 将12位编码添加到缓冲区
+        // 将12位编码添加到缓冲区 将12位的LZW编码值打包成8位的字节序列
         bitBuffer |= (code << bitCountBuffer); // 将 12 位编码左移当前缓冲区的偏移量并合并缓冲区
         bitCountBuffer += 12; // 更新缓冲区中的有效位数
 
@@ -3840,7 +3840,7 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     }
 
     // LZW解码
-    std::vector<BYTE> outputData;
+    std::vector<BYTE> outputData; // 存储最终压缩结果
     outputData.reserve(width * height * (bitCount / 8 + 1)); // 确保足够空间
     std::unordered_map<int, std::vector<BYTE>> dictionary;
 
@@ -3851,24 +3851,24 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     }
 
     // 处理第一个编码
-    int oldCode = inputCodes[0];
+    int oldCode = inputCodes[0]; // 上一个处理的编码值，用于构建新的字典条目
     if (oldCode >= 256) {
         AfxMessageBox(_T("The first code is invalid"));
         return false;
     }
 
-    std::vector<BYTE> output = dictionary[oldCode];
+    std::vector<BYTE> output = dictionary[oldCode]; // 临时变量，存储当前解码得到的字节序列
     outputData.insert(outputData.end(), output.begin(), output.end());
-    BYTE character = output[0]; // 该序列的第一个字节
+    BYTE character = output[0]; // 该序列的第一个字节 用于构建新字典条目的字符
 
     // 处理剩余编码
     for (size_t i = 1; i < inputCodes.size(); i++) {
 		int code = inputCodes[i]; // 当前编码
 
-        std::vector<BYTE> sequence;
+        std::vector<BYTE> sequence; // 当前编码对应的字节序列
         if (dictionary.find(code) != dictionary.end()) {
             // 编码在字典中
-            sequence = dictionary[code];
+            sequence = dictionary[code]; 
         }
         else if (code == nextCode) {
             // 特殊情况：编码不在字典中，但是可以推导
