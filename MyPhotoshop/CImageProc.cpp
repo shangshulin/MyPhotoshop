@@ -3628,6 +3628,15 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
 	std::vector<int> outputCodes; // 存储输出的编码
     std::unordered_map<std::vector<BYTE>, int> dictionary;
 
+    //-读取下一个字符
+    //    - 检查当前字符串加上新字符是否在字典中
+    //    - 如果在字典中：将新字符添加到当前字符串中，继续读取下一个字符
+    //    - 如果不在字典中：
+    //    - 输出当前字符串的编码值
+    //    - 将当前字符串加上新字符添加到字典中，并分配下一个可用编码值
+    //    - 将当前字符串重置为新读取的字符
+    //    - 重复上述过程，直到处理完所有输入数据
+
     // 初始化字典 (0-255为单字节值)
     int nextCode = 256; // 0-255已经被单字节占用
     for (int i = 0; i < 256; i++) {
@@ -3861,6 +3870,17 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     std::vector<BYTE> outputData; // 存储最终压缩结果
     outputData.reserve(width * height * (bitCount / 8 + 1)); // 确保足够空间
     std::unordered_map<int, std::vector<BYTE>> dictionary;
+
+    //-读取下一个编码值
+    //    - 查找字典，获取对应的字符串：
+    //    - 如果编码在字典中：直接获取对应的字符串
+    //    - 如果编码不在字典中（特殊情况）：
+    //    - 这种情况只会在编码过程中遇到形如"ww"的模式时发生
+    //    - 解决方法：将前一个字符串加上前一个字符串的第一个字符作为当前字符串
+    //    - 输出当前字符串
+    //    - 将前一个字符串加上当前字符串的第一个字符添加到字典中
+    //    - 设置前一个字符串为当前字符串
+    //    - 重复上述过程，直到处理完所有编码值
 
     // 初始化字典 (0-255为单字节值)
 	int nextCode = 256; // 下一个待分配的编码号
