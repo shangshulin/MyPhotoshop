@@ -400,7 +400,7 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     getPixelStr.Format(L"GetPixel RGB: (%d, %d, %d)", getPixelRed, getPixelGreen, getPixelBlue);
 
     CString location;
-    location.Format(L"location:(%d, %d)", imgX, imgY);
+    location.Format(L"坐标:(%d, %d)", imgX, imgY);
 
     pDC->TextOutW(winX, winY, str);//显示像素颜色
 
@@ -3400,7 +3400,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
 
     double compressionRatio = (double)compressedSize / originalSize * 100;
     CString msg;
-    msg.Format(L"霍夫曼编码完成\n原始大小: %d 字节\n压缩后大小: %d 字节\n压缩率: %.2f%%",
+    msg.Format(_T("霍夫曼编码完成\n原始大小: %d 字节\n压缩后大小: %d 字节\n压缩率: %.2f%%"),
         originalSize, compressedSize, compressionRatio);
     AfxMessageBox(msg);
     FreeHuffmanTree(root);
@@ -3618,7 +3618,7 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
                 }
                 break;
             default:
-                AfxMessageBox(_T("Unsupported bit count for LZW encoding"));
+                AfxMessageBox(_T("该位深的图像不支持LZW编码"));
                 return false;
             }
         }
