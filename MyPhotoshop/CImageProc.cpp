@@ -3254,17 +3254,17 @@ void CImageProc::DisplayFullSpectrum(CDC* pDC, int xOffset, int yOffset,
 // 递归生成编码表
 void BuildHuffmanCodeTable(HuffmanNode* node, std::map<BYTE, std::vector<bool>>& table, std::vector<bool>& path) {
     if (!node->left && !node->right) {
-        table[node->value] = path;
+        table[node->value] = path;// 如果是叶子节点，则将路径保存到编码表中
         return;
     }
     if (node->left) {
         path.push_back(false);
-        BuildHuffmanCodeTable(node->left, table, path);
+        BuildHuffmanCodeTable(node->left, table, path);//  递归处理左子树
         path.pop_back();
     }
     if (node->right) {
         path.push_back(true);
-        BuildHuffmanCodeTable(node->right, table, path);
+        BuildHuffmanCodeTable(node->right, table, path);//  递归处理右子树
         path.pop_back();
     }
 }
