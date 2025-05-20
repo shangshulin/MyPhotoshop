@@ -4855,47 +4855,52 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
                 }
             }
             else if (nBitCount == 16) {
-                // 16位图像处理
-                double blockR[8][8] = { 0 };
-                double blockG[8][8] = { 0 };
-                double blockB[8][8] = { 0 };
+                // 16位图像处理：转换为YUV空间
+                double blockY[8][8] = { 0 };
+                double blockU[8][8] = { 0 };
+                double blockV[8][8] = { 0 };
 
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         int py = y + i;
                         int px = x + j;
-
                         if (py >= nHeight || px >= nWidth) continue;
 
                         BYTE* pixel = GetPixelPtr(px, py);
                         BYTE r, g, b;
-                        GetColor16bit(pixel, r, g, b);
+                        GetColor16bit(pixel, r, g, b); // 提取16位RGB分量
 
-                        blockR[i][j] = static_cast<double>(r) - 128.0;
-                        blockG[i][j] = static_cast<double>(g) - 128.0;
-                        blockB[i][j] = static_cast<double>(b) - 128.0;
+                        // RGB转YUV（BT.601标准，适用于8-16位精度）
+                        double Y = 0.299 * r + 0.587 * g + 0.114 * b;
+                        double U = -0.147 * r - 0.289 * g + 0.436 * b;
+                        double V = 0.615 * r - 0.515 * g - 0.100 * b;
+
+                        blockY[i][j] = Y - 128.0; // Y通道中心化
+                        blockU[i][j] = U;         // U/V通道无需中心化（范围更窄）
+                        blockV[i][j] = V;
                     }
                 }
 
-                // 对每个通道应用DCT变换
-                DCT2D(blockR);
-                DCT2D(blockG);
-                DCT2D(blockB);
+                // 对YUV通道分别应用DCT变换
+                DCT2D(blockY);
+                DCT2D(blockU);
+                DCT2D(blockV);
 
-                // 量化
-                Quantize(blockR, luminanceQuantTable);
-                Quantize(blockG, luminanceQuantTable);
-                Quantize(blockB, luminanceQuantTable);
+                // 差异化量化：Y用亮度表，U/V用色度表
+                Quantize(blockY, luminanceQuantTable);
+                Quantize(blockU, chrominanceQuantTable);
+                Quantize(blockV, chrominanceQuantTable);
 
-                // 收集量化后的DCT系数
+                // 收集系数（YUV顺序）
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
-                        short coefR = static_cast<short>(round(blockR[i][j]));
-                        short coefG = static_cast<short>(round(blockG[i][j]));
-                        short coefB = static_cast<short>(round(blockB[i][j]));
-                        allCoefficients.push_back(coefR);
-                        allCoefficients.push_back(coefG);
-                        allCoefficients.push_back(coefB);
+                        // 四舍五入转换为short（量化后系数可能为小数）
+                        short coefY = static_cast<short>(round(blockY[i][j]));
+                        short coefU = static_cast<short>(round(blockU[i][j]));
+                        short coefV = static_cast<short>(round(blockV[i][j]));
+                        allCoefficients.push_back(coefY);
+                        allCoefficients.push_back(coefU);
+                        allCoefficients.push_back(coefV);
                     }
                 }
             }
@@ -5233,7 +5238,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
         }
     }
     else if (nBitCount == 16) {
-        // 16位图像处理
+        // 16位图像处理：从YUV转回RGB
         tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferG.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferB.resize(nHeight, std::vector<double>(nWidth, 0.0));
@@ -5241,34 +5246,51 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
 
         for (int y = 0; y < nHeight; y += 8) {
             for (int x = 0; x < nWidth; x += 8) {
-             
-                double blockR[8][8] = { 0 };
-                double blockG[8][8] = { 0 };
-                double blockB[8][8] = { 0 };
+                double blockY[8][8] = { 0 };
+                double blockU[8][8] = { 0 };
+                double blockV[8][8] = { 0 };
 
+                // 读取YUV系数（顺序与编码时一致）
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
-                        blockR[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
-                        blockG[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
-                        blockB[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockY[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockU[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockV[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
                     }
                 }
 
-                Dequantize(blockR, luminanceQuantTable);
-                Dequantize(blockG, luminanceQuantTable);
-                Dequantize(blockB, luminanceQuantTable);
+                // 反量化（使用对应量化表）
+                Dequantize(blockY, luminanceQuantTable);
+                Dequantize(blockU, chrominanceQuantTable);
+                Dequantize(blockV, chrominanceQuantTable);
 
-                IDCT2D(blockR);
-                IDCT2D(blockG);
-                IDCT2D(blockB);
+                // 应用IDCT变换
+                IDCT2D(blockY);
+                IDCT2D(blockU);
+                IDCT2D(blockV);
 
+                // YUV转RGB并累加至缓冲区
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         if (y + i < nHeight && x + j < nWidth) {
-                            // 反中心化
-                            tempBufferR[y + i][x + j] += blockR[i][j] + 128.0;
-                            tempBufferG[y + i][x + j] += blockG[i][j] + 128.0;
-                            tempBufferB[y + i][x + j] += blockB[i][j] + 128.0;
+                            // 反中心化Y通道
+                            double Y = blockY[i][j] + 128.0;
+                            double U = blockU[i][j];
+                            double V = blockV[i][j];
+
+                            // YUV转RGB公式（浮点运算，需限制范围）
+                            int r = static_cast<int>(Y + 1.402 * V);
+                            int g = static_cast<int>(Y - 0.344 * U - 0.714 * V);
+                            int b = static_cast<int>(Y + 1.772 * U);
+
+                            // 像素值限制在[0, 255]
+                            r = max(0, min(255, r));
+                            g = max(0, min(255, g));
+                            b = max(0, min(255, b));
+
+                            tempBufferR[y + i][x + j] += r;
+                            tempBufferG[y + i][x + j] += g;
+                            tempBufferB[y + i][x + j] += b;
                             blockCount[y + i][x + j]++;
                         }
                     }
@@ -5276,6 +5298,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
             }
         }
 
+        // 计算平均值并转换为16位像素
         for (int y = 0; y < nHeight; y++) {
             for (int x = 0; x < nWidth; x++) {
                 if (blockCount[y][x] > 0) {
@@ -5283,29 +5306,17 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
                     int g = static_cast<int>(tempBufferG[y][x] / blockCount[y][x]);
                     int b = static_cast<int>(tempBufferB[y][x] / blockCount[y][x]);
 
-                    r = max(0, min(255, r));
-                    g = max(0, min(255, g));
-                    b = max(0, min(255, b));
-
-                    // 设置16位像素颜色
+                    // 转换为16位格式（RGB565/RGB555）
                     BYTE* pixel = GetPixelPtr(x, y);
                     WORD pixelValue;
-
                     if (is565Format) {
-                        // RGB565格式
-                        BYTE r5 = (r >> 3) & 0x1F;  // 5位红色
-                        BYTE g6 = (g >> 2) & 0x3F;  // 6位绿色
-                        BYTE b5 = (b >> 3) & 0x1F;  // 5位蓝色
-                        pixelValue = (r5 << 11) | (g6 << 5) | b5;
+                        // RGB565
+                        pixelValue = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
                     }
                     else {
-                        // RGB555格式
-                        BYTE r5 = (r >> 3) & 0x1F;  // 5位红色
-                        BYTE g5 = (g >> 3) & 0x1F;  // 5位绿色
-                        BYTE b5 = (b >> 3) & 0x1F;  // 5位蓝色
-                        pixelValue = (r5 << 10) | (g5 << 5) | b5;
+                        // RGB555（最高位为0）
+                        pixelValue = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
                     }
-
                     *reinterpret_cast<WORD*>(pixel) = pixelValue;
                 }
             }
