@@ -4994,13 +4994,16 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     }
 
     // 霍夫曼编码
+    //存储系数的字节流
     std::vector<BYTE> byteData;
     for (short coef : allCoefficients) {
+        //将short型系数转换为字节数组
         BYTE* ptr = reinterpret_cast<BYTE*>(&coef);
         byteData.insert(byteData.end(), ptr, ptr + sizeof(short));
     }
     pBits = byteData.data();
     nWidth = 1;
+    //临时设置为1，因霍夫曼编码处理一维字节流
     nHeight = byteData.size();
     nBitCount = 8;
 
@@ -5532,34 +5535,47 @@ bool CImageProc::RLEncodeImage(const CString& savePath) {
     }
 
     //行程编码数据
+    // 创建一个用于存储去除填充后的图像数据的向量
     std::vector<BYTE> imageDataNoPadding;
-    imageDataNoPadding.reserve(nWidth * nHeight * (nBitCount / 8)); // 预分配空间
+    // 预分配空间，提高效率，避免多次扩容
+    imageDataNoPadding.reserve(nWidth * nHeight * (nBitCount / 8)); 
 
+    // 计算未填充时每行的字节数（实际像素数据宽度）
     int unpaddedRowSizeBytes = nWidth * (nBitCount / 8);
+    // 计算填充后每行的字节数（4字节对齐，BMP格式要求）
     int paddedRowSizeBytes = ((nWidth * nBitCount + 31) / 32) * 4;
 
+    // 遍历每一行
     for (int y = 0; y < nHeight; ++y) {
         // pBits 指向DIB的像素数据，通常是底向顶存储
         // 第y行（从图像底部开始，y=0是图像最底行）
-        BYTE* currentRowStartInBuffer = pBits + y * paddedRowSizeBytes;
+        BYTE* currentRowStartInBuffer = pBits + y * paddedRowSizeBytes; // 计算当前行在缓冲区中的起始地址
+        // 将当前行的有效像素数据（去除填充部分）插入到 imageDataNoPadding 向量末尾
         imageDataNoPadding.insert(imageDataNoPadding.end(), currentRowStartInBuffer, currentRowStartInBuffer + unpaddedRowSizeBytes);
     }
 
+    // 如果去除填充后的图像数据不为空
     if (!imageDataNoPadding.empty()) {
+        // 初始化当前行程的像素值为第一个像素
         BYTE currentValue = imageDataNoPadding[0];
+        // 初始化当前行程的计数为1
         BYTE count = 1;
+        // 从第二个像素开始遍历所有像素
         for (size_t i = 1; i < imageDataNoPadding.size(); ++i) {
+            // 如果当前像素值与当前行程的像素值相同，且计数未超过255
             if (imageDataNoPadding[i] == currentValue && count < 255) {
-                count++;
+                count++; // 行程计数加1
             }
             else {
+                // 否则，将当前行程的计数和像素值写入文件
                 ofs.write((char*)&count, 1);
                 ofs.write((char*)&currentValue, 1);
+                // 开始新的行程，重置当前像素值和计数
                 currentValue = imageDataNoPadding[i];
                 count = 1;
             }
         }
-        // 写入最后一个行程
+        // 写入最后一个行程的计数和像素值
         ofs.write((char*)&count, 1);
         ofs.write((char*)&currentValue, 1);
     }
@@ -5590,13 +5606,17 @@ bool CImageProc::RLDecodeImage(const CString& openPath) {
 
     //16位565处理
     bool is16Bit565Format = false;
+    // 如果是16位图像，读取格式标志（判断是否为565格式）
     if (bitCount == 16) {
-        BYTE is565_byte = 0;
+        BYTE is565_byte = 0; // 用于存储格式标志的字节
+        // 从文件中读取1字节，判断是否为565格式
         if (!ifs.read((char*)&is565_byte, sizeof(is565_byte))) {
+            // 读取失败，弹出提示并关闭文件
             AfxMessageBox(_T("读取失败"));
             ifs.close();
             return false;
         }
+        // 设置16位格式标志，1表示565格式，0表示555格式
         is16Bit565Format = (is565_byte == 1);
     }
     if (width <= 0 || height <= 0 || (bitCount != 8 && bitCount != 16 && bitCount != 24 && bitCount != 32)) {
@@ -5604,24 +5624,31 @@ bool CImageProc::RLDecodeImage(const CString& openPath) {
         ifs.close();
         return false;
     }
-
-    int bytePerPixel = bitCount / 8;
-    int dataSizeUncompressed = width * height * bytePerPixel;
-    int rowSizePadded = ((width * bitCount + 31) / 32) * 4;
+// 计算每像素字节数
+int bytePerPixel = bitCount / 8;
+// 计算未压缩数据的总字节数（宽*高*每像素字节数）
+int dataSizeUncompressed = width * height * bytePerPixel;
+// 计算每行填充后的字节数（4字节对齐，BMP格式要求）
+int rowSizePadded = ((width * bitCount + 31) / 32) * 4;
 
     std::vector<BYTE> decodedData;
     if (dataSizeUncompressed > 0) {
         decodedData.reserve(dataSizeUncompressed);//预分配解压后数据容量
     }
     // 3. 读取编码数据并解码
+    // 初始化计数和像素值变量
     BYTE count = 0, value = 0;
+    // 循环读取RLE编码的(count, value)对，直到解码数据达到预期长度或文件结束
     while (decodedData.size() < (size_t)dataSizeUncompressed && ifs.read((char*)&count, 1) && ifs.read((char*)&value, 1)) {
+        // 将当前像素值重复count次写入解码数据
         for (int i = 0; i < count && decodedData.size() < (size_t)dataSizeUncompressed; ++i) {
             decodedData.push_back(value);
         }
     }
 
+    // 检查解码后数据长度是否与预期一致
     if (decodedData.size() != (size_t)dataSizeUncompressed && dataSizeUncompressed > 0) {
+        // 长度不符，弹出错误提示
         CString msg;
         msg.Format(_T("解码数据长度不符, 预期: %d, 实际: %d"), dataSizeUncompressed, decodedData.size());
         AfxMessageBox(msg);
@@ -5631,9 +5658,13 @@ bool CImageProc::RLDecodeImage(const CString& openPath) {
 
     // 4. 构建BMP内存结构
     CleanUp();
+    // 如果是8位图像，调色板大小为256个RGBQUAD，否则为0
     DWORD paletteSize = (bitCount == 8) ? (256 * sizeof(RGBQUAD)) : 0;
+    // 如果是16位图像，颜色掩码大小为3个DWORD，否则为0
     DWORD colorMaskSize = (bitCount == 16) ? (3 * sizeof(DWORD)) : 0;
+    // 计算实际像素数据在DIB中的总字节数（包含行填充）
     DWORD imageActualDataSizeInDib = (DWORD)rowSizePadded * height;
+    // 计算整个DIB所需的总内存大小（文件头+信息头+调色板+颜色掩码+像素数据）
     DWORD dibSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + paletteSize + colorMaskSize + imageActualDataSizeInDib;
 
 
