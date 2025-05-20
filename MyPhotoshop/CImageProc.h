@@ -1,4 +1,3 @@
-
 #pragma once
 #include "pch.h"
 #include <vector>
@@ -8,11 +7,6 @@ enum class FilterType {
     Mean,
     Median,
     Max,
-};
-
-enum class HighPassFilterType {
-    IdealHighPass,
-    ButterworthHighPass
 };
 
 class CImageProc {

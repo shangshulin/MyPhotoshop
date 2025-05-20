@@ -1,3 +1,4 @@
+﻿#pragma execution_character_set("utf-8")
 #include "pch.h"
 #include "CImageProc.h"
 #include <afxdlgs.h>
@@ -17,6 +18,7 @@
 #include <map>
 #include <fstream>
 #include <unordered_map>
+#include "locale.h"
 
 // 为 std::vector<BYTE> 添加哈希函数
 namespace std {
@@ -36,18 +38,19 @@ namespace std {
 #define M_PI 3.14159265358979323846
 #endif
 
-CImageProc::CImageProc()
-{
-    m_hDib = NULL;
-    pDib = NULL;
-    pBFH = NULL;
-    pBIH = NULL;
-    pQUAD = NULL;
-    pBits = NULL;
-    nWidth = nHeight = nBitCount = 0;
-    m_bIs565Format = true;
-    isPaletteDarkToLight = false;
-    m_bIFFTPerformed = false;
+CImageProc::CImageProc()  
+{  
+   m_hDib = NULL;  
+   pDib = NULL;  
+   pBFH = NULL;  
+   pBIH = NULL;  
+   pQUAD = NULL;  
+   pBits = NULL;  
+   nWidth = nHeight = nBitCount = 0;  
+   m_bIs565Format = true;  
+   isPaletteDarkToLight = false;  
+   m_bIFFTPerformed = false;  
+   setlocale(LC_CTYPE, "chs"); // 修复未定义标识符错误，替换中文引号为英文引号  
 }
 CImageProc::~CImageProc()
 {
@@ -397,7 +400,7 @@ void CImageProc::DisplayColor(CClientDC* pDC, int imgX, int imgY, int winX, int 
     getPixelStr.Format(L"GetPixel RGB: (%d, %d, %d)", getPixelRed, getPixelGreen, getPixelBlue);
 
     CString location;
-    location.Format(L"location:(%d, %d)", imgX, imgY);
+    location.Format(L"坐标:(%d, %d)", imgX, imgY);
 
     pDC->TextOutW(winX, winY, str);//显示像素颜色
 
@@ -3251,17 +3254,17 @@ void CImageProc::DisplayFullSpectrum(CDC* pDC, int xOffset, int yOffset,
 // 递归生成编码表
 void BuildHuffmanCodeTable(HuffmanNode* node, std::map<BYTE, std::vector<bool>>& table, std::vector<bool>& path) {
     if (!node->left && !node->right) {
-        table[node->value] = path;
+        table[node->value] = path;// 如果是叶子节点，则将路径保存到编码表中
         return;
     }
     if (node->left) {
-        path.push_back(false);
-        BuildHuffmanCodeTable(node->left, table, path);
+        path.push_back(false);//  左子树的路径添加“0”
+        BuildHuffmanCodeTable(node->left, table, path);//  递归处理左子树
         path.pop_back();
     }
     if (node->right) {
-        path.push_back(true);
-        BuildHuffmanCodeTable(node->right, table, path);
+        path.push_back(true);//  右子树的路径添加“1”
+        BuildHuffmanCodeTable(node->right, table, path);//  递归处理右子树
         path.pop_back();
     }
 }
@@ -3281,7 +3284,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
         return false;
     }
 
-    // 计算像素数据大小
+    // 计算图像数据大小
     int bytesPerPixel = nBitCount / 8;
     int dataSize = nWidth * nHeight * bytesPerPixel;
     BYTE* data = pBits;
@@ -3294,13 +3297,15 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
 
     // 2. 构建霍夫曼树
     std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNode> pq;// 优先队列
-    for (auto& kv : freq) {
-        pq.push(new HuffmanNode(kv.first, kv.second));//kv.first为像素值，kv.second为频率
+    for (auto& kv : freq)//  遍历频率表，将kv的键值对加入优先队列
+    {
+        pq.push(new HuffmanNode(kv.first, kv.second));//kv.first为字节数据，kv.second为频率
     }
     if (pq.empty()) {
         AfxMessageBox(_T("图像数据为空"));
         return false;
     }
+    // 构建霍夫曼树
     while (pq.size() > 1) {
         HuffmanNode* l = pq.top(); pq.pop();
         HuffmanNode* r = pq.top(); pq.pop();
@@ -3311,7 +3316,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     // 3. 生成编码表
     std::map<BYTE, std::vector<bool>> codeTable;
     std::vector<bool> path;
-    BuildHuffmanCodeTable(root, codeTable, path);
+    BuildHuffmanCodeTable(root, codeTable, path);// 生成编码表
 
     // 4. 写文件
     std::ofstream ofs(CW2A(savePath), std::ios::binary);// 二进制文件
@@ -3325,40 +3330,40 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     ofs.write((char*)&nWidth, sizeof(nWidth));
     ofs.write((char*)&nHeight, sizeof(nHeight));
     ofs.write((char*)&nBitCount, sizeof(nBitCount));
-    // 记录使用的颜色数
+
     int clrUsed = (pBIH && pBIH->biClrUsed > 0) ? pBIH->biClrUsed : (1 << nBitCount);
     ofs.write((char*)&clrUsed, sizeof(clrUsed));
-    // 记录编码表大小
+
     int tableSize = (int)codeTable.size();
     ofs.write((char*)&tableSize, sizeof(tableSize));
 
-    // 写编码表
+    // 写编码表，键为字节数据，值为编码
     for (auto& kv : codeTable) {
-        ofs.write((char*)&kv.first, 1); // 像素值
+        ofs.write((char*)&kv.first, 1);
         BYTE len = (BYTE)kv.second.size();
         ofs.write((char*)&len, 1);      // 编码长度
-        BYTE buf = 0, cnt = 0;  //  buf用于存储编码数据，cnt用于记录编码长度
-        //  将编码数据写入文件
+        BYTE buf = 0, cnt = 0;//buf是一个字节的数据，cnt是buf中有效数据的位数，当cnt等于8时，将buf写入文件，buf清零，cnt清零
         for (bool b : kv.second) {
-            buf = (buf << 1) | b;
-            cnt++;
-            //  编码长度达到8位，写入文件（一个字节）
+            buf = (buf << 1) | b;// 将当前位添加到buf中
+            cnt++;//  计数器加1
             if (cnt == 8) {
-                ofs.write((char*)&buf, 1);
+                ofs.write((char*)&buf, 1);//  以1个字节为单位写入文件
                 buf = 0;
                 cnt = 0;
             }
         }
-        //  处理剩余的编码数据
+        // 处理剩余的位数
         if (cnt) {
-            buf <<= (8 - cnt);//  填充剩余的位
+            buf <<= (8 - cnt);
             ofs.write((char*)&buf, 1);
         }
     }
 
     // 写编码数据
     BYTE buf = 0, cnt = 0;
+    // 遍历图像数据
     for (int i = 0; i < dataSize; ++i) {
+        //  将编码写入文件
         for (bool b : codeTable[data[i]]) {
             buf = (buf << 1) | b;
             cnt++;
@@ -3369,11 +3374,11 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
             }
         }
     }
+    //  处理剩余的位数
     if (cnt) {
         buf <<= (8 - cnt);
         ofs.write((char*)&buf, 1);
     }
-    //16位图像需要另外存储格式信息
     if (nBitCount == 16) {
         // 判断是否为565格式（需要从原始BMP文件获取这个信息）
         // 保存格式信息（0表示555，1表示565）
@@ -3389,6 +3394,26 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     }
 
     ofs.close();
+    // 计算压缩率
+    DWORD originalSize = nWidth * nHeight * (nBitCount / 8); // 原始像素数据大小（字节）
+    if (nBitCount <= 8 && pQUAD) {
+        originalSize += clrUsed * sizeof(RGBQUAD); // 加上调色板大小（字节）
+    }
+
+    CFile compressedFile(savePath, CFile::modeRead);
+    DWORD compressedSize = compressedFile.GetLength(); // 压缩后文件大小（字节）
+    compressedFile.Close();
+
+    double compressionRatio = (double)originalSize / compressedSize;
+
+    // 转换为KB并保留2位小数
+    double originalSizeKB = originalSize / 1024.0;
+    double compressedSizeKB = compressedSize / 1024.0;
+
+    CString msg;
+    msg.Format(_T("霍夫曼编码完成\n原始大小: %.2f KB\n压缩后大小: %.2f KB\n压缩率: %.2f"),
+        originalSizeKB, compressedSizeKB, compressionRatio);
+    AfxMessageBox(msg);
     FreeHuffmanTree(root);
     return true;
 }
@@ -3418,8 +3443,8 @@ bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
     struct CodeEntry {
         BYTE value;
         std::vector<bool> code;
-    };
-    std::vector<CodeEntry> codeEntries;
+    };//  编码表项
+    std::vector<CodeEntry> codeEntries;//  编码表
     for (int i = 0; i < tableSize; ++i) {
         BYTE val = 0, len = 0;
         ifs.read((char*)&val, 1);
@@ -3604,15 +3629,24 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
                 }
                 break;
             default:
-                AfxMessageBox(_T("Unsupported bit count for LZW encoding"));
+                AfxMessageBox(_T("该位深的图像不支持LZW编码"));
                 return false;
             }
         }
     }
 
     // LZW编码
-    std::vector<int> outputCodes;
+	std::vector<int> outputCodes; // 存储输出的编码
     std::unordered_map<std::vector<BYTE>, int> dictionary;
+
+    //-读取下一个字符
+    //    - 检查当前字符串加上新字符是否在字典中
+    //    - 如果在字典中：将新字符添加到当前字符串中，继续读取下一个字符
+    //    - 如果不在字典中：
+    //    - 输出当前字符串的编码值
+    //    - 将当前字符串加上新字符添加到字典中，并分配下一个可用编码值
+    //    - 将当前字符串重置为新读取的字符
+    //    - 重复上述过程，直到处理完所有输入数据
 
     // 初始化字典 (0-255为单字节值)
     int nextCode = 256; // 0-255已经被单字节占用
@@ -3621,7 +3655,7 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
         dictionary[singleByte] = i;
     }
 
-    std::vector<BYTE> currentSequence;
+	std::vector<BYTE> currentSequence; // 当前处理的序列 逐字节添加
     for (size_t i = 0; i < inputData.size(); i++) {
         std::vector<BYTE> newSequence = currentSequence;
         newSequence.push_back(inputData[i]);
@@ -3686,13 +3720,13 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     int codeCount = static_cast<int>(outputCodes.size());
     outFile.write(reinterpret_cast<const char*>(&codeCount), sizeof(codeCount));
 
-    // 写入编码数据 (12位编码，每3个码占用4字节)，动态处理
-    std::vector<BYTE> compressedData;
+    // 写入编码数据 
+    std::vector<BYTE> compressedData; // 存储压缩后的字节数据
     int bitBuffer = 0; // 位缓冲区，存储待写入的位
     int bitCountBuffer = 0; // 记录缓冲区中有效位的数量
 
     for (int code : outputCodes) {
-        // 将12位编码添加到缓冲区
+        // 将12位编码添加到缓冲区 将12位的LZW编码值打包成8位的字节序列
         bitBuffer |= (code << bitCountBuffer); // 将 12 位编码左移当前缓冲区的偏移量并合并缓冲区
         bitCountBuffer += 12; // 更新缓冲区中的有效位数
 
@@ -3716,19 +3750,19 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     // 计算压缩率
     double originalSize = inputData.size();
     double compressedSize = compressedData.size();
-    double ratio = (1.0 - compressedSize / originalSize) * 100.0;
+    double ratio = (originalSize /compressedSize );
 
     // 确保压缩率不显示为负值
     if (ratio < 0) {
         ratio = 0;
         CString message;
-        message.Format(_T("LZW encoding completed, but compression increased size!\nOriginal size: %.2f KB\nCompressed size: %.2f KB"),
+        message.Format(_T("LZW编码完成, 但压缩后体积变大了!\n原始大小: %.2f KB\n压缩后大小: %.2f KB"),
             originalSize / 1024.0, compressedSize / 1024.0);
         AfxMessageBox(message);
     }
     else {
         CString message;
-        message.Format(_T("LZW encoding completed!\nOriginal size: %.2f KB\nCompressed size: %.2f KB\nCompression ratio: %.2f%%"),
+        message.Format(_T("LZW编码完成!\n原始大小: %.2f KB\n压缩后大小: %.2f KB\n压缩率: %.2f"),
             originalSize / 1024.0, compressedSize / 1024.0, ratio);
         AfxMessageBox(message);
     }
@@ -3844,9 +3878,20 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     }
 
     // LZW解码
-    std::vector<BYTE> outputData;
+    std::vector<BYTE> outputData; // 存储最终压缩结果
     outputData.reserve(width * height * (bitCount / 8 + 1)); // 确保足够空间
     std::unordered_map<int, std::vector<BYTE>> dictionary;
+
+    //-读取下一个编码值
+    //    - 查找字典，获取对应的字符串：
+    //    - 如果编码在字典中：直接获取对应的字符串
+    //    - 如果编码不在字典中（特殊情况）：
+    //    - 这种情况只会在编码过程中遇到形如"ww"的模式时发生
+    //    - 解决方法：将前一个字符串加上前一个字符串的第一个字符作为当前字符串
+    //    - 输出当前字符串
+    //    - 将前一个字符串加上当前字符串的第一个字符添加到字典中
+    //    - 设置前一个字符串为当前字符串
+    //    - 重复上述过程，直到处理完所有编码值
 
     // 初始化字典 (0-255为单字节值)
 	int nextCode = 256; // 下一个待分配的编码号
@@ -3855,24 +3900,24 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     }
 
     // 处理第一个编码
-    int oldCode = inputCodes[0];
+    int oldCode = inputCodes[0]; // 上一个处理的编码值，用于构建新的字典条目
     if (oldCode >= 256) {
         AfxMessageBox(_T("The first code is invalid"));
         return false;
     }
 
-    std::vector<BYTE> output = dictionary[oldCode];
+    std::vector<BYTE> output = dictionary[oldCode]; // 临时变量，存储当前解码得到的字节序列
     outputData.insert(outputData.end(), output.begin(), output.end());
-    BYTE character = output[0]; // 该序列的第一个字节
+    BYTE character = output[0]; // 该序列的第一个字节 用于构建新字典条目的字符
 
     // 处理剩余编码
     for (size_t i = 1; i < inputCodes.size(); i++) {
 		int code = inputCodes[i]; // 当前编码
 
-        std::vector<BYTE> sequence;
+        std::vector<BYTE> sequence; // 当前编码对应的字节序列
         if (dictionary.find(code) != dictionary.end()) {
             // 编码在字典中
-            sequence = dictionary[code];
+            sequence = dictionary[code]; 
         }
         else if (code == nextCode) {
             // 特殊情况：编码不在字典中，但是可以推导
@@ -4129,7 +4174,7 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     // 重置FFT状态
     ResetFFTState();
 
-    AfxMessageBox(_T("LZW decoding complete!"));
+    AfxMessageBox(_T("LZW解码成功!"));
     return true;
 }
 
@@ -4859,47 +4904,52 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
                 }
             }
             else if (nBitCount == 16) {
-                // 16位图像处理
-                double blockR[8][8] = { 0 };
-                double blockG[8][8] = { 0 };
-                double blockB[8][8] = { 0 };
+                // 16位图像处理：转换为YUV空间
+                double blockY[8][8] = { 0 };
+                double blockU[8][8] = { 0 };
+                double blockV[8][8] = { 0 };
 
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         int py = y + i;
                         int px = x + j;
-
                         if (py >= nHeight || px >= nWidth) continue;
 
                         BYTE* pixel = GetPixelPtr(px, py);
                         BYTE r, g, b;
-                        GetColor16bit(pixel, r, g, b);
+                        GetColor16bit(pixel, r, g, b); // 提取16位RGB分量
 
-                        blockR[i][j] = static_cast<double>(r) - 128.0;
-                        blockG[i][j] = static_cast<double>(g) - 128.0;
-                        blockB[i][j] = static_cast<double>(b) - 128.0;
+                        // RGB转YUV（BT.601标准，适用于8-16位精度）
+                        double Y = 0.299 * r + 0.587 * g + 0.114 * b;
+                        double U = -0.147 * r - 0.289 * g + 0.436 * b;
+                        double V = 0.615 * r - 0.515 * g - 0.100 * b;
+
+                        blockY[i][j] = Y - 128.0; // Y通道中心化
+                        blockU[i][j] = U;         // U/V通道无需中心化（范围更窄）
+                        blockV[i][j] = V;
                     }
                 }
 
-                // 对每个通道应用DCT变换
-                DCT2D(blockR);
-                DCT2D(blockG);
-                DCT2D(blockB);
+                // 对YUV通道分别应用DCT变换
+                DCT2D(blockY);
+                DCT2D(blockU);
+                DCT2D(blockV);
 
-                // 量化
-                Quantize(blockR, luminanceQuantTable);
-                Quantize(blockG, luminanceQuantTable);
-                Quantize(blockB, luminanceQuantTable);
+                // 差异化量化：Y用亮度表，U/V用色度表
+                Quantize(blockY, luminanceQuantTable);
+                Quantize(blockU, chrominanceQuantTable);
+                Quantize(blockV, chrominanceQuantTable);
 
-                // 收集量化后的DCT系数
+                // 收集系数（YUV顺序）
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
-                        short coefR = static_cast<short>(round(blockR[i][j]));
-                        short coefG = static_cast<short>(round(blockG[i][j]));
-                        short coefB = static_cast<short>(round(blockB[i][j]));
-                        allCoefficients.push_back(coefR);
-                        allCoefficients.push_back(coefG);
-                        allCoefficients.push_back(coefB);
+                        // 四舍五入转换为short（量化后系数可能为小数）
+                        short coefY = static_cast<short>(round(blockY[i][j]));
+                        short coefU = static_cast<short>(round(blockU[i][j]));
+                        short coefV = static_cast<short>(round(blockV[i][j]));
+                        allCoefficients.push_back(coefY);
+                        allCoefficients.push_back(coefU);
+                        allCoefficients.push_back(coefV);
                     }
                 }
             }
@@ -4949,13 +4999,16 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     }
 
     // 霍夫曼编码
+    //存储系数的字节流
     std::vector<BYTE> byteData;
     for (short coef : allCoefficients) {
+        //将short型系数转换为字节数组
         BYTE* ptr = reinterpret_cast<BYTE*>(&coef);
         byteData.insert(byteData.end(), ptr, ptr + sizeof(short));
     }
     pBits = byteData.data();
     nWidth = 1;
+    //临时设置为1，因霍夫曼编码处理一维字节流
     nHeight = byteData.size();
     nBitCount = 8;
 
@@ -5000,10 +5053,10 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     struct _stat fileStat;
     if (_stat(CW2A(savePath), &fileStat) == 0) {
         double compressedSize = fileStat.st_size;
-        double ratio = (1.0 - compressedSize / originalSize) * 100.0;
+        double ratio = ( originalSize / compressedSize);
         if (ratio < 0) ratio = 0; // 确保压缩率非负
         CString message;
-        message.Format(_T("Comprehensive encoding completed!\nOriginal size: %.2f KB\nCompressed size: %.2f KB\nCompression ratio: %.2f%%"),
+        message.Format(_T("综合编码完成!\n原始大小: %.2f KB\n压缩后大小: %.2f KB\n压缩率: %.2f"),
             originalSize / 1024.0, compressedSize / 1024.0, ratio);
         AfxMessageBox(message);
     }
@@ -5237,7 +5290,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
         }
     }
     else if (nBitCount == 16) {
-        // 16位图像处理
+        // 16位图像处理：从YUV转回RGB
         tempBufferR.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferG.resize(nHeight, std::vector<double>(nWidth, 0.0));
         tempBufferB.resize(nHeight, std::vector<double>(nWidth, 0.0));
@@ -5245,34 +5298,51 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
 
         for (int y = 0; y < nHeight; y += 8) {
             for (int x = 0; x < nWidth; x += 8) {
-             
-                double blockR[8][8] = { 0 };
-                double blockG[8][8] = { 0 };
-                double blockB[8][8] = { 0 };
+                double blockY[8][8] = { 0 };
+                double blockU[8][8] = { 0 };
+                double blockV[8][8] = { 0 };
 
+                // 读取YUV系数（顺序与编码时一致）
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
-                        blockR[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
-                        blockG[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
-                        blockB[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockY[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockU[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
+                        blockV[i][j] = static_cast<double>(allCoefficients[coefIndex++]);
                     }
                 }
 
-                Dequantize(blockR, luminanceQuantTable);
-                Dequantize(blockG, luminanceQuantTable);
-                Dequantize(blockB, luminanceQuantTable);
+                // 反量化（使用对应量化表）
+                Dequantize(blockY, luminanceQuantTable);
+                Dequantize(blockU, chrominanceQuantTable);
+                Dequantize(blockV, chrominanceQuantTable);
 
-                IDCT2D(blockR);
-                IDCT2D(blockG);
-                IDCT2D(blockB);
+                // 应用IDCT变换
+                IDCT2D(blockY);
+                IDCT2D(blockU);
+                IDCT2D(blockV);
 
+                // YUV转RGB并累加至缓冲区
                 for (int i = 0; i < 8; i++) {
                     for (int j = 0; j < 8; j++) {
                         if (y + i < nHeight && x + j < nWidth) {
-                            // 反中心化
-                            tempBufferR[y + i][x + j] += blockR[i][j] + 128.0;
-                            tempBufferG[y + i][x + j] += blockG[i][j] + 128.0;
-                            tempBufferB[y + i][x + j] += blockB[i][j] + 128.0;
+                            // 反中心化Y通道
+                            double Y = blockY[i][j] + 128.0;
+                            double U = blockU[i][j];
+                            double V = blockV[i][j];
+
+                            // YUV转RGB公式（浮点运算，需限制范围）
+                            int r = static_cast<int>(Y + 1.402 * V);
+                            int g = static_cast<int>(Y - 0.344 * U - 0.714 * V);
+                            int b = static_cast<int>(Y + 1.772 * U);
+
+                            // 像素值限制在[0, 255]
+                            r = max(0, min(255, r));
+                            g = max(0, min(255, g));
+                            b = max(0, min(255, b));
+
+                            tempBufferR[y + i][x + j] += r;
+                            tempBufferG[y + i][x + j] += g;
+                            tempBufferB[y + i][x + j] += b;
                             blockCount[y + i][x + j]++;
                         }
                     }
@@ -5280,6 +5350,7 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
             }
         }
 
+        // 计算平均值并转换为16位像素
         for (int y = 0; y < nHeight; y++) {
             for (int x = 0; x < nWidth; x++) {
                 if (blockCount[y][x] > 0) {
@@ -5287,29 +5358,17 @@ bool CImageProc::ComprehensiveDecodeImage(const CString& openPath) {
                     int g = static_cast<int>(tempBufferG[y][x] / blockCount[y][x]);
                     int b = static_cast<int>(tempBufferB[y][x] / blockCount[y][x]);
 
-                    r = max(0, min(255, r));
-                    g = max(0, min(255, g));
-                    b = max(0, min(255, b));
-
-                    // 设置16位像素颜色
+                    // 转换为16位格式（RGB565/RGB555）
                     BYTE* pixel = GetPixelPtr(x, y);
                     WORD pixelValue;
-
                     if (is565Format) {
-                        // RGB565格式
-                        BYTE r5 = (r >> 3) & 0x1F;  // 5位红色
-                        BYTE g6 = (g >> 2) & 0x3F;  // 6位绿色
-                        BYTE b5 = (b >> 3) & 0x1F;  // 5位蓝色
-                        pixelValue = (r5 << 11) | (g6 << 5) | b5;
+                        // RGB565
+                        pixelValue = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
                     }
                     else {
-                        // RGB555格式
-                        BYTE r5 = (r >> 3) & 0x1F;  // 5位红色
-                        BYTE g5 = (g >> 3) & 0x1F;  // 5位绿色
-                        BYTE b5 = (b >> 3) & 0x1F;  // 5位蓝色
-                        pixelValue = (r5 << 10) | (g5 << 5) | b5;
+                        // RGB555（最高位为0）
+                        pixelValue = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
                     }
-
                     *reinterpret_cast<WORD*>(pixel) = pixelValue;
                 }
             }
@@ -5419,10 +5478,10 @@ const double CImageProc::luminanceQuantTable[8][8] = {
 };
 
 const double CImageProc::chrominanceQuantTable[8][8] = {
-    {17, 18, 24, 47, 99, 99, 99, 99},
-    {18, 21, 26, 66, 99, 99, 99, 99},
-    {24, 26, 56, 99, 99, 99, 99, 99},
-    {47, 66, 99, 99, 99, 99, 99, 99},
+    {24, 24, 32, 64, 99, 99, 99, 99},
+    {24, 24, 32, 64, 99, 99, 99, 99},
+    {32, 32, 64, 99, 99, 99, 99, 99},
+    {64, 64, 99, 99, 99, 99, 99, 99},
     {99, 99, 99, 99, 99, 99, 99, 99},
     {99, 99, 99, 99, 99, 99, 99, 99},
     {99, 99, 99, 99, 99, 99, 99, 99},
@@ -5481,34 +5540,47 @@ bool CImageProc::RLEncodeImage(const CString& savePath) {
     }
 
     //行程编码数据
+    // 创建一个用于存储去除填充后的图像数据的向量
     std::vector<BYTE> imageDataNoPadding;
-    imageDataNoPadding.reserve(nWidth * nHeight * (nBitCount / 8)); // 预分配空间
+    // 预分配空间，提高效率，避免多次扩容
+    imageDataNoPadding.reserve(nWidth * nHeight * (nBitCount / 8)); 
 
+    // 计算未填充时每行的字节数（实际像素数据宽度）
     int unpaddedRowSizeBytes = nWidth * (nBitCount / 8);
+    // 计算填充后每行的字节数（4字节对齐，BMP格式要求）
     int paddedRowSizeBytes = ((nWidth * nBitCount + 31) / 32) * 4;
 
+    // 遍历每一行
     for (int y = 0; y < nHeight; ++y) {
         // pBits 指向DIB的像素数据，通常是底向顶存储
         // 第y行（从图像底部开始，y=0是图像最底行）
-        BYTE* currentRowStartInBuffer = pBits + y * paddedRowSizeBytes;
+        BYTE* currentRowStartInBuffer = pBits + y * paddedRowSizeBytes; // 计算当前行在缓冲区中的起始地址
+        // 将当前行的有效像素数据（去除填充部分）插入到 imageDataNoPadding 向量末尾
         imageDataNoPadding.insert(imageDataNoPadding.end(), currentRowStartInBuffer, currentRowStartInBuffer + unpaddedRowSizeBytes);
     }
 
+    // 如果去除填充后的图像数据不为空
     if (!imageDataNoPadding.empty()) {
+        // 初始化当前行程的像素值为第一个像素
         BYTE currentValue = imageDataNoPadding[0];
+        // 初始化当前行程的计数为1
         BYTE count = 1;
+        // 从第二个像素开始遍历所有像素
         for (size_t i = 1; i < imageDataNoPadding.size(); ++i) {
+            // 如果当前像素值与当前行程的像素值相同，且计数未超过255
             if (imageDataNoPadding[i] == currentValue && count < 255) {
-                count++;
+                count++; // 行程计数加1
             }
             else {
+                // 否则，将当前行程的计数和像素值写入文件
                 ofs.write((char*)&count, 1);
                 ofs.write((char*)&currentValue, 1);
+                // 开始新的行程，重置当前像素值和计数
                 currentValue = imageDataNoPadding[i];
                 count = 1;
             }
         }
-        // 写入最后一个行程
+        // 写入最后一个行程的计数和像素值
         ofs.write((char*)&count, 1);
         ofs.write((char*)&currentValue, 1);
     }
@@ -5520,6 +5592,30 @@ bool CImageProc::RLEncodeImage(const CString& savePath) {
     }
 
     ofs.close();
+
+    // 计算原始大小（包括调色板）
+    DWORD originalSize = nWidth * nHeight * bytesPerPixel;
+    if (nBitCount == 8 && pQUAD) {
+        originalSize += 256 * sizeof(RGBQUAD); // 加上调色板大小
+    }
+    // 计算压缩后大小
+    CFile compressedFile(savePath, CFile::modeRead);
+    DWORD compressedSize = compressedFile.GetLength(); // 压缩后文件大小（字节）
+    compressedFile.Close();
+
+
+    // 计算压缩率（原始大小/压缩后大小）
+    double compressionRatio = (double)originalSize / compressedSize;
+
+    // 转换为KB并显示结果
+    double originalSizeKB = originalSize / 1024.0;
+    double compressedSizeKB = compressedSize / 1024.0;
+
+    CString msg;
+    msg.Format(_T("行程编码完成！\n原始大小: %.2f KB\n压缩后大小: %.2f KB\n压缩率: %.2f"),
+        originalSizeKB, compressedSizeKB, compressionRatio);
+    AfxMessageBox(msg);
+
     return true;
 }
 
@@ -5539,13 +5635,17 @@ bool CImageProc::RLDecodeImage(const CString& openPath) {
 
     //16位565处理
     bool is16Bit565Format = false;
+    // 如果是16位图像，读取格式标志（判断是否为565格式）
     if (bitCount == 16) {
-        BYTE is565_byte = 0;
+        BYTE is565_byte = 0; // 用于存储格式标志的字节
+        // 从文件中读取1字节，判断是否为565格式
         if (!ifs.read((char*)&is565_byte, sizeof(is565_byte))) {
+            // 读取失败，弹出提示并关闭文件
             AfxMessageBox(_T("读取失败"));
             ifs.close();
             return false;
         }
+        // 设置16位格式标志，1表示565格式，0表示555格式
         is16Bit565Format = (is565_byte == 1);
     }
     if (width <= 0 || height <= 0 || (bitCount != 8 && bitCount != 16 && bitCount != 24 && bitCount != 32)) {
@@ -5553,24 +5653,31 @@ bool CImageProc::RLDecodeImage(const CString& openPath) {
         ifs.close();
         return false;
     }
-
-    int bytePerPixel = bitCount / 8;
-    int dataSizeUncompressed = width * height * bytePerPixel;
-    int rowSizePadded = ((width * bitCount + 31) / 32) * 4;
+// 计算每像素字节数
+int bytePerPixel = bitCount / 8;
+// 计算未压缩数据的总字节数（宽*高*每像素字节数）
+int dataSizeUncompressed = width * height * bytePerPixel;
+// 计算每行填充后的字节数（4字节对齐，BMP格式要求）
+int rowSizePadded = ((width * bitCount + 31) / 32) * 4;
 
     std::vector<BYTE> decodedData;
     if (dataSizeUncompressed > 0) {
         decodedData.reserve(dataSizeUncompressed);//预分配解压后数据容量
     }
     // 3. 读取编码数据并解码
+    // 初始化计数和像素值变量
     BYTE count = 0, value = 0;
+    // 循环读取RLE编码的(count, value)对，直到解码数据达到预期长度或文件结束
     while (decodedData.size() < (size_t)dataSizeUncompressed && ifs.read((char*)&count, 1) && ifs.read((char*)&value, 1)) {
+        // 将当前像素值重复count次写入解码数据
         for (int i = 0; i < count && decodedData.size() < (size_t)dataSizeUncompressed; ++i) {
             decodedData.push_back(value);
         }
     }
 
+    // 检查解码后数据长度是否与预期一致
     if (decodedData.size() != (size_t)dataSizeUncompressed && dataSizeUncompressed > 0) {
+        // 长度不符，弹出错误提示
         CString msg;
         msg.Format(_T("解码数据长度不符, 预期: %d, 实际: %d"), dataSizeUncompressed, decodedData.size());
         AfxMessageBox(msg);
@@ -5580,9 +5687,13 @@ bool CImageProc::RLDecodeImage(const CString& openPath) {
 
     // 4. 构建BMP内存结构
     CleanUp();
+    // 如果是8位图像，调色板大小为256个RGBQUAD，否则为0
     DWORD paletteSize = (bitCount == 8) ? (256 * sizeof(RGBQUAD)) : 0;
+    // 如果是16位图像，颜色掩码大小为3个DWORD，否则为0
     DWORD colorMaskSize = (bitCount == 16) ? (3 * sizeof(DWORD)) : 0;
+    // 计算实际像素数据在DIB中的总字节数（包含行填充）
     DWORD imageActualDataSizeInDib = (DWORD)rowSizePadded * height;
+    // 计算整个DIB所需的总内存大小（文件头+信息头+调色板+颜色掩码+像素数据）
     DWORD dibSize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + paletteSize + colorMaskSize + imageActualDataSizeInDib;
 
 
