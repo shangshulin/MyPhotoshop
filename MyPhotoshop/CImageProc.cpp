@@ -3293,7 +3293,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     }
 
     // 2. 构建霍夫曼树
-    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNode> pq;// 优先队列
+    std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNode> pq;// 优先队列，freq小的放前面
     for (auto& kv : freq) {
         pq.push(new HuffmanNode(kv.first, kv.second));//kv.first为像素值，kv.second为频率
     }
