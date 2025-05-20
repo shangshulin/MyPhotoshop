@@ -3712,7 +3712,7 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     // 计算压缩率
     double originalSize = inputData.size();
     double compressedSize = compressedData.size();
-    double ratio = (1.0 - compressedSize / originalSize) * 100.0;
+    double ratio = (originalSize /compressedSize );
 
     // 确保压缩率不显示为负值
     if (ratio < 0) {
@@ -3724,7 +3724,7 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     }
     else {
         CString message;
-        message.Format(_T("LZW encoding completed!\nOriginal size: %.2f KB\nCompressed size: %.2f KB\nCompression ratio: %.2f%%"),
+        message.Format(_T("LZW encoding completed!\nOriginal size: %.2f KB\nCompressed size: %.2f KB\nCompression ratio: %.2f"),
             originalSize / 1024.0, compressedSize / 1024.0, ratio);
         AfxMessageBox(message);
     }
