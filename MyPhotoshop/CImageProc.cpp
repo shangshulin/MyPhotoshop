@@ -3258,12 +3258,12 @@ void BuildHuffmanCodeTable(HuffmanNode* node, std::map<BYTE, std::vector<bool>>&
         return;
     }
     if (node->left) {
-        path.push_back(false);
+        path.push_back(false);//  左子树的路径添加“0”
         BuildHuffmanCodeTable(node->left, table, path);//  递归处理左子树
         path.pop_back();
     }
     if (node->right) {
-        path.push_back(true);
+        path.push_back(true);//  右子树的路径添加“1”
         BuildHuffmanCodeTable(node->right, table, path);//  递归处理右子树
         path.pop_back();
     }
@@ -3297,13 +3297,15 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
 
     // 2. 构建霍夫曼树
     std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNode> pq;// 优先队列
-    for (auto& kv : freq) {
+    for (auto& kv : freq)//  遍历频率表，将kv的键值对加入优先队列
+    {
         pq.push(new HuffmanNode(kv.first, kv.second));//kv.first为像素值，kv.second为频率
     }
     if (pq.empty()) {
         AfxMessageBox(_T("图像数据为空"));
         return false;
     }
+    // 构建霍夫曼树
     while (pq.size() > 1) {
         HuffmanNode* l = pq.top(); pq.pop();
         HuffmanNode* r = pq.top(); pq.pop();
@@ -3314,7 +3316,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     // 3. 生成编码表
     std::map<BYTE, std::vector<bool>> codeTable;
     std::vector<bool> path;
-    BuildHuffmanCodeTable(root, codeTable, path);
+    BuildHuffmanCodeTable(root, codeTable, path);// 生成编码表
 
     // 4. 写文件
     std::ofstream ofs(CW2A(savePath), std::ios::binary);// 二进制文件
@@ -3340,16 +3342,17 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
         ofs.write((char*)&kv.first, 1); // 像素值
         BYTE len = (BYTE)kv.second.size();
         ofs.write((char*)&len, 1);      // 编码长度
-        BYTE buf = 0, cnt = 0;
+        BYTE buf = 0, cnt = 0;//buf是一个字节的数据，cnt是buf中有效数据的位数，当cnt等于8时，将buf写入文件，buf清零，cnt清零
         for (bool b : kv.second) {
-            buf = (buf << 1) | b;
-            cnt++;
+            buf = (buf << 1) | b;// 将当前位添加到buf中
+            cnt++;//  计数器加1
             if (cnt == 8) {
-                ofs.write((char*)&buf, 1);
+                ofs.write((char*)&buf, 1);//  以1个字节为单位写入文件
                 buf = 0;
                 cnt = 0;
             }
         }
+        // 处理剩余的位数
         if (cnt) {
             buf <<= (8 - cnt);
             ofs.write((char*)&buf, 1);
