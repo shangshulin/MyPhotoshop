@@ -4174,7 +4174,7 @@ bool CImageProc::LZWDecodeImage(const CString& openPath)
     // 重置FFT状态
     ResetFFTState();
 
-    AfxMessageBox(_T("LZW decoding complete!"));
+    AfxMessageBox(_T("LZW解码成功!"));
     return true;
 }
 
