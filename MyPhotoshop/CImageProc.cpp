@@ -3398,9 +3398,9 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     DWORD compressedSize = compressedFile.GetLength(); // 压缩后文件大小
     compressedFile.Close();
 
-    double compressionRatio = (double)compressedSize / originalSize * 100;
+    double compressionRatio = (double)originalSize / compressedSize;
     CString msg;
-    msg.Format(_T("霍夫曼编码完成\n原始大小: %d 字节\n压缩后大小: %d 字节\n压缩率: %.2f%%"),
+    msg.Format(_T("霍夫曼编码完成\n原始大小: %d 字节\n压缩后大小: %d 字节\n压缩率: %.2f"),
         originalSize, compressedSize, compressionRatio);
     AfxMessageBox(msg);
     FreeHuffmanTree(root);
