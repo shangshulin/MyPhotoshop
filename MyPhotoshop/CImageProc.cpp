@@ -4991,13 +4991,16 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
     }
 
     // 霍夫曼编码
+    //存储系数的字节流
     std::vector<BYTE> byteData;
     for (short coef : allCoefficients) {
+        //将short型系数转换为字节数组
         BYTE* ptr = reinterpret_cast<BYTE*>(&coef);
         byteData.insert(byteData.end(), ptr, ptr + sizeof(short));
     }
     pBits = byteData.data();
     nWidth = 1;
+    //临时设置为1，因霍夫曼编码处理一维字节流
     nHeight = byteData.size();
     nBitCount = 8;
 
