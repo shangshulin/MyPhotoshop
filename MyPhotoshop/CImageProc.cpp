@@ -3284,7 +3284,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
         return false;
     }
 
-    // 计算像素数据大小
+    // 计算图像数据大小
     int bytesPerPixel = nBitCount / 8;
     int dataSize = nWidth * nHeight * bytesPerPixel;
     BYTE* data = pBits;
@@ -3299,7 +3299,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     std::priority_queue<HuffmanNode*, std::vector<HuffmanNode*>, CompareNode> pq;// 优先队列
     for (auto& kv : freq)//  遍历频率表，将kv的键值对加入优先队列
     {
-        pq.push(new HuffmanNode(kv.first, kv.second));//kv.first为像素值，kv.second为频率
+        pq.push(new HuffmanNode(kv.first, kv.second));//kv.first为字节数据，kv.second为频率
     }
     if (pq.empty()) {
         AfxMessageBox(_T("图像数据为空"));
@@ -3337,9 +3337,9 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
     int tableSize = (int)codeTable.size();
     ofs.write((char*)&tableSize, sizeof(tableSize));
 
-    // 写编码表
+    // 写编码表，键为字节数据，值为编码
     for (auto& kv : codeTable) {
-        ofs.write((char*)&kv.first, 1); // 像素值
+        ofs.write((char*)&kv.first, 1);
         BYTE len = (BYTE)kv.second.size();
         ofs.write((char*)&len, 1);      // 编码长度
         BYTE buf = 0, cnt = 0;//buf是一个字节的数据，cnt是buf中有效数据的位数，当cnt等于8时，将buf写入文件，buf清零，cnt清零
@@ -3361,7 +3361,9 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
 
     // 写编码数据
     BYTE buf = 0, cnt = 0;
+    // 遍历图像数据
     for (int i = 0; i < dataSize; ++i) {
+        //  将编码写入文件
         for (bool b : codeTable[data[i]]) {
             buf = (buf << 1) | b;
             cnt++;
@@ -3372,6 +3374,7 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
             }
         }
     }
+    //  处理剩余的位数
     if (cnt) {
         buf <<= (8 - cnt);
         ofs.write((char*)&buf, 1);
@@ -3435,8 +3438,8 @@ bool CImageProc::HuffmanDecodeImage(const CString& openPath) {
     struct CodeEntry {
         BYTE value;
         std::vector<bool> code;
-    };
-    std::vector<CodeEntry> codeEntries;
+    };//  编码表项
+    std::vector<CodeEntry> codeEntries;//  编码表
     for (int i = 0; i < tableSize; ++i) {
         BYTE val = 0, len = 0;
         ifs.read((char*)&val, 1);

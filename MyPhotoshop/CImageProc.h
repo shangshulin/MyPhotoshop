@@ -9,11 +9,6 @@ enum class FilterType {
     Max,
 };
 
-enum class HighPassFilterType {
-    IdealHighPass,
-    ButterworthHighPass
-};
-
 class CImageProc {
 public:
     CImageProc();
