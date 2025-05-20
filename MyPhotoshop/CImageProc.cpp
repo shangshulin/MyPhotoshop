@@ -3395,19 +3395,24 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
 
     ofs.close();
     // 计算压缩率
-    DWORD originalSize = nWidth * nHeight * (nBitCount / 8); // 原始像素数据大小
+    DWORD originalSize = nWidth * nHeight * (nBitCount / 8); // 原始像素数据大小（字节）
     if (nBitCount <= 8 && pQUAD) {
-        originalSize += clrUsed * sizeof(RGBQUAD); // 加上调色板大小
+        originalSize += clrUsed * sizeof(RGBQUAD); // 加上调色板大小（字节）
     }
 
     CFile compressedFile(savePath, CFile::modeRead);
-    DWORD compressedSize = compressedFile.GetLength(); // 压缩后文件大小
+    DWORD compressedSize = compressedFile.GetLength(); // 压缩后文件大小（字节）
     compressedFile.Close();
 
     double compressionRatio = (double)originalSize / compressedSize;
+
+    // 转换为KB并保留2位小数
+    double originalSizeKB = originalSize / 1024.0;
+    double compressedSizeKB = compressedSize / 1024.0;
+
     CString msg;
-    msg.Format(_T("霍夫曼编码完成\n原始大小: %d 字节\n压缩后大小: %d 字节\n压缩率: %.2f"),
-        originalSize, compressedSize, compressionRatio);
+    msg.Format(_T("霍夫曼编码完成\n原始大小: %.2f KB\n压缩后大小: %.2f KB\n压缩率: %.2f"),
+        originalSizeKB, compressedSizeKB, compressionRatio);
     AfxMessageBox(msg);
     FreeHuffmanTree(root);
     return true;
@@ -3751,13 +3756,13 @@ bool CImageProc::LZWEncodeImage(const CString& savePath)
     if (ratio < 0) {
         ratio = 0;
         CString message;
-        message.Format(_T("LZW encoding completed, but compression increased size!\nOriginal size: %.2f KB\nCompressed size: %.2f KB"),
+        message.Format(_T("LZW编码完成, 但压缩后体积变大了!\n原始大小: %.2f KB\n压缩后大小: %.2f KB"),
             originalSize / 1024.0, compressedSize / 1024.0);
         AfxMessageBox(message);
     }
     else {
         CString message;
-        message.Format(_T("LZW encoding completed!\nOriginal size: %.2f KB\nCompressed size: %.2f KB\nCompression ratio: %.2f"),
+        message.Format(_T("LZW编码完成!\n原始大小: %.2f KB\n压缩后大小: %.2f KB\n压缩率: %.2f"),
             originalSize / 1024.0, compressedSize / 1024.0, ratio);
         AfxMessageBox(message);
     }
@@ -5051,7 +5056,7 @@ bool CImageProc::ComprehensiveEncodeImage(const CString& savePath) {
         double ratio = ( originalSize / compressedSize);
         if (ratio < 0) ratio = 0; // 确保压缩率非负
         CString message;
-        message.Format(_T("Comprehensive encoding completed!\nOriginal size: %.2f KB\nCompressed size: %.2f KB\nCompression ratio: %.2f"),
+        message.Format(_T("综合编码完成!\n原始大小: %.2f KB\n压缩后大小: %.2f KB\n压缩率: %.2f"),
             originalSize / 1024.0, compressedSize / 1024.0, ratio);
         AfxMessageBox(message);
     }
@@ -5587,6 +5592,30 @@ bool CImageProc::RLEncodeImage(const CString& savePath) {
     }
 
     ofs.close();
+
+    // 计算原始大小（包括调色板）
+    DWORD originalSize = nWidth * nHeight * bytesPerPixel;
+    if (nBitCount == 8 && pQUAD) {
+        originalSize += 256 * sizeof(RGBQUAD); // 加上调色板大小
+    }
+    // 计算压缩后大小
+    CFile compressedFile(savePath, CFile::modeRead);
+    DWORD compressedSize = compressedFile.GetLength(); // 压缩后文件大小（字节）
+    compressedFile.Close();
+
+
+    // 计算压缩率（原始大小/压缩后大小）
+    double compressionRatio = (double)originalSize / compressedSize;
+
+    // 转换为KB并显示结果
+    double originalSizeKB = originalSize / 1024.0;
+    double compressedSizeKB = compressedSize / 1024.0;
+
+    CString msg;
+    msg.Format(_T("行程编码完成！\n原始大小: %.2f KB\n压缩后大小: %.2f KB\n压缩率: %.2f"),
+        originalSizeKB, compressedSizeKB, compressionRatio);
+    AfxMessageBox(msg);
+
     return true;
 }
 
