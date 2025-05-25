@@ -5,6 +5,8 @@ VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MyPhotoshop", "MyPhotoshop\MyPhotoshop.vcxproj", "{65DDEC4C-4E7D-4F9B-9406-21CCCD8792AE}"
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "HaBaGa", "..\..\HaBaGa\HaBaGa.vdproj", "{4C7042F1-9B82-4C30-9BC3-CAA98D25C77C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,10 @@ Global
 		{65DDEC4C-4E7D-4F9B-9406-21CCCD8792AE}.Release|x64.Build.0 = Release|x64
 		{65DDEC4C-4E7D-4F9B-9406-21CCCD8792AE}.Release|x86.ActiveCfg = Release|Win32
 		{65DDEC4C-4E7D-4F9B-9406-21CCCD8792AE}.Release|x86.Build.0 = Release|Win32
+		{4C7042F1-9B82-4C30-9BC3-CAA98D25C77C}.Debug|x64.ActiveCfg = Debug
+		{4C7042F1-9B82-4C30-9BC3-CAA98D25C77C}.Debug|x86.ActiveCfg = Debug
+		{4C7042F1-9B82-4C30-9BC3-CAA98D25C77C}.Release|x64.ActiveCfg = Release
+		{4C7042F1-9B82-4C30-9BC3-CAA98D25C77C}.Release|x86.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
