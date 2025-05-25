@@ -3395,9 +3395,15 @@ bool CImageProc::HuffmanEncodeImage(const CString& savePath) {
 
     ofs.close();
     // 计算压缩率
-    DWORD originalSize = nWidth * nHeight * (nBitCount / 8); // 原始像素数据大小（字节）
-    if (nBitCount <= 8 && pQUAD) {
-        originalSize += clrUsed * sizeof(RGBQUAD); // 加上调色板大小（字节）
+    DWORD originalSize =
+        sizeof(BITMAPFILEHEADER)    // 文件头固定14字节
+        + sizeof(BITMAPINFOHEADER)  // 信息头通常40字节
+        + ((nWidth * nBitCount + 31) / 32) * 4 * nHeight; // 像素数据（含4字节对齐填充）
+
+    // 调色板（8位及以下图像）
+    if (nBitCount <= 8) {
+        int paletteEntries = (pBIH->biClrUsed > 0) ? pBIH->biClrUsed : (1 << nBitCount);
+        originalSize += paletteEntries * sizeof(RGBQUAD); // 调色板大小
     }
 
     CFile compressedFile(savePath, CFile::modeRead);
